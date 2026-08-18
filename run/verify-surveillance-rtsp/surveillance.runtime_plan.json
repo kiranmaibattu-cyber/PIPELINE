@@ -1,0 +1,163 @@
+{
+  "cameras": [
+    {
+      "apps": [
+        "reid"
+      ],
+      "camera_id": "test_hevc_1_4",
+      "config": {},
+      "edges": [
+        [
+          "camera_source",
+          "decode"
+        ],
+        [
+          "decode",
+          "person_detector"
+        ],
+        [
+          "person_detector",
+          "person_tracker"
+        ],
+        [
+          "person_tracker",
+          "person_cropper"
+        ],
+        [
+          "person_cropper",
+          "body_embedder"
+        ],
+        [
+          "person_tracker",
+          "face_cropper"
+        ],
+        [
+          "face_cropper",
+          "face_embedder"
+        ],
+        [
+          "person_tracker",
+          "gait_embedder"
+        ],
+        [
+          "body_embedder",
+          "global_reid_service"
+        ],
+        [
+          "face_embedder",
+          "global_reid_service"
+        ],
+        [
+          "gait_embedder",
+          "global_reid_service"
+        ],
+        [
+          "global_reid_service",
+          "event_sink"
+        ]
+      ],
+      "feature_flags": {
+        "body": true,
+        "face": true,
+        "gait": true,
+        "ocr": false,
+        "person_detect": true,
+        "plate": false,
+        "reid": true,
+        "track": true,
+        "vehicle_detect": false
+      },
+      "fps": 8.0,
+      "nodes": [
+        "camera_source",
+        "decode",
+        "person_detector",
+        "person_tracker",
+        "person_cropper",
+        "body_embedder",
+        "face_cropper",
+        "face_embedder",
+        "gait_embedder",
+        "global_reid_service",
+        "event_sink"
+      ],
+      "plugins": [
+        "reid"
+      ],
+      "required_data": [
+        "person_tracks",
+        "body_embeddings",
+        "face_embeddings",
+        "gait_embeddings"
+      ],
+      "required_models": [
+        "person_detector",
+        "body_reid_embedder",
+        "face_embedder",
+        "gait_embedder"
+      ],
+      "required_services": [
+        "global_reid_service"
+      ],
+      "required_state": [
+        "reid_gallery",
+        "persistent_identity_store"
+      ],
+      "solution_pack": "surveillance",
+      "source": "rtsp://admin:admin@192.168.1.4:555/video0.sdp"
+    }
+  ],
+  "edge_id": "intel-box-01",
+  "revision": 3,
+  "shared_services": [
+    {
+      "device": "NPU",
+      "models": [
+        "body_reid_embedder"
+      ],
+      "name": "body_embedder",
+      "solution_pack": "surveillance",
+      "state": []
+    },
+    {
+      "device": "GPU",
+      "models": [
+        "face_embedder"
+      ],
+      "name": "face_embedder",
+      "solution_pack": "surveillance",
+      "state": []
+    },
+    {
+      "device": "NPU",
+      "models": [
+        "gait_embedder"
+      ],
+      "name": "gait_embedder",
+      "solution_pack": "surveillance",
+      "state": []
+    },
+    {
+      "device": "CPU",
+      "models": [],
+      "name": "global_reid_service",
+      "solution_pack": "surveillance",
+      "state": [
+        "reid_gallery",
+        "persistent_identity_store"
+      ]
+    },
+    {
+      "device": "GPU",
+      "models": [
+        "person_detector"
+      ],
+      "name": "person_detector",
+      "solution_pack": "surveillance",
+      "state": []
+    }
+  ],
+  "solution_pack": "surveillance",
+  "status": "accepted",
+  "warnings": []
+}

@@ -1,0 +1,153 @@
+{
+  "cameras": [
+    {
+      "analytics": {
+        "parking_violation_detection": {
+          "enabled": true,
+          "lines": [],
+          "masks": [],
+          "zones": [
+            {
+              "id": null,
+              "name": "no_parking",
+              "points": [
+                {
+                  "x": 0.2,
+                  "y": 0.2
+                },
+                {
+                  "x": 0.8,
+                  "y": 0.2
+                },
+                {
+                  "x": 0.8,
+                  "y": 0.8
+                },
+                {
+                  "x": 0.2,
+                  "y": 0.8
+                }
+              ],
+              "shape": "polygon",
+              "type": "no_parking"
+            }
+          ]
+        },
+        "pedestrian_counting": {
+          "enabled": true,
+          "lines": [
+            {
+              "direction": null,
+              "id": null,
+              "name": "pedestrian_count_line",
+              "points": [
+                {
+                  "x": 0.2,
+                  "y": 0.8
+                },
+                {
+                  "x": 0.8,
+                  "y": 0.8
+                }
+              ],
+              "purpose": "pedestrian_counting",
+              "shape": "line"
+            }
+          ],
+          "masks": [],
+          "zones": []
+        },
+        "plate_detection": {
+          "enabled": true,
+          "lines": [],
+          "masks": [],
+          "zones": [
+            {
+              "id": null,
+              "name": "plate_roi",
+              "points": [
+                {
+                  "x": 0.1,
+                  "y": 0.1
+                },
+                {
+                  "x": 0.9,
+                  "y": 0.1
+                },
+                {
+                  "x": 0.9,
+                  "y": 0.9
+                },
+                {
+                  "x": 0.1,
+                  "y": 0.9
+                }
+              ],
+              "shape": "polygon",
+              "type": "plate_roi"
+            }
+          ]
+        },
+        "vehicle_counting": {
+          "enabled": true,
+          "lines": [
+            {
+              "direction": null,
+              "id": null,
+              "name": "vehicle_count_line",
+              "points": [
+                {
+                  "x": 0.2,
+                  "y": 0.7
+                },
+                {
+                  "x": 0.8,
+                  "y": 0.7
+                }
+              ],
+              "purpose": "object_counting",
+              "shape": "line"
+            }
+          ],
+          "masks": [],
+          "zones": []
+        },
+        "wrong_way_driving_detection": {
+          "enabled": true,
+          "lines": [
+            {
+              "direction": "up",
+              "id": null,
+              "name": "wrong_way_line",
+              "points": [
+                {
+                  "x": 0.2,
+                  "y": 0.6
+                },
+                {
+                  "x": 0.8,
+                  "y": 0.6
+                }
+              ],
+              "purpose": "wrong_way_direction",
+              "shape": "line"
+            }
+          ],
+          "masks": [],
+          "zones": []
+        }
+      },
+      "camera_id": "traffic_ch10",
+      "enabled": true,
+      "name": "traffic_ch10",
+      "processing": {
+        "fps": 8.0
+      },
+      "source": {
+        "fps": 8.0,
+        "type": "rtsp",
+        "uri": "rtsp://192.168.1.95:8554/ch10"
+      }
+    }
+  ]
+}

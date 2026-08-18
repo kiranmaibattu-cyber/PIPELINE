@@ -1,0 +1,17 @@
+app_id: vehicle_counting
+solution_pack: traffic
+version: 0.1.0
+description: Count vehicles crossing configured lines.
+requires:
+  data:
+    - vehicle_tracks
+    - line_geometry
+models:
+  - vehicle_detector
+produces:
+  events:
+    - vehicle_count_event
+hardware:
+  preferred:
+    vehicle_detector: GPU
+    vehicle_counting_app: CPU

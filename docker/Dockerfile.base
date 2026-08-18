@@ -1,0 +1,38 @@
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_BREAK_SYSTEM_PACKAGES=1 \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gnupg \
+        wget \
+    && wget -qO- https://repositories.intel.com/gpu/intel-graphics.key \
+        | gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu noble unified" \
+        > /etc/apt/sources.list.d/intel-gpu-noble.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ffmpeg \
+        intel-igc-cm \
+        intel-media-va-driver-non-free \
+        intel-ocloc \
+        intel-opencl-icd \
+        libtbb12 \
+        libva2 \
+        libva-drm2 \
+        libglib2.0-0 \
+        libgl1 \
+        libgomp1 \
+        libigdgmm12 \
+        libze-intel-gpu1 \
+        libze1 \
+        python3 \
+        python3-pip \
+        python3-venv \
+        vainfo \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3 /usr/local/bin/python \
+    && ln -sf /usr/bin/pip3 /usr/local/bin/pip

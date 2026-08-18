@@ -1,0 +1,56 @@
+# Cross-camera test on NEW clips: ch2 (Ground Floor Lift 1) <-> ch16 (G-Lift 3).
+# NON-OVERLAPPING cameras (two different lift lobbies) — tests whether the
+# multi-view gallery + retention can link identities that move between cameras,
+# a harder regime than the overlapping-FOV ch9/ch10 pair the pipeline was tuned on.
+videos:
+  ch9_5min: "trimmed_clips/NVR_ch2_main_20260617100000_20260617110000_first_10min.mp4"
+  ch10_5min: "trimmed_clips/NVR_ch16_main_20260617100007_20260617110007 (1)_first_10min.mp4"
+
+camera_labels: ["ch2", "ch16"]
+
+benchmark:
+  detector: "models/yolov8n.pt"
+  confidence: 0.35
+  iou: 0.50
+  class_ids: [0]
+  process_every_n_frames: 10
+  delay_seconds: 30
+  output_fps: 3
+  max_frames: 0
+
+defaults:
+  tracker: "iou"
+  tta_flip: true
+  smoothing_window: 5
+  gallery:
+    policy: "quality_topk"
+    k: 10
+    match: "min"
+    max_age_seconds: 180
+  spatial_gate: "none"
+  rerank: "none"
+  fusion: "none"
+
+bev_calibration: "configs/bev_calibration.json"
+calibration_file: "MTMC/reports/calibrated_thresholds.json"
+
+# Camera topology for the transition-time gate (--gate topology).
+# ch2 (Lift 1) and ch16 (Lift 3) are non-overlapping lift lobbies: a person
+# needs at least a few seconds to physically walk between them, and cannot be
+# in both at once. min_transition rejects concurrent cross-camera merges (the
+# dominant false-merge source); max_transition caps stale gallery links.
+topology:
+  overlapping: false
+  min_transition_s: 5.0
+  max_transition_s: 180.0
+
+paths:
+  outputs_dir: "MTMC/outputs"
+  reports_dir: "MTMC/reports"
+
+# ch2 has the most face-on subjects (people standing at the lift facing camera),
+# so it is the "frontal" camera for camera-aware face fusion.
+frontal_cameras: ["ch2"]
+
+stage1_embedders: [transreid_ssl]
+stage3_embedders: [transreid_ssl]

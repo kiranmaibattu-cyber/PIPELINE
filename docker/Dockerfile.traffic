@@ -1,0 +1,22 @@
+FROM pipeline-ubuntu-python:24.04
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/opt/pipeline \
+    SOLUTION_PACK=traffic
+
+WORKDIR /opt/pipeline
+
+COPY requirements.txt /opt/pipeline/requirements.txt
+RUN pip install --no-cache-dir -r /opt/pipeline/requirements.txt
+
+COPY edge_runtime/solution_packs/traffic/runtime_pilot/requirements-openvino.txt /opt/pipeline/requirements-traffic-openvino.txt
+RUN pip install --no-cache-dir -r /opt/pipeline/requirements-traffic-openvino.txt
+
+COPY edge_runtime /opt/pipeline/edge_runtime
+
+# Image contract:
+#   input:     /plans/traffic.runtime_plan.json
+#   generated: /generated/traffic
+#   models:    /models/traffic/openvino
+#   state:     /state/traffic
+CMD ["python", "-m", "edge_runtime.solution_packs.traffic.runtime_pilot.launch"]

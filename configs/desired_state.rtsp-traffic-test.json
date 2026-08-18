@@ -1,0 +1,54 @@
+{
+  "edge_id": "intel-box-01",
+  "revision": 4,
+  "management_url": "http://management-server:9000",
+  "cameras": [
+    {
+      "camera_id": "traffic_ch10",
+      "source": "rtsp://192.168.1.95:8554/ch10",
+      "solution_pack": "traffic",
+      "fps": 8,
+      "apps": ["anpr", "wrong_way", "vehicle_counting", "pedestrian_counting", "illegal_parking"],
+      "config": {
+        "zones": {
+          "anpr": [
+            {
+              "name": "plate_roi",
+              "poly": [[0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.1, 0.9]]
+            }
+          ],
+          "illegal_parking": [
+            {
+              "name": "no_parking",
+              "poly": [[0.2, 0.2], [0.8, 0.2], [0.8, 0.8], [0.2, 0.8]]
+            }
+          ]
+        },
+        "lines": {
+          "wrong_way": [
+            {
+              "name": "wrong_way_line",
+              "a": [0.2, 0.6],
+              "b": [0.8, 0.6],
+              "direction": "up"
+            }
+          ],
+          "vehicle_counting": [
+            {
+              "name": "vehicle_count_line",
+              "a": [0.2, 0.7],
+              "b": [0.8, 0.7]
+            }
+          ],
+          "pedestrian_counting": [
+            {
+              "name": "pedestrian_count_line",
+              "a": [0.2, 0.8],
+              "b": [0.8, 0.8]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

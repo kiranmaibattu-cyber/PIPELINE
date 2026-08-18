@@ -1,0 +1,19 @@
+app_id: people_counting
+solution_pack: surveillance
+version: 0.1.0
+description: Count people crossing configured lines.
+requires:
+  data:
+    - person_tracks
+    - line_geometry
+models:
+  - person_detector
+produces:
+  events:
+    - people_count_event
+hardware:
+  preferred:
+    person_detector: GPU
+    people_counting_app: CPU
+policy:
+  global_id_optional: true

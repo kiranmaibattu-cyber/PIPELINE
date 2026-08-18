@@ -1,0 +1,48 @@
+{
+  "edge_id": "intel-box-01",
+  "revision": 2,
+  "management_url": "http://management-server:9000",
+  "cameras": [
+    {
+      "camera_id": "ch10",
+      "source": "rtsp://192.168.1.95:8554/ch10",
+      "solution_pack": "surveillance",
+      "fps": 8,
+      "apps": ["reid"]
+    },
+    {
+      "camera_id": "ch16",
+      "source": "rtsp://192.168.1.95:8554/ch16",
+      "solution_pack": "surveillance",
+      "fps": 8,
+      "apps": ["reid", "face_recognition"]
+    },
+    {
+      "camera_id": "ch4",
+      "source": "rtsp://192.168.1.95:8554/ch4",
+      "solution_pack": "surveillance",
+      "fps": 8,
+      "apps": ["intrusion", "people_counting"],
+      "config": {
+        "zones": {
+          "intrusion": [
+            {
+              "name": "test_zone",
+              "poly": [[0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.1, 0.9]]
+            }
+          ]
+        },
+        "lines": {
+          "people_counting": [
+            {
+              "name": "test_line",
+              "a": [0.2, 0.7],
+              "b": [0.8, 0.7],
+              "in_side": "right"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

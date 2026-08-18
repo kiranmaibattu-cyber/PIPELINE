@@ -1,0 +1,32 @@
+# Runtime dependencies for the copied 8090 surveillance pipeline.
+# This image is headless. Dashboard/test/text-search dependencies are excluded.
+
+# --- inference runtimes -------------------------------------------------------
+# Detection (yolo11s), body re-id (transreid_ssl), face (adaface), gait (gaitbase)
+# all run as INT8 OpenVINO models on the iGPU/NPU. onnxruntime-openvino provides
+# the OpenVINO execution provider insightface's SCRFD detector runs on.
+openvino==2024.6.0
+openvino-dev==2024.6.0
+onnxruntime==1.27.0
+onnxruntime-openvino==1.24.1
+
+# --- vision / numerics --------------------------------------------------------
+opencv-python==4.11.0.86
+numpy>=1.26,<3
+scipy>=1.12,<2
+scikit-learn>=1.4,<2
+pillow>=10,<12
+pandas>=2.2,<3
+
+# --- face ---------------------------------------------------------------------
+insightface==1.0.1           # SCRFD face detection + 5-pt alignment + 3D landmarks
+
+# --- identity persistence -----------------------------------------------------
+# FAISS backs the re-id rejoin store only (MTMC/persistent_gallery.py). The face
+# gallery and IRRA search rank with plain numpy — faster at these vector counts.
+faiss-cpu>=1.8,<2
+
+# --- platform -----------------------------------------------------------------
+PyYAML>=6.0
+psutil>=5.9
+requests>=2.31

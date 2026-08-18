@@ -1,0 +1,25 @@
+FROM pipeline-ubuntu-python:24.04
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/opt/pipeline \
+    SOLUTION_PACK=surveillance
+
+WORKDIR /opt/pipeline
+
+COPY requirements.txt /opt/pipeline/requirements.txt
+RUN pip install --no-cache-dir -r /opt/pipeline/requirements.txt
+
+COPY edge_runtime/solution_packs/surveillance/requirements-8090.txt /opt/pipeline/requirements-8090.txt
+RUN pip install --no-cache-dir -r /opt/pipeline/requirements-8090.txt
+
+COPY edge_runtime /opt/pipeline/edge_runtime
+
+# The copied 8090 runtime is headless in this image. Its historical dashboard files
+# are intentionally not part of the production UI contract.
+
+# Image contract:
+#   input:     /plans/surveillance.runtime_plan.json
+#   generated: /generated/surveillance
+#   models:    /models/surveillance
+#   state:     /state/surveillance
+CMD ["python", "-m", "edge_runtime.solution_packs.surveillance.runtime_8090.launch"]

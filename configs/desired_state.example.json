@@ -1,0 +1,62 @@
+{
+  "edge_id": "intel-box-01",
+  "revision": 1,
+  "management_url": "http://management-server:9000",
+  "cameras": [
+    {
+      "camera_id": "cam1",
+      "source": "rtsp://example/cam1",
+      "solution_pack": "surveillance",
+      "fps": 10,
+      "apps": ["reid"]
+    },
+    {
+      "camera_id": "cam2",
+      "source": "rtsp://example/cam2",
+      "solution_pack": "surveillance",
+      "fps": 10,
+      "apps": ["reid", "face_recognition", "intrusion"]
+    },
+    {
+      "camera_id": "cam3",
+      "source": "rtsp://example/cam3",
+      "solution_pack": "surveillance",
+      "fps": 10,
+      "apps": ["intrusion", "people_counting"],
+      "config": {
+        "zones": {
+          "intrusion": [
+            {
+              "name": "restricted",
+              "poly": [[0.1, 0.1], [0.8, 0.1], [0.8, 0.9], [0.1, 0.9]]
+            }
+          ]
+        },
+        "lines": {
+          "people_counting": [
+            {
+              "name": "entry",
+              "a": [0.2, 0.7],
+              "b": [0.8, 0.7],
+              "in_side": "right"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "camera_id": "cam4",
+      "source": "rtsp://example/cam4",
+      "solution_pack": "traffic",
+      "fps": 8,
+      "apps": ["anpr", "wrong_way", "vehicle_counting"]
+    },
+    {
+      "camera_id": "cam5",
+      "source": "rtsp://example/cam5",
+      "solution_pack": "traffic",
+      "fps": 8,
+      "apps": ["vehicle_counting", "pedestrian_counting", "illegal_parking"]
+    }
+  ]
+}

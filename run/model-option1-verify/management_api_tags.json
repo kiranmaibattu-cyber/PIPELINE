@@ -1,0 +1,753 @@
+{
+  "api_version": "edge-api/v1",
+  "edge_id": "intel-box-01",
+  "revision": 1,
+  "solution_packs": {
+    "surveillance": {
+      "cameras": {
+        "cam1": {
+          "apps": {
+            "reid": {
+              "api_version": "edge-api/v1",
+              "app_id": "reid",
+              "camera_id": "cam1",
+              "direction": "output",
+              "edge_id": "intel-box-01",
+              "payload_type": "application/json",
+              "revision": 1,
+              "solution_pack": "surveillance",
+              "tag": "output.analytics.event",
+              "topic": "intel-box-01.surveillance.cam1.reid.output.analytics.event"
+            }
+          },
+          "frame_overlay": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam1",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "image/jpeg",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "output.frame.overlay",
+            "topic": "intel-box-01.surveillance.cam1.output.frame.overlay"
+          },
+          "input": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam1",
+            "direction": "input",
+            "edge_id": "intel-box-01",
+            "payload_type": "rtsp",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "input.camera.stream",
+            "topic": "intel-box-01.surveillance.cam1.input.camera.stream"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam1",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "metric.camera",
+            "topic": "intel-box-01.surveillance.cam1.metric.camera"
+          },
+          "snapshot": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam1",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "image/jpeg",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "output.event.snapshot",
+            "topic": "intel-box-01.surveillance.cam1.output.event.snapshot"
+          }
+        },
+        "cam2": {
+          "apps": {
+            "face_recognition": {
+              "api_version": "edge-api/v1",
+              "app_id": "face_recognition",
+              "camera_id": "cam2",
+              "direction": "output",
+              "edge_id": "intel-box-01",
+              "payload_type": "application/json",
+              "revision": 1,
+              "solution_pack": "surveillance",
+              "tag": "output.analytics.event",
+              "topic": "intel-box-01.surveillance.cam2.face_recognition.output.analytics.event"
+            },
+            "intrusion": {
+              "api_version": "edge-api/v1",
+              "app_id": "intrusion",
+              "camera_id": "cam2",
+              "direction": "output",
+              "edge_id": "intel-box-01",
+              "payload_type": "application/json",
+              "revision": 1,
+              "solution_pack": "surveillance",
+              "tag": "output.analytics.event",
+              "topic": "intel-box-01.surveillance.cam2.intrusion.output.analytics.event"
+            },
+            "reid": {
+              "api_version": "edge-api/v1",
+              "app_id": "reid",
+              "camera_id": "cam2",
+              "direction": "output",
+              "edge_id": "intel-box-01",
+              "payload_type": "application/json",
+              "revision": 1,
+              "solution_pack": "surveillance",
+              "tag": "output.analytics.event",
+              "topic": "intel-box-01.surveillance.cam2.reid.output.analytics.event"
+            }
+          },
+          "frame_overlay": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam2",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "image/jpeg",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "output.frame.overlay",
+            "topic": "intel-box-01.surveillance.cam2.output.frame.overlay"
+          },
+          "input": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam2",
+            "direction": "input",
+            "edge_id": "intel-box-01",
+            "payload_type": "rtsp",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "input.camera.stream",
+            "topic": "intel-box-01.surveillance.cam2.input.camera.stream"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam2",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "metric.camera",
+            "topic": "intel-box-01.surveillance.cam2.metric.camera"
+          },
+          "snapshot": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam2",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "image/jpeg",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "output.event.snapshot",
+            "topic": "intel-box-01.surveillance.cam2.output.event.snapshot"
+          }
+        },
+        "cam3": {
+          "apps": {
+            "intrusion": {
+              "api_version": "edge-api/v1",
+              "app_id": "intrusion",
+              "camera_id": "cam3",
+              "direction": "output",
+              "edge_id": "intel-box-01",
+              "payload_type": "application/json",
+              "revision": 1,
+              "solution_pack": "surveillance",
+              "tag": "output.analytics.event",
+              "topic": "intel-box-01.surveillance.cam3.intrusion.output.analytics.event"
+            },
+            "people_counting": {
+              "api_version": "edge-api/v1",
+              "app_id": "people_counting",
+              "camera_id": "cam3",
+              "direction": "output",
+              "edge_id": "intel-box-01",
+              "payload_type": "application/json",
+              "revision": 1,
+              "solution_pack": "surveillance",
+              "tag": "output.analytics.event",
+              "topic": "intel-box-01.surveillance.cam3.people_counting.output.analytics.event"
+            }
+          },
+          "frame_overlay": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam3",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "image/jpeg",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "output.frame.overlay",
+            "topic": "intel-box-01.surveillance.cam3.output.frame.overlay"
+          },
+          "input": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam3",
+            "direction": "input",
+            "edge_id": "intel-box-01",
+            "payload_type": "rtsp",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "input.camera.stream",
+            "topic": "intel-box-01.surveillance.cam3.input.camera.stream"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam3",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "metric.camera",
+            "topic": "intel-box-01.surveillance.cam3.metric.camera"
+          },
+          "snapshot": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam3",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "image/jpeg",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "output.event.snapshot",
+            "topic": "intel-box-01.surveillance.cam3.output.event.snapshot"
+          }
+        }
+      },
+      "services": {
+        "body_embedder": {
+          "health": {
+            "api_version": "edge-api/v1",
+            "device": "NPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "body_embedder",
+            "solution_pack": "surveillance",
+            "tag": "health.runtime",
+            "topic": "intel-box-01.surveillance.body_embedder.health.runtime"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "device": "NPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "body_embedder",
+            "solution_pack": "surveillance",
+            "tag": "metric.runtime",
+            "topic": "intel-box-01.surveillance.body_embedder.metric.runtime"
+          }
+        },
+        "enrolled_face_gallery": {
+          "health": {
+            "api_version": "edge-api/v1",
+            "device": "CPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "enrolled_face_gallery",
+            "solution_pack": "surveillance",
+            "tag": "health.runtime",
+            "topic": "intel-box-01.surveillance.enrolled_face_gallery.health.runtime"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "device": "CPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "enrolled_face_gallery",
+            "solution_pack": "surveillance",
+            "tag": "metric.runtime",
+            "topic": "intel-box-01.surveillance.enrolled_face_gallery.metric.runtime"
+          }
+        },
+        "face_embedder": {
+          "health": {
+            "api_version": "edge-api/v1",
+            "device": "GPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "face_embedder",
+            "solution_pack": "surveillance",
+            "tag": "health.runtime",
+            "topic": "intel-box-01.surveillance.face_embedder.health.runtime"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "device": "GPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "face_embedder",
+            "solution_pack": "surveillance",
+            "tag": "metric.runtime",
+            "topic": "intel-box-01.surveillance.face_embedder.metric.runtime"
+          }
+        },
+        "gait_embedder": {
+          "health": {
+            "api_version": "edge-api/v1",
+            "device": "NPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "gait_embedder",
+            "solution_pack": "surveillance",
+            "tag": "health.runtime",
+            "topic": "intel-box-01.surveillance.gait_embedder.health.runtime"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "device": "NPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "gait_embedder",
+            "solution_pack": "surveillance",
+            "tag": "metric.runtime",
+            "topic": "intel-box-01.surveillance.gait_embedder.metric.runtime"
+          }
+        },
+        "gait_segmenter": {
+          "health": {
+            "api_version": "edge-api/v1",
+            "device": "GPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "gait_segmenter",
+            "solution_pack": "surveillance",
+            "tag": "health.runtime",
+            "topic": "intel-box-01.surveillance.gait_segmenter.health.runtime"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "device": "GPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "gait_segmenter",
+            "solution_pack": "surveillance",
+            "tag": "metric.runtime",
+            "topic": "intel-box-01.surveillance.gait_segmenter.metric.runtime"
+          }
+        },
+        "global_reid_service": {
+          "health": {
+            "api_version": "edge-api/v1",
+            "device": "CPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "global_reid_service",
+            "solution_pack": "surveillance",
+            "tag": "health.runtime",
+            "topic": "intel-box-01.surveillance.global_reid_service.health.runtime"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "device": "CPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "global_reid_service",
+            "solution_pack": "surveillance",
+            "tag": "metric.runtime",
+            "topic": "intel-box-01.surveillance.global_reid_service.metric.runtime"
+          }
+        },
+        "identity_anchor": {
+          "health": {
+            "api_version": "edge-api/v1",
+            "device": "CPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "identity_anchor",
+            "solution_pack": "surveillance",
+            "tag": "health.runtime",
+            "topic": "intel-box-01.surveillance.identity_anchor.health.runtime"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "device": "CPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "identity_anchor",
+            "solution_pack": "surveillance",
+            "tag": "metric.runtime",
+            "topic": "intel-box-01.surveillance.identity_anchor.metric.runtime"
+          }
+        },
+        "person_detector": {
+          "health": {
+            "api_version": "edge-api/v1",
+            "device": "GPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "person_detector",
+            "solution_pack": "surveillance",
+            "tag": "health.runtime",
+            "topic": "intel-box-01.surveillance.person_detector.health.runtime"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "device": "GPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "person_detector",
+            "solution_pack": "surveillance",
+            "tag": "metric.runtime",
+            "topic": "intel-box-01.surveillance.person_detector.metric.runtime"
+          }
+        }
+      },
+      "solution": {
+        "graph_status": {
+          "api_version": "edge-api/v1",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "solution_pack": "surveillance",
+          "tag": "status.graph",
+          "topic": "intel-box-01.surveillance.status.graph"
+        },
+        "runtime_health": {
+          "api_version": "edge-api/v1",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "solution_pack": "surveillance",
+          "tag": "health.runtime",
+          "topic": "intel-box-01.surveillance.health.runtime"
+        },
+        "runtime_metrics": {
+          "api_version": "edge-api/v1",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "solution_pack": "surveillance",
+          "tag": "metric.runtime",
+          "topic": "intel-box-01.surveillance.metric.runtime"
+        }
+      }
+    },
+    "traffic": {
+      "cameras": {
+        "cam4": {
+          "apps": {
+            "anpr": {
+              "api_version": "edge-api/v1",
+              "app_id": "anpr",
+              "camera_id": "cam4",
+              "direction": "output",
+              "edge_id": "intel-box-01",
+              "payload_type": "application/json",
+              "revision": 1,
+              "solution_pack": "traffic",
+              "tag": "output.analytics.event",
+              "topic": "intel-box-01.traffic.cam4.anpr.output.analytics.event"
+            },
+            "vehicle_counting": {
+              "api_version": "edge-api/v1",
+              "app_id": "vehicle_counting",
+              "camera_id": "cam4",
+              "direction": "output",
+              "edge_id": "intel-box-01",
+              "payload_type": "application/json",
+              "revision": 1,
+              "solution_pack": "traffic",
+              "tag": "output.analytics.event",
+              "topic": "intel-box-01.traffic.cam4.vehicle_counting.output.analytics.event"
+            },
+            "wrong_way": {
+              "api_version": "edge-api/v1",
+              "app_id": "wrong_way",
+              "camera_id": "cam4",
+              "direction": "output",
+              "edge_id": "intel-box-01",
+              "payload_type": "application/json",
+              "revision": 1,
+              "solution_pack": "traffic",
+              "tag": "output.analytics.event",
+              "topic": "intel-box-01.traffic.cam4.wrong_way.output.analytics.event"
+            }
+          },
+          "frame_overlay": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam4",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "image/jpeg",
+            "revision": 1,
+            "solution_pack": "traffic",
+            "tag": "output.frame.overlay",
+            "topic": "intel-box-01.traffic.cam4.output.frame.overlay"
+          },
+          "input": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam4",
+            "direction": "input",
+            "edge_id": "intel-box-01",
+            "payload_type": "rtsp",
+            "revision": 1,
+            "solution_pack": "traffic",
+            "tag": "input.camera.stream",
+            "topic": "intel-box-01.traffic.cam4.input.camera.stream"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam4",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "traffic",
+            "tag": "metric.camera",
+            "topic": "intel-box-01.traffic.cam4.metric.camera"
+          },
+          "snapshot": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam4",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "image/jpeg",
+            "revision": 1,
+            "solution_pack": "traffic",
+            "tag": "output.event.snapshot",
+            "topic": "intel-box-01.traffic.cam4.output.event.snapshot"
+          }
+        },
+        "cam5": {
+          "apps": {
+            "illegal_parking": {
+              "api_version": "edge-api/v1",
+              "app_id": "illegal_parking",
+              "camera_id": "cam5",
+              "direction": "output",
+              "edge_id": "intel-box-01",
+              "payload_type": "application/json",
+              "revision": 1,
+              "solution_pack": "traffic",
+              "tag": "output.analytics.event",
+              "topic": "intel-box-01.traffic.cam5.illegal_parking.output.analytics.event"
+            },
+            "pedestrian_counting": {
+              "api_version": "edge-api/v1",
+              "app_id": "pedestrian_counting",
+              "camera_id": "cam5",
+              "direction": "output",
+              "edge_id": "intel-box-01",
+              "payload_type": "application/json",
+              "revision": 1,
+              "solution_pack": "traffic",
+              "tag": "output.analytics.event",
+              "topic": "intel-box-01.traffic.cam5.pedestrian_counting.output.analytics.event"
+            },
+            "vehicle_counting": {
+              "api_version": "edge-api/v1",
+              "app_id": "vehicle_counting",
+              "camera_id": "cam5",
+              "direction": "output",
+              "edge_id": "intel-box-01",
+              "payload_type": "application/json",
+              "revision": 1,
+              "solution_pack": "traffic",
+              "tag": "output.analytics.event",
+              "topic": "intel-box-01.traffic.cam5.vehicle_counting.output.analytics.event"
+            }
+          },
+          "frame_overlay": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam5",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "image/jpeg",
+            "revision": 1,
+            "solution_pack": "traffic",
+            "tag": "output.frame.overlay",
+            "topic": "intel-box-01.traffic.cam5.output.frame.overlay"
+          },
+          "input": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam5",
+            "direction": "input",
+            "edge_id": "intel-box-01",
+            "payload_type": "rtsp",
+            "revision": 1,
+            "solution_pack": "traffic",
+            "tag": "input.camera.stream",
+            "topic": "intel-box-01.traffic.cam5.input.camera.stream"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam5",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "traffic",
+            "tag": "metric.camera",
+            "topic": "intel-box-01.traffic.cam5.metric.camera"
+          },
+          "snapshot": {
+            "api_version": "edge-api/v1",
+            "camera_id": "cam5",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "image/jpeg",
+            "revision": 1,
+            "solution_pack": "traffic",
+            "tag": "output.event.snapshot",
+            "topic": "intel-box-01.traffic.cam5.output.event.snapshot"
+          }
+        }
+      },
+      "services": {
+        "ocr_service": {
+          "health": {
+            "api_version": "edge-api/v1",
+            "device": "GPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "ocr_service",
+            "solution_pack": "traffic",
+            "tag": "health.runtime",
+            "topic": "intel-box-01.traffic.ocr_service.health.runtime"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "device": "GPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "ocr_service",
+            "solution_pack": "traffic",
+            "tag": "metric.runtime",
+            "topic": "intel-box-01.traffic.ocr_service.metric.runtime"
+          }
+        },
+        "plate_detector": {
+          "health": {
+            "api_version": "edge-api/v1",
+            "device": "NPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "plate_detector",
+            "solution_pack": "traffic",
+            "tag": "health.runtime",
+            "topic": "intel-box-01.traffic.plate_detector.health.runtime"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "device": "NPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "plate_detector",
+            "solution_pack": "traffic",
+            "tag": "metric.runtime",
+            "topic": "intel-box-01.traffic.plate_detector.metric.runtime"
+          }
+        },
+        "vehicle_detector": {
+          "health": {
+            "api_version": "edge-api/v1",
+            "device": "GPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "vehicle_detector",
+            "solution_pack": "traffic",
+            "tag": "health.runtime",
+            "topic": "intel-box-01.traffic.vehicle_detector.health.runtime"
+          },
+          "metrics": {
+            "api_version": "edge-api/v1",
+            "device": "GPU",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "service": "vehicle_detector",
+            "solution_pack": "traffic",
+            "tag": "metric.runtime",
+            "topic": "intel-box-01.traffic.vehicle_detector.metric.runtime"
+          }
+        }
+      },
+      "solution": {
+        "graph_status": {
+          "api_version": "edge-api/v1",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "solution_pack": "traffic",
+          "tag": "status.graph",
+          "topic": "intel-box-01.traffic.status.graph"
+        },
+        "runtime_health": {
+          "api_version": "edge-api/v1",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "solution_pack": "traffic",
+          "tag": "health.runtime",
+          "topic": "intel-box-01.traffic.health.runtime"
+        },
+        "runtime_metrics": {
+          "api_version": "edge-api/v1",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "solution_pack": "traffic",
+          "tag": "metric.runtime",
+          "topic": "intel-box-01.traffic.metric.runtime"
+        }
+      }
+    }
+  }
+}

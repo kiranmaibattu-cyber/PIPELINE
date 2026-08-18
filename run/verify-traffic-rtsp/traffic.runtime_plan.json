@@ -1,0 +1,255 @@
+{
+  "cameras": [
+    {
+      "apps": [
+        "anpr",
+        "wrong_way",
+        "vehicle_counting",
+        "pedestrian_counting",
+        "illegal_parking"
+      ],
+      "camera_id": "traffic_ch10",
+      "config": {
+        "lines": {
+          "pedestrian_counting": [
+            {
+              "a": [
+                0.2,
+                0.8
+              ],
+              "b": [
+                0.8,
+                0.8
+              ],
+              "name": "pedestrian_count_line"
+            }
+          ],
+          "vehicle_counting": [
+            {
+              "a": [
+                0.2,
+                0.7
+              ],
+              "b": [
+                0.8,
+                0.7
+              ],
+              "name": "vehicle_count_line"
+            }
+          ],
+          "wrong_way": [
+            {
+              "a": [
+                0.2,
+                0.6
+              ],
+              "b": [
+                0.8,
+                0.6
+              ],
+              "direction": "up",
+              "name": "wrong_way_line"
+            }
+          ]
+        },
+        "zones": {
+          "anpr": [
+            {
+              "name": "plate_roi",
+              "poly": [
+                [
+                  0.1,
+                  0.1
+                ],
+                [
+                  0.9,
+                  0.1
+                ],
+                [
+                  0.9,
+                  0.9
+                ],
+                [
+                  0.1,
+                  0.9
+                ]
+              ]
+            }
+          ],
+          "illegal_parking": [
+            {
+              "name": "no_parking",
+              "poly": [
+                [
+                  0.2,
+                  0.2
+                ],
+                [
+                  0.8,
+                  0.2
+                ],
+                [
+                  0.8,
+                  0.8
+                ],
+                [
+                  0.2,
+                  0.8
+                ]
+              ]
+            }
+          ]
+        }
+      },
+      "edges": [
+        [
+          "camera_source",
+          "decode"
+        ],
+        [
+          "decode",
+          "vehicle_detector"
+        ],
+        [
+          "vehicle_detector",
+          "vehicle_tracker"
+        ],
+        [
+          "vehicle_detector",
+          "plate_detector"
+        ],
+        [
+          "plate_detector",
+          "ocr_service"
+        ],
+        [
+          "ocr_service",
+          "anpr"
+        ],
+        [
+          "anpr",
+          "event_sink"
+        ],
+        [
+          "vehicle_tracker",
+          "wrong_way"
+        ],
+        [
+          "wrong_way",
+          "event_sink"
+        ],
+        [
+          "vehicle_tracker",
+          "vehicle_counting"
+        ],
+        [
+          "vehicle_counting",
+          "event_sink"
+        ],
+        [
+          "vehicle_tracker",
+          "pedestrian_counting"
+        ],
+        [
+          "pedestrian_counting",
+          "event_sink"
+        ],
+        [
+          "vehicle_tracker",
+          "illegal_parking"
+        ],
+        [
+          "illegal_parking",
+          "event_sink"
+        ]
+      ],
+      "feature_flags": {
+        "body": false,
+        "face": false,
+        "gait": false,
+        "ocr": true,
+        "person_detect": false,
+        "plate": true,
+        "reid": false,
+        "track": true,
+        "vehicle_detect": true
+      },
+      "fps": 8.0,
+      "nodes": [
+        "camera_source",
+        "decode",
+        "vehicle_detector",
+        "vehicle_tracker",
+        "plate_detector",
+        "ocr_service",
+        "anpr",
+        "wrong_way",
+        "vehicle_counting",
+        "pedestrian_counting",
+        "illegal_parking",
+        "event_sink"
+      ],
+      "plugins": [
+        "anpr",
+        "wrong_way",
+        "vehicle_counting",
+        "pedestrian_counting",
+        "illegal_parking"
+      ],
+      "required_data": [
+        "vehicle_tracks",
+        "plate_detections",
+        "plate_ocr",
+        "direction_line_geometry",
+        "line_geometry",
+        "pedestrian_tracks",
+        "parking_zone_geometry"
+      ],
+      "required_models": [
+        "vehicle_detector",
+        "plate_detector",
+        "plate_ocr"
+      ],
+      "required_services": [],
+      "required_state": [
+        "plate_read_history"
+      ],
+      "solution_pack": "traffic",
+      "source": "rtsp://192.168.1.95:8554/ch10"
+    }
+  ],
+  "edge_id": "intel-box-01",
+  "revision": 4,
+  "shared_services": [
+    {
+      "device": "GPU",
+      "models": [
+        "plate_ocr"
+      ],
+      "name": "ocr_service",
+      "solution_pack": "traffic",
+      "state": []
+    },
+    {
+      "device": "NPU",
+      "models": [
+        "plate_detector"
+      ],
+      "name": "plate_detector",
+      "solution_pack": "traffic",
+      "state": []
+    },
+    {
+      "device": "GPU",
+      "models": [
+        "vehicle_detector"
+      ],
+      "name": "vehicle_detector",
+      "solution_pack": "traffic",
+      "state": []
+    }
+  ],
+  "solution_pack": "traffic",
+  "status": "accepted",
+  "warnings": []
+}

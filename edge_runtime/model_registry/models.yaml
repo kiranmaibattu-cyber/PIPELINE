@@ -1,0 +1,81 @@
+models:
+  surveillance:
+    person_detector:
+      version: yolo11s_int8:v1
+      mount_dir: /models/surveillance
+      files:
+        - path: yolo11s_int8.xml
+          sha256: 144dd32b47465ec39d7f0cd6df954775908b740b50fab486ec7f3728a12fd1c0
+        - path: yolo11s_int8.bin
+          sha256: 4b961452248adf8c5461ea1729a6ccd2468be9aca97ace866565a0f4ea4549c0
+    body_reid_embedder:
+      version: transreid_ssl_int8:v1
+      mount_dir: /models/surveillance
+      files:
+        - path: transreid_ssl_int8.xml
+          sha256: 63384268f74a2882cfe1201740680ed692bf39336207c844eb6fe4578354ad2b
+        - path: transreid_ssl_int8.bin
+          sha256: 365b5f0cf216cb2a5c80f3901c27528489c6e9b1bb91ab7b20a525a6c76a224e
+    face_embedder:
+      version: adaface_ir101_int8:v1
+      mount_dir: /models/surveillance
+      files:
+        - path: adaface_ir101_int8.xml
+          sha256: 68db3a49803714ec6796f0b9f60a24fa29be0a9d9efa51a76f2dd9bc7e3f959d
+        - path: adaface_ir101_int8.bin
+          sha256: 2e294f66be557edbc14de38f79b8f42c4e52b87bec87e360a3f2fbc7f7242383
+    gait_embedder:
+      version: gaitbase_int8:v1
+      mount_dir: /models/surveillance
+      files:
+        - path: gaitbase_int8.xml
+          sha256: 1e7c9fe736a3cba8557c1c2492b0e330900c9dd4153587550f1437881618c32e
+        - path: gaitbase_int8.bin
+          sha256: e5ef031524b80c00f990bc3e356d25f2b9c0ddce59b4177bb49b438a7ddceba8
+    segmenter:
+      version: yolov8n_seg_int8:v1
+      mount_dir: /models/surveillance
+      files:
+        - path: yolov8n_seg_int8.xml
+          sha256: 7b2062a77597c43354e735bce706b3651a21fe489cfd8b346b0cf5f175059f38
+        - path: yolov8n_seg_int8.bin
+          sha256: 61c058136ef150c3bdd6b43196df0c3066830e4162a2caef79b92b897f3c21e1
+    face_reid_assets:
+      version: buffalo_s:v1
+      mount_dir: /models/surveillance
+      files:
+        - path: face_reid/models/buffalo_s/1k3d68.onnx
+          sha256: df5c06b8a0c12e422b2ed8947b8869faa4105387f199c477af038aa01f9a45cc
+        - path: face_reid/models/buffalo_s/2d106det.onnx
+          sha256: f001b856447c413801ef5c42091ed0cd516fcd21f2d6b79635b1e733a7109dbf
+        - path: face_reid/models/buffalo_s/det_500m.onnx
+          sha256: 5e4447f50245bbd7966bd6c0fa52938c61474a04ec7def48753668a9d8b4ea3a
+        - path: face_reid/models/buffalo_s/genderage.onnx
+          sha256: 4fde69b1c810857b88c64a335084f1c3fe8f01246c9a191b48c7bb756d6652fb
+        - path: face_reid/models/buffalo_s/w600k_mbf.onnx
+          sha256: 9cc6e4a75f0e2bf0b1aed94578f144d15175f357bdc05e815e5c4a02b319eb4f
+  traffic:
+    vehicle_detector:
+      version: vehicle_openvino:v1
+      mount_dir: /models/traffic/openvino
+      files:
+        - path: openvino/vehicle.xml
+          sha256: ba402c4eabe93c1c4ad9b7ea70b95fbb0a0d374b7ec777dc26992f428778f5b9
+        - path: openvino/vehicle.bin
+          sha256: e8513382b2cca7cc4fb9257a19b0f28156537a1b2e15074fe47fabc64ededf26
+    plate_detector:
+      version: license_plate_openvino:v1
+      mount_dir: /models/traffic/openvino
+      files:
+        - path: openvino/license_plate.xml
+          sha256: d9ff01e97241d2d0132b960d6bd6c12659a09474b3a005991aa633adba0c94aa
+        - path: openvino/license_plate.bin
+          sha256: df60a0a27cd91e5cbfe0305f5bce1f8a588acd0b031c3fa2bd4a0c379cc23dda
+    plate_ocr:
+      version: ocr_openvino:v1
+      mount_dir: /models/traffic/openvino
+      files:
+        - path: openvino/ocr.xml
+          sha256: 98cdc203e544f3908e8b47da85cb98e771d18de16e877781f7db76dd8feb63ed
+        - path: openvino/ocr.bin
+          sha256: 96147eba58867c42ba6040f9446a8936d4eecfed14e3e7c2ab43db6bc3f49dff

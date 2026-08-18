@@ -1,0 +1,19 @@
+app_id: intrusion
+solution_pack: surveillance
+version: 0.1.0
+description: Person intrusion alert from track foot point and zone geometry.
+requires:
+  data:
+    - person_tracks
+    - zone_geometry
+models:
+  - person_detector
+produces:
+  events:
+    - intrusion_event
+hardware:
+  preferred:
+    person_detector: GPU
+    intrusion_app: CPU
+policy:
+  global_id_optional: true

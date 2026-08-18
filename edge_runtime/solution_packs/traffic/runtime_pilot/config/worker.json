@@ -1,0 +1,123 @@
+{
+  "models": {
+    "vehicle": {
+      "path": "/models/pytorch/yolo26n.pt",
+      "backend": "axelera",
+      "tensorrt": false,
+      "batch_size": "streams",
+      "processing_interval": 0,
+      "tracker": {
+        "max_distance": 320,
+        "max_disappeared": 45,
+        "bbox_smoothing": 0.25,
+        "min_iou": 0.01,
+        "class_aware": false,
+        "class_switch_cost": 0.15,
+        "draw_predictions": true
+      },
+      "classes": [
+        "pedestrian",
+        "bicycle",
+        "car",
+        "motorcycle",
+        "bus",
+        "truck"
+      ],
+      "confidence": {
+        "pedestrian": 0.25,
+        "bicycle": 0.25,
+        "car": 0.25,
+        "motorcycle": 0.25,
+        "bus": 0.25,
+        "truck": 0.25
+      }
+    },
+    "plate": {
+      "path": "/models/pytorch/yolo26n_plate_detection_224.pt",
+      "backend": "openvino",
+      "tensorrt": false,
+      "confidence": 0.25,
+      "batch_size": 64
+    },
+    "license_plate_ocr": {
+      "path": "/models/onnx/cct.onnx",
+      "backend": "openvino",
+      "stable_char_ratio": 0.75,
+      "batch_size": 128
+    }
+  },
+  "visualization": {
+    "text_renderer": "pillow"
+  },
+  "json_streaming": {
+    "enabled": true,
+    "queue_size": 1000,
+    "outputs": [
+      {
+        "name": "redis_default",
+        "type": "redis",
+        "enabled": true,
+        "host": "redis",
+        "port": 6379,
+        "stream": "traffic:analytics",
+        "maxlen": 10000,
+        "auth": {
+          "password": "${REDIS_PASSWORD}"
+        }
+      },
+      {
+        "name": "mqtt_default",
+        "type": "mqtt",
+        "enabled": false,
+        "host": "mqtt",
+        "port": 1883,
+        "topic": "traffic/analytics",
+        "qos": 0,
+        "retain": false,
+        "auth": {
+          "username": "",
+          "password": "",
+          "tls": false
+        }
+      },
+      {
+        "name": "kafka_default",
+        "type": "kafka",
+        "enabled": false,
+        "bootstrap_servers": [
+          "kafka:9092"
+        ],
+        "topic": "traffic.analytics",
+        "auth": {
+          "security_protocol": "PLAINTEXT",
+          "sasl_mechanism": "PLAIN",
+          "username": "",
+          "password": ""
+        }
+      },
+      {
+        "name": "rabbitmq_default",
+        "type": "rabbitmq",
+        "enabled": false,
+        "host": "rabbitmq",
+        "port": 5672,
+        "exchange": "traffic.analytics",
+        "exchange_type": "topic",
+        "routing_key": "camera.observation",
+        "auth": {
+          "username": "guest",
+          "password": "guest",
+          "virtual_host": "/",
+          "tls": false
+        }
+      },
+      {
+        "name": "azure_event_hub_default",
+        "type": "azure_event_hub",
+        "enabled": false,
+        "connection_string": "${AZURE_EVENT_HUB_CONNECTION_STRING}",
+        "eventhub_name": "${AZURE_EVENT_HUB_NAME}"
+      }
+    ]
+  }
+}

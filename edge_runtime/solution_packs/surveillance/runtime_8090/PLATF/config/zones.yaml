@@ -1,0 +1,20 @@
+# Zones + lines in NORMALISED (0..1) coords, scaled to `frame` pixels at load.
+# `default` applies to every camera; add per-camera overrides under `cameras:`.
+frame: [1920, 1080]
+
+default:
+  zones:
+    - name: "Restricted Area"
+      kind: intrusion
+      poly: [[0.60, 0.05], [0.98, 0.05], [0.98, 0.95], [0.60, 0.95]]
+    - name: "Lobby"
+      kind: loiter
+      dwell_s: 6
+      poly: [[0.02, 0.05], [0.58, 0.05], [0.58, 0.95], [0.02, 0.95]]
+  lines:
+    - name: "Doorway"
+      a: [0.50, 0.10]
+      b: [0.50, 0.90]
+      in_side: right      # crossing onto the right side counts as "in"
+
+cameras: {}

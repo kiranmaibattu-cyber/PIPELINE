@@ -1,0 +1,17 @@
+app_id: wrong_way
+solution_pack: traffic
+version: 0.1.0
+description: Wrong-way driving event from vehicle track motion and direction lines.
+requires:
+  data:
+    - vehicle_tracks
+    - direction_line_geometry
+models:
+  - vehicle_detector
+produces:
+  events:
+    - wrong_way_event
+hardware:
+  preferred:
+    vehicle_detector: GPU
+    wrong_way_app: CPU

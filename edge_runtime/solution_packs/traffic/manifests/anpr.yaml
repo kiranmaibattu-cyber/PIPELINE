@@ -1,0 +1,27 @@
+app_id: anpr
+solution_pack: traffic
+version: 0.1.0
+description: Automatic number plate recognition using vehicle tracks, plate detection, and OCR.
+requires:
+  data:
+    - vehicle_tracks
+    - plate_detections
+    - plate_ocr
+models:
+  - vehicle_detector
+  - plate_detector
+  - plate_ocr
+state:
+  - plate_read_history
+produces:
+  data:
+    - plate_read
+  events:
+    - plate_read_event
+hardware:
+  preferred:
+    vehicle_detector: GPU
+    plate_detector: NPU
+    plate_ocr: GPU
+policy:
+  ocr_once_per_track: true

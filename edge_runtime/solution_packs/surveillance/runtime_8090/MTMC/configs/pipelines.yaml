@@ -1,0 +1,78 @@
+# MTMC tournament configuration.
+# A pipeline run = one combination of the axes below. Stages reference these
+# axes; pipelines.py resolves a run spec into concrete components.
+
+videos:
+  ch9_5min: "trimmed_clips/NVR_ch9_main_20260617100004_20260617110004 (1)_first_5min.mp4"
+  ch10_5min: "trimmed_clips/NVR_ch10_main_20260617100004_20260617110004_first_5min.mp4"
+
+benchmark:
+  detector: "models/yolov8n.pt"
+  confidence: 0.35
+  iou: 0.50
+  class_ids: [0]              # 0=person; vehicle configs use [2,3,5,7]
+  process_every_n_frames: 10
+  delay_seconds: 30
+  output_fps: 3
+  max_frames: 0
+
+defaults:
+  tracker: "iou"              # iou | bytetrack | botsort | ocsort | strongsort
+  tta_flip: true
+  smoothing_window: 5         # track-level embedding pooling frames
+  gallery:
+    policy: "ema"             # ema | ring | quality_topk
+    k: 5
+    match: "min"              # min | mean | top3
+    max_age_seconds: 180
+    max_entries: 0            # 0 = unlimited
+    eviction: "lru"           # lru | quality
+    ema_alpha: 0.85
+  spatial_gate: "none"        # none | bev | bev_temporal
+  rerank: "none"              # none | k_reciprocal | ca_jaccard | aqe
+  fusion: "none"              # none | score_avg | quality | camera_aware | learned
+
+bev_calibration: "configs/bev_calibration.json"
+annotations: "annotations/annotations.csv"
+
+paths:
+  outputs_dir: "MTMC/outputs"
+  reports_dir: "MTMC/reports"
+
+# Stage 1 roster — every appearance embedder (existing 16 + new 6).
+stage1_embedders:
+  - osnet_ain
+  - osnet_x1_0
+  - osnet_x0_75
+  - osnet_x0_5
+  - osnet_ibn          # NEW (torchreid)
+  - fastreid_sbs_bot_agw
+  - agw                # NEW (fastreid release .pth)
+  - mgn                # NEW (fastreid release .pth)
+  - transreid          # SIE+JPM checkpoint (fix yacs dep)
+  - transreid_ssl      # NEW (LUPerson ViT-S)
+  - solider            # NEW (Swin-S)
+  - lightmbn           # NEW (via boxmot)
+  - pass_reid
+  - kpr
+  - bpbreid
+  - clip_reid
+  - openvino_reid_retail
+  - nvidia_tao_reid
+  - strongsort_reid
+  - deepsort_mars
+  - fairmot
+  - botsort_reid
+
+# Stage-3: top-3 appearance from Stage-1 (by IDF1) x fusion strategies with AdaFace
+stage3_embedders:
+  - transreid_ssl
+  - pass_reid
+  - deepsort_mars
+
+stage2_face_models:
+  - arcface_buffalo_s   # existing face_reid
+  - arcface_buffalo_l
+  - antelopev2          # manual download
+  - adaface_ir101
+  - magface_ir100

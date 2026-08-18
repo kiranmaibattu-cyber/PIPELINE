@@ -1,0 +1,61 @@
+# 5-camera MTMC run: ch1 (main entry), ch2 (Lift 1), ch9+ch10 (waiting area,
+# OVERLAPPING pair), ch16 (Lift 3). Mixed topology: one overlapping pair plus
+# non-overlapping lobbies. Winning pipeline: TransReID-SSL + quality-top-K(10)
+# gallery + topology/transition gate. Outputs -> NEW/.
+cameras:
+  - {label: ch1,  video: "trimmed_clips/NVR_ch1_main_20260617100000_20260617110000_first_10min.mp4"}
+  - {label: ch2,  video: "trimmed_clips/NVR_ch2_main_20260617100000_20260617110000_first_10min.mp4"}
+  - {label: ch9,  video: "trimmed_clips/NVR_ch9_main_20260617100004_20260617110004 (1)_first_10min.mp4"}
+  - {label: ch10, video: "trimmed_clips/NVR_ch10_main_20260617100004_20260617110004_first_10min.mp4"}
+  - {label: ch16, video: "trimmed_clips/NVR_ch16_main_20260617100007_20260617110007 (1)_first_10min.mp4"}
+
+benchmark:
+  detector: "models/yolov8n.pt"
+  confidence: 0.35
+  iou: 0.50
+  class_ids: [0]
+  process_every_n_frames: 10
+  output_fps: 3
+  max_frames: 0
+
+embedder: transreid_ssl
+appearance_tracker: false  # IoU tracker
+gid_hysteresis_frames: 1   # 1 = no lock (disabled per user feedback); isolating the timestamp-alignment fix
+gallery:
+  policy: quality_topk
+  k: 10
+  match: min
+  max_age_seconds: 480          # matched to learned median transition (241s) w/ headroom
+
+# FULL fusion: appearance + camera-aware face (AdaFace) + gait (GaitBase).
+# frontal cameras (face trusted) = the ones that see frontal faces; overhead
+# lobbies contribute appearance + gait only.
+fusion: camera_aware_gait
+frontal_cameras: [ch2, ch9, ch10, cam6, cam7]
+
+# topology / transition gate
+topology:
+  enabled: true
+  min_transition_s: 5.0          # concurrent-exclusion default for non-overlap pairs
+  max_transition_s: 480.0
+  overlapping_pairs: [[ch9, ch10], [cam6, cam7]]   # same area, two angles -> min 0
+  learned_transitions_file: "MTMC/reports/learned_transitions.json"
+
+calibration_file: "MTMC/reports/calibrated_thresholds.json"
+
+paths:
+  out_dir: "NEW_OV_FIX"
+
+# ---- OpenVINO (Intel NPU + iGPU), pinned, no CPU fallback ----
+openvino:
+  enabled: true
+  detector: "yolov8n.xml"       # NEW used yolov8n (fp16 on iGPU)
+  detector_device: "GPU"
+  appearance: "transreid_ssl_fp16.xml"
+  appearance_device: "NPU"
+  face: "adaface_ir101_fp16.xml"
+  face_device: "NPU"
+  gait: "gaitbase_fp16.xml"
+  gait_device: "NPU"
+  seg: "yolov8n_seg.xml"
+  seg_device: "GPU"

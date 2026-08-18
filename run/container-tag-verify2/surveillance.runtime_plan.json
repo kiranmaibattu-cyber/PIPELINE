@@ -1,0 +1,876 @@
+{
+  "api_tags": {
+    "graph_status": {
+      "api_version": "edge-api/v1",
+      "direction": "output",
+      "edge_id": "intel-box-01",
+      "payload_type": "application/json",
+      "revision": 1,
+      "solution_pack": "surveillance",
+      "tag": "status.graph",
+      "topic": "intel-box-01.surveillance.status.graph"
+    },
+    "runtime_health": {
+      "api_version": "edge-api/v1",
+      "direction": "output",
+      "edge_id": "intel-box-01",
+      "payload_type": "application/json",
+      "revision": 1,
+      "solution_pack": "surveillance",
+      "tag": "health.runtime",
+      "topic": "intel-box-01.surveillance.health.runtime"
+    },
+    "runtime_metrics": {
+      "api_version": "edge-api/v1",
+      "direction": "output",
+      "edge_id": "intel-box-01",
+      "payload_type": "application/json",
+      "revision": 1,
+      "solution_pack": "surveillance",
+      "tag": "metric.runtime",
+      "topic": "intel-box-01.surveillance.metric.runtime"
+    }
+  },
+  "cameras": [
+    {
+      "api_tags": {
+        "apps": {
+          "reid": {
+            "api_version": "edge-api/v1",
+            "app_id": "reid",
+            "camera_id": "cam1",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "output.analytics.event",
+            "topic": "intel-box-01.surveillance.cam1.reid.output.analytics.event"
+          }
+        },
+        "frame_overlay": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam1",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "image/jpeg",
+          "revision": 1,
+          "solution_pack": "surveillance",
+          "tag": "output.frame.overlay",
+          "topic": "intel-box-01.surveillance.cam1.output.frame.overlay"
+        },
+        "input": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam1",
+          "direction": "input",
+          "edge_id": "intel-box-01",
+          "payload_type": "rtsp",
+          "revision": 1,
+          "solution_pack": "surveillance",
+          "tag": "input.camera.stream",
+          "topic": "intel-box-01.surveillance.cam1.input.camera.stream"
+        },
+        "metrics": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam1",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "solution_pack": "surveillance",
+          "tag": "metric.camera",
+          "topic": "intel-box-01.surveillance.cam1.metric.camera"
+        },
+        "snapshot": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam1",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "image/jpeg",
+          "revision": 1,
+          "solution_pack": "surveillance",
+          "tag": "output.event.snapshot",
+          "topic": "intel-box-01.surveillance.cam1.output.event.snapshot"
+        }
+      },
+      "apps": [
+        "reid"
+      ],
+      "camera_id": "cam1",
+      "config": {},
+      "edges": [
+        [
+          "camera_source",
+          "decode"
+        ],
+        [
+          "decode",
+          "person_detector"
+        ],
+        [
+          "person_detector",
+          "person_tracker"
+        ],
+        [
+          "person_tracker",
+          "person_cropper"
+        ],
+        [
+          "person_cropper",
+          "body_embedder"
+        ],
+        [
+          "person_tracker",
+          "face_cropper"
+        ],
+        [
+          "face_cropper",
+          "face_embedder"
+        ],
+        [
+          "person_tracker",
+          "gait_embedder"
+        ],
+        [
+          "body_embedder",
+          "global_reid_service"
+        ],
+        [
+          "face_embedder",
+          "global_reid_service"
+        ],
+        [
+          "gait_embedder",
+          "global_reid_service"
+        ],
+        [
+          "global_reid_service",
+          "event_sink"
+        ]
+      ],
+      "feature_flags": {
+        "body": true,
+        "face": true,
+        "gait": true,
+        "ocr": false,
+        "person_detect": true,
+        "plate": false,
+        "reid": true,
+        "track": true,
+        "vehicle_detect": false
+      },
+      "fps": 10.0,
+      "nodes": [
+        "camera_source",
+        "decode",
+        "person_detector",
+        "person_tracker",
+        "person_cropper",
+        "body_embedder",
+        "face_cropper",
+        "face_embedder",
+        "gait_embedder",
+        "global_reid_service",
+        "event_sink"
+      ],
+      "plugins": [
+        "reid"
+      ],
+      "required_data": [
+        "person_tracks",
+        "body_embeddings",
+        "face_embeddings",
+        "gait_embeddings"
+      ],
+      "required_models": [
+        "person_detector",
+        "body_reid_embedder",
+        "face_embedder",
+        "gait_embedder"
+      ],
+      "required_services": [
+        "global_reid_service"
+      ],
+      "required_state": [
+        "reid_gallery",
+        "persistent_identity_store"
+      ],
+      "solution_pack": "surveillance",
+      "source": "rtsp://example/cam1"
+    },
+    {
+      "api_tags": {
+        "apps": {
+          "face_recognition": {
+            "api_version": "edge-api/v1",
+            "app_id": "face_recognition",
+            "camera_id": "cam2",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "output.analytics.event",
+            "topic": "intel-box-01.surveillance.cam2.face_recognition.output.analytics.event"
+          },
+          "intrusion": {
+            "api_version": "edge-api/v1",
+            "app_id": "intrusion",
+            "camera_id": "cam2",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "output.analytics.event",
+            "topic": "intel-box-01.surveillance.cam2.intrusion.output.analytics.event"
+          },
+          "reid": {
+            "api_version": "edge-api/v1",
+            "app_id": "reid",
+            "camera_id": "cam2",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "output.analytics.event",
+            "topic": "intel-box-01.surveillance.cam2.reid.output.analytics.event"
+          }
+        },
+        "frame_overlay": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam2",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "image/jpeg",
+          "revision": 1,
+          "solution_pack": "surveillance",
+          "tag": "output.frame.overlay",
+          "topic": "intel-box-01.surveillance.cam2.output.frame.overlay"
+        },
+        "input": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam2",
+          "direction": "input",
+          "edge_id": "intel-box-01",
+          "payload_type": "rtsp",
+          "revision": 1,
+          "solution_pack": "surveillance",
+          "tag": "input.camera.stream",
+          "topic": "intel-box-01.surveillance.cam2.input.camera.stream"
+        },
+        "metrics": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam2",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "solution_pack": "surveillance",
+          "tag": "metric.camera",
+          "topic": "intel-box-01.surveillance.cam2.metric.camera"
+        },
+        "snapshot": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam2",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "image/jpeg",
+          "revision": 1,
+          "solution_pack": "surveillance",
+          "tag": "output.event.snapshot",
+          "topic": "intel-box-01.surveillance.cam2.output.event.snapshot"
+        }
+      },
+      "apps": [
+        "reid",
+        "face_recognition",
+        "intrusion"
+      ],
+      "camera_id": "cam2",
+      "config": {},
+      "edges": [
+        [
+          "camera_source",
+          "decode"
+        ],
+        [
+          "decode",
+          "person_detector"
+        ],
+        [
+          "person_detector",
+          "person_tracker"
+        ],
+        [
+          "person_tracker",
+          "person_cropper"
+        ],
+        [
+          "person_cropper",
+          "body_embedder"
+        ],
+        [
+          "person_tracker",
+          "face_cropper"
+        ],
+        [
+          "face_cropper",
+          "face_embedder"
+        ],
+        [
+          "person_tracker",
+          "gait_embedder"
+        ],
+        [
+          "body_embedder",
+          "global_reid_service"
+        ],
+        [
+          "face_embedder",
+          "global_reid_service"
+        ],
+        [
+          "gait_embedder",
+          "global_reid_service"
+        ],
+        [
+          "face_embedder",
+          "enrolled_face_gallery"
+        ],
+        [
+          "global_reid_service",
+          "identity_anchor"
+        ],
+        [
+          "enrolled_face_gallery",
+          "identity_anchor"
+        ],
+        [
+          "identity_anchor",
+          "face_recognition"
+        ],
+        [
+          "face_recognition",
+          "event_sink"
+        ],
+        [
+          "global_reid_service",
+          "event_sink"
+        ],
+        [
+          "person_tracker",
+          "intrusion"
+        ],
+        [
+          "intrusion",
+          "event_sink"
+        ]
+      ],
+      "feature_flags": {
+        "body": true,
+        "face": true,
+        "gait": true,
+        "ocr": false,
+        "person_detect": true,
+        "plate": false,
+        "reid": true,
+        "track": true,
+        "vehicle_detect": false
+      },
+      "fps": 10.0,
+      "nodes": [
+        "camera_source",
+        "decode",
+        "person_detector",
+        "person_tracker",
+        "person_cropper",
+        "body_embedder",
+        "face_cropper",
+        "face_embedder",
+        "gait_embedder",
+        "global_reid_service",
+        "enrolled_face_gallery",
+        "identity_anchor",
+        "face_recognition",
+        "intrusion",
+        "event_sink"
+      ],
+      "plugins": [
+        "reid",
+        "face_recognition",
+        "intrusion"
+      ],
+      "required_data": [
+        "person_tracks",
+        "body_embeddings",
+        "face_embeddings",
+        "global_person_id",
+        "zone_geometry",
+        "gait_embeddings"
+      ],
+      "required_models": [
+        "person_detector",
+        "body_reid_embedder",
+        "face_embedder",
+        "gait_embedder"
+      ],
+      "required_services": [
+        "global_reid_service",
+        "identity_anchor",
+        "enrolled_face_gallery"
+      ],
+      "required_state": [
+        "reid_gallery",
+        "persistent_identity_store",
+        "enrolled_face_gallery",
+        "identity_store"
+      ],
+      "solution_pack": "surveillance",
+      "source": "rtsp://example/cam2"
+    },
+    {
+      "api_tags": {
+        "apps": {
+          "intrusion": {
+            "api_version": "edge-api/v1",
+            "app_id": "intrusion",
+            "camera_id": "cam3",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "output.analytics.event",
+            "topic": "intel-box-01.surveillance.cam3.intrusion.output.analytics.event"
+          },
+          "people_counting": {
+            "api_version": "edge-api/v1",
+            "app_id": "people_counting",
+            "camera_id": "cam3",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "surveillance",
+            "tag": "output.analytics.event",
+            "topic": "intel-box-01.surveillance.cam3.people_counting.output.analytics.event"
+          }
+        },
+        "frame_overlay": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam3",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "image/jpeg",
+          "revision": 1,
+          "solution_pack": "surveillance",
+          "tag": "output.frame.overlay",
+          "topic": "intel-box-01.surveillance.cam3.output.frame.overlay"
+        },
+        "input": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam3",
+          "direction": "input",
+          "edge_id": "intel-box-01",
+          "payload_type": "rtsp",
+          "revision": 1,
+          "solution_pack": "surveillance",
+          "tag": "input.camera.stream",
+          "topic": "intel-box-01.surveillance.cam3.input.camera.stream"
+        },
+        "metrics": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam3",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "solution_pack": "surveillance",
+          "tag": "metric.camera",
+          "topic": "intel-box-01.surveillance.cam3.metric.camera"
+        },
+        "snapshot": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam3",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "image/jpeg",
+          "revision": 1,
+          "solution_pack": "surveillance",
+          "tag": "output.event.snapshot",
+          "topic": "intel-box-01.surveillance.cam3.output.event.snapshot"
+        }
+      },
+      "apps": [
+        "intrusion",
+        "people_counting"
+      ],
+      "camera_id": "cam3",
+      "config": {
+        "lines": {
+          "people_counting": [
+            {
+              "a": [
+                0.2,
+                0.7
+              ],
+              "b": [
+                0.8,
+                0.7
+              ],
+              "in_side": "right",
+              "name": "entry"
+            }
+          ]
+        },
+        "zones": {
+          "intrusion": [
+            {
+              "name": "restricted",
+              "poly": [
+                [
+                  0.1,
+                  0.1
+                ],
+                [
+                  0.8,
+                  0.1
+                ],
+                [
+                  0.8,
+                  0.9
+                ],
+                [
+                  0.1,
+                  0.9
+                ]
+              ]
+            }
+          ]
+        }
+      },
+      "edges": [
+        [
+          "camera_source",
+          "decode"
+        ],
+        [
+          "decode",
+          "person_detector"
+        ],
+        [
+          "person_detector",
+          "person_tracker"
+        ],
+        [
+          "person_tracker",
+          "intrusion"
+        ],
+        [
+          "intrusion",
+          "event_sink"
+        ],
+        [
+          "person_tracker",
+          "people_counting"
+        ],
+        [
+          "people_counting",
+          "event_sink"
+        ]
+      ],
+      "feature_flags": {
+        "body": false,
+        "face": false,
+        "gait": false,
+        "ocr": false,
+        "person_detect": true,
+        "plate": false,
+        "reid": false,
+        "track": true,
+        "vehicle_detect": false
+      },
+      "fps": 10.0,
+      "nodes": [
+        "camera_source",
+        "decode",
+        "person_detector",
+        "person_tracker",
+        "intrusion",
+        "people_counting",
+        "event_sink"
+      ],
+      "plugins": [
+        "intrusion",
+        "people_counting"
+      ],
+      "required_data": [
+        "person_tracks",
+        "zone_geometry",
+        "line_geometry"
+      ],
+      "required_models": [
+        "person_detector"
+      ],
+      "required_services": [],
+      "required_state": [],
+      "solution_pack": "surveillance",
+      "source": "rtsp://example/cam3"
+    }
+  ],
+  "edge_id": "intel-box-01",
+  "revision": 1,
+  "shared_services": [
+    {
+      "api_tags": {
+        "health": {
+          "api_version": "edge-api/v1",
+          "device": "NPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "body_embedder",
+          "solution_pack": "surveillance",
+          "tag": "health.runtime",
+          "topic": "intel-box-01.surveillance.body_embedder.health.runtime"
+        },
+        "metrics": {
+          "api_version": "edge-api/v1",
+          "device": "NPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "body_embedder",
+          "solution_pack": "surveillance",
+          "tag": "metric.runtime",
+          "topic": "intel-box-01.surveillance.body_embedder.metric.runtime"
+        }
+      },
+      "device": "NPU",
+      "models": [
+        "body_reid_embedder"
+      ],
+      "name": "body_embedder",
+      "solution_pack": "surveillance",
+      "state": []
+    },
+    {
+      "api_tags": {
+        "health": {
+          "api_version": "edge-api/v1",
+          "device": "CPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "enrolled_face_gallery",
+          "solution_pack": "surveillance",
+          "tag": "health.runtime",
+          "topic": "intel-box-01.surveillance.enrolled_face_gallery.health.runtime"
+        },
+        "metrics": {
+          "api_version": "edge-api/v1",
+          "device": "CPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "enrolled_face_gallery",
+          "solution_pack": "surveillance",
+          "tag": "metric.runtime",
+          "topic": "intel-box-01.surveillance.enrolled_face_gallery.metric.runtime"
+        }
+      },
+      "device": "CPU",
+      "models": [],
+      "name": "enrolled_face_gallery",
+      "solution_pack": "surveillance",
+      "state": [
+        "enrolled_face_gallery"
+      ]
+    },
+    {
+      "api_tags": {
+        "health": {
+          "api_version": "edge-api/v1",
+          "device": "GPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "face_embedder",
+          "solution_pack": "surveillance",
+          "tag": "health.runtime",
+          "topic": "intel-box-01.surveillance.face_embedder.health.runtime"
+        },
+        "metrics": {
+          "api_version": "edge-api/v1",
+          "device": "GPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "face_embedder",
+          "solution_pack": "surveillance",
+          "tag": "metric.runtime",
+          "topic": "intel-box-01.surveillance.face_embedder.metric.runtime"
+        }
+      },
+      "device": "GPU",
+      "models": [
+        "face_embedder"
+      ],
+      "name": "face_embedder",
+      "solution_pack": "surveillance",
+      "state": []
+    },
+    {
+      "api_tags": {
+        "health": {
+          "api_version": "edge-api/v1",
+          "device": "NPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "gait_embedder",
+          "solution_pack": "surveillance",
+          "tag": "health.runtime",
+          "topic": "intel-box-01.surveillance.gait_embedder.health.runtime"
+        },
+        "metrics": {
+          "api_version": "edge-api/v1",
+          "device": "NPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "gait_embedder",
+          "solution_pack": "surveillance",
+          "tag": "metric.runtime",
+          "topic": "intel-box-01.surveillance.gait_embedder.metric.runtime"
+        }
+      },
+      "device": "NPU",
+      "models": [
+        "gait_embedder"
+      ],
+      "name": "gait_embedder",
+      "solution_pack": "surveillance",
+      "state": []
+    },
+    {
+      "api_tags": {
+        "health": {
+          "api_version": "edge-api/v1",
+          "device": "CPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "global_reid_service",
+          "solution_pack": "surveillance",
+          "tag": "health.runtime",
+          "topic": "intel-box-01.surveillance.global_reid_service.health.runtime"
+        },
+        "metrics": {
+          "api_version": "edge-api/v1",
+          "device": "CPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "global_reid_service",
+          "solution_pack": "surveillance",
+          "tag": "metric.runtime",
+          "topic": "intel-box-01.surveillance.global_reid_service.metric.runtime"
+        }
+      },
+      "device": "CPU",
+      "models": [],
+      "name": "global_reid_service",
+      "solution_pack": "surveillance",
+      "state": [
+        "reid_gallery",
+        "persistent_identity_store"
+      ]
+    },
+    {
+      "api_tags": {
+        "health": {
+          "api_version": "edge-api/v1",
+          "device": "CPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "identity_anchor",
+          "solution_pack": "surveillance",
+          "tag": "health.runtime",
+          "topic": "intel-box-01.surveillance.identity_anchor.health.runtime"
+        },
+        "metrics": {
+          "api_version": "edge-api/v1",
+          "device": "CPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "identity_anchor",
+          "solution_pack": "surveillance",
+          "tag": "metric.runtime",
+          "topic": "intel-box-01.surveillance.identity_anchor.metric.runtime"
+        }
+      },
+      "device": "CPU",
+      "models": [],
+      "name": "identity_anchor",
+      "solution_pack": "surveillance",
+      "state": [
+        "identity_store"
+      ]
+    },
+    {
+      "api_tags": {
+        "health": {
+          "api_version": "edge-api/v1",
+          "device": "GPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "person_detector",
+          "solution_pack": "surveillance",
+          "tag": "health.runtime",
+          "topic": "intel-box-01.surveillance.person_detector.health.runtime"
+        },
+        "metrics": {
+          "api_version": "edge-api/v1",
+          "device": "GPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "person_detector",
+          "solution_pack": "surveillance",
+          "tag": "metric.runtime",
+          "topic": "intel-box-01.surveillance.person_detector.metric.runtime"
+        }
+      },
+      "device": "GPU",
+      "models": [
+        "person_detector"
+      ],
+      "name": "person_detector",
+      "solution_pack": "surveillance",
+      "state": []
+    }
+  ],
+  "solution_pack": "surveillance",
+  "status": "accepted",
+  "warnings": []
+}

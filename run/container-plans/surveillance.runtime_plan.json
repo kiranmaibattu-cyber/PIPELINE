@@ -1,0 +1,446 @@
+{
+  "cameras": [
+    {
+      "apps": [
+        "reid"
+      ],
+      "camera_id": "cam1",
+      "config": {},
+      "edges": [
+        [
+          "camera_source",
+          "decode"
+        ],
+        [
+          "decode",
+          "person_detector"
+        ],
+        [
+          "person_detector",
+          "person_tracker"
+        ],
+        [
+          "person_tracker",
+          "person_cropper"
+        ],
+        [
+          "person_cropper",
+          "body_embedder"
+        ],
+        [
+          "person_tracker",
+          "face_cropper"
+        ],
+        [
+          "face_cropper",
+          "face_embedder"
+        ],
+        [
+          "person_tracker",
+          "gait_embedder"
+        ],
+        [
+          "body_embedder",
+          "global_reid_service"
+        ],
+        [
+          "face_embedder",
+          "global_reid_service"
+        ],
+        [
+          "gait_embedder",
+          "global_reid_service"
+        ],
+        [
+          "global_reid_service",
+          "event_sink"
+        ]
+      ],
+      "feature_flags": {
+        "body": true,
+        "face": true,
+        "gait": true,
+        "ocr": false,
+        "person_detect": true,
+        "plate": false,
+        "reid": true,
+        "track": true,
+        "vehicle_detect": false
+      },
+      "fps": 10.0,
+      "nodes": [
+        "camera_source",
+        "decode",
+        "person_detector",
+        "person_tracker",
+        "person_cropper",
+        "body_embedder",
+        "face_cropper",
+        "face_embedder",
+        "gait_embedder",
+        "global_reid_service",
+        "event_sink"
+      ],
+      "plugins": [
+        "reid"
+      ],
+      "required_data": [
+        "person_tracks",
+        "body_embeddings",
+        "face_embeddings",
+        "gait_embeddings"
+      ],
+      "required_models": [
+        "person_detector",
+        "body_reid_embedder",
+        "face_embedder",
+        "gait_embedder"
+      ],
+      "required_services": [
+        "global_reid_service"
+      ],
+      "required_state": [
+        "reid_gallery",
+        "persistent_identity_store"
+      ],
+      "solution_pack": "surveillance",
+      "source": "rtsp://example/cam1"
+    },
+    {
+      "apps": [
+        "reid",
+        "face_recognition",
+        "intrusion"
+      ],
+      "camera_id": "cam2",
+      "config": {},
+      "edges": [
+        [
+          "camera_source",
+          "decode"
+        ],
+        [
+          "decode",
+          "person_detector"
+        ],
+        [
+          "person_detector",
+          "person_tracker"
+        ],
+        [
+          "person_tracker",
+          "person_cropper"
+        ],
+        [
+          "person_cropper",
+          "body_embedder"
+        ],
+        [
+          "person_tracker",
+          "face_cropper"
+        ],
+        [
+          "face_cropper",
+          "face_embedder"
+        ],
+        [
+          "person_tracker",
+          "gait_embedder"
+        ],
+        [
+          "body_embedder",
+          "global_reid_service"
+        ],
+        [
+          "face_embedder",
+          "global_reid_service"
+        ],
+        [
+          "gait_embedder",
+          "global_reid_service"
+        ],
+        [
+          "face_embedder",
+          "enrolled_face_gallery"
+        ],
+        [
+          "global_reid_service",
+          "identity_anchor"
+        ],
+        [
+          "enrolled_face_gallery",
+          "identity_anchor"
+        ],
+        [
+          "identity_anchor",
+          "face_recognition"
+        ],
+        [
+          "face_recognition",
+          "event_sink"
+        ],
+        [
+          "global_reid_service",
+          "event_sink"
+        ],
+        [
+          "person_tracker",
+          "intrusion"
+        ],
+        [
+          "intrusion",
+          "event_sink"
+        ]
+      ],
+      "feature_flags": {
+        "body": true,
+        "face": true,
+        "gait": true,
+        "ocr": false,
+        "person_detect": true,
+        "plate": false,
+        "reid": true,
+        "track": true,
+        "vehicle_detect": false
+      },
+      "fps": 10.0,
+      "nodes": [
+        "camera_source",
+        "decode",
+        "person_detector",
+        "person_tracker",
+        "person_cropper",
+        "body_embedder",
+        "face_cropper",
+        "face_embedder",
+        "gait_embedder",
+        "global_reid_service",
+        "enrolled_face_gallery",
+        "identity_anchor",
+        "face_recognition",
+        "intrusion",
+        "event_sink"
+      ],
+      "plugins": [
+        "reid",
+        "face_recognition",
+        "intrusion"
+      ],
+      "required_data": [
+        "person_tracks",
+        "body_embeddings",
+        "face_embeddings",
+        "global_person_id",
+        "zone_geometry",
+        "gait_embeddings"
+      ],
+      "required_models": [
+        "person_detector",
+        "body_reid_embedder",
+        "face_embedder",
+        "gait_embedder"
+      ],
+      "required_services": [
+        "global_reid_service",
+        "enrolled_face_gallery",
+        "identity_anchor"
+      ],
+      "required_state": [
+        "reid_gallery",
+        "persistent_identity_store",
+        "enrolled_face_gallery",
+        "identity_store"
+      ],
+      "solution_pack": "surveillance",
+      "source": "rtsp://example/cam2"
+    },
+    {
+      "apps": [
+        "intrusion",
+        "people_counting"
+      ],
+      "camera_id": "cam3",
+      "config": {
+        "lines": {
+          "people_counting": [
+            {
+              "a": [
+                0.2,
+                0.7
+              ],
+              "b": [
+                0.8,
+                0.7
+              ],
+              "in_side": "right",
+              "name": "entry"
+            }
+          ]
+        },
+        "zones": {
+          "intrusion": [
+            {
+              "name": "restricted",
+              "poly": [
+                [
+                  0.1,
+                  0.1
+                ],
+                [
+                  0.8,
+                  0.1
+                ],
+                [
+                  0.8,
+                  0.9
+                ],
+                [
+                  0.1,
+                  0.9
+                ]
+              ]
+            }
+          ]
+        }
+      },
+      "edges": [
+        [
+          "camera_source",
+          "decode"
+        ],
+        [
+          "decode",
+          "person_detector"
+        ],
+        [
+          "person_detector",
+          "person_tracker"
+        ],
+        [
+          "person_tracker",
+          "intrusion"
+        ],
+        [
+          "intrusion",
+          "event_sink"
+        ],
+        [
+          "person_tracker",
+          "people_counting"
+        ],
+        [
+          "people_counting",
+          "event_sink"
+        ]
+      ],
+      "feature_flags": {
+        "body": false,
+        "face": false,
+        "gait": false,
+        "ocr": false,
+        "person_detect": true,
+        "plate": false,
+        "reid": false,
+        "track": true,
+        "vehicle_detect": false
+      },
+      "fps": 10.0,
+      "nodes": [
+        "camera_source",
+        "decode",
+        "person_detector",
+        "person_tracker",
+        "intrusion",
+        "people_counting",
+        "event_sink"
+      ],
+      "plugins": [
+        "intrusion",
+        "people_counting"
+      ],
+      "required_data": [
+        "person_tracks",
+        "zone_geometry",
+        "line_geometry"
+      ],
+      "required_models": [
+        "person_detector"
+      ],
+      "required_services": [],
+      "required_state": [],
+      "solution_pack": "surveillance",
+      "source": "rtsp://example/cam3"
+    }
+  ],
+  "edge_id": "intel-box-01",
+  "revision": 1,
+  "shared_services": [
+    {
+      "device": "NPU",
+      "models": [
+        "body_reid_embedder"
+      ],
+      "name": "body_embedder",
+      "solution_pack": "surveillance",
+      "state": []
+    },
+    {
+      "device": "CPU",
+      "models": [],
+      "name": "enrolled_face_gallery",
+      "solution_pack": "surveillance",
+      "state": [
+        "enrolled_face_gallery"
+      ]
+    },
+    {
+      "device": "NPU",
+      "models": [
+        "face_embedder"
+      ],
+      "name": "face_embedder",
+      "solution_pack": "surveillance",
+      "state": []
+    },
+    {
+      "device": "NPU",
+      "models": [
+        "gait_embedder"
+      ],
+      "name": "gait_embedder",
+      "solution_pack": "surveillance",
+      "state": []
+    },
+    {
+      "device": "CPU",
+      "models": [],
+      "name": "global_reid_service",
+      "solution_pack": "surveillance",
+      "state": [
+        "reid_gallery",
+        "persistent_identity_store"
+      ]
+    },
+    {
+      "device": "CPU",
+      "models": [],
+      "name": "identity_anchor",
+      "solution_pack": "surveillance",
+      "state": [
+        "identity_store"
+      ]
+    },
+    {
+      "device": "GPU",
+      "models": [
+        "person_detector"
+      ],
+      "name": "person_detector",
+      "solution_pack": "surveillance",
+      "state": []
+    }
+  ],
+  "solution_pack": "surveillance",
+  "status": "accepted",
+  "warnings": []
+}

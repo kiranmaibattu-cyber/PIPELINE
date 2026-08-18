@@ -1,0 +1,45 @@
+# Vehicle MTMC config — MTID two-view intersection (drone + infrastructure).
+videos:
+  ch9_5min: "MTMC/vehicle/data/drone.mp4"          # cam A (aerial)
+  ch10_5min: "MTMC/vehicle/data/infrastructure.mp4" # cam B (pole)
+
+camera_labels: ["drone", "infra"]
+
+benchmark:
+  detector: "models/yolov8n.pt"
+  confidence: 0.35
+  iou: 0.50
+  class_ids: [2, 3, 5, 7]      # car, motorcycle, bus, truck
+  process_every_n_frames: 10
+  delay_seconds: 30
+  output_fps: 3
+  max_frames: 0
+
+defaults:
+  tracker: "iou"
+  tta_flip: true
+  smoothing_window: 5
+  gallery:
+    policy: "quality_topk"     # Part-1 winner policy
+    k: 10
+    match: "min"
+    max_age_seconds: 180
+  spatial_gate: "none"
+  rerank: "none"
+  fusion: "none"               # no faces on vehicles
+
+bev_calibration: "configs/bev_calibration.json"   # unused (different scene)
+calibration_file: "MTMC/reports/calibrated_thresholds_vehicle.json"
+annotations: "MTMC/vehicle/data/annotations_vehicle.csv"
+
+paths:
+  outputs_dir: "MTMC/outputs"
+  reports_dir: "MTMC/reports"
+
+stage1_embedders:              # vehicle mini-tournament roster
+  - veri_sbs
+  - clip_reid_veri
+  - transreid_veri
+  - osnet_ain                  # person-model control (expected to lose)
+
+stage3_embedders: []

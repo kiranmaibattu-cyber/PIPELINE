@@ -1,0 +1,33 @@
+# BEV calibration. Per camera: 4 floor points in the engine's 640x360 image space + where
+# they land on the shared 2D site map. These are ESTIMATE quads that only GUIDE the click-to-
+# calibrate tool (Map page) -- click the same physical floor spot in the frame then on the
+# map to set the real homography live.
+#
+# TOPOLOGY (user, 2026-07-31): chain ch1 -- ch2 -- ch9 -- ch10, laid left->right on the map.
+#   ch1<->ch2 connected, ch2<->ch9 connected (adjacency / hand-off, floors TOUCH at a border),
+#   ch9<->ch10 = the OVERLAPPING L-hall (~90deg apart, different heights, share a floor area)
+#   -> ch9 and ch10 map to the SAME rect so a person in the shared hall coincides.
+# ch16 not in the chain (user didn't place it) -- parked far right, recalibrate if needed.
+map:
+  w: 1000
+  h: 600
+# camera pairs that TRULY share floor -> cross-cam links by POSITION only here.
+# ch2<->ch9 etc. are chain/adjacency (hand-off by time), NOT overlaps -> not listed.
+overlaps:
+  - [ch9, ch10]
+cameras:
+  ch1:            # chain end -- far left
+    image: [[40, 330], [600, 330], [600, 120], [40, 120]]
+    map:   [[40, 460], [230, 460], [230, 150], [40, 150]]
+  ch2:            # next -- adjacent to ch9 (floors touch at the ch2|ch9 border)
+    image: [[40, 330], [600, 330], [600, 120], [40, 120]]
+    map:   [[250, 460], [440, 460], [440, 150], [250, 150]]
+  ch9:            # OPD hall, adjacent to ch2 on one side, OVERLAPS ch10 on the other
+    image: [[40, 330], [600, 330], [600, 120], [40, 120]]
+    map:   [[460, 460], [760, 460], [760, 150], [460, 150]]
+  ch10:           # SAME hall from the L (~90deg) -> SAME rect as ch9; user clicks fix orientation
+    image: [[150, 330], [600, 330], [600, 120], [150, 120]]
+    map:   [[460, 460], [760, 460], [760, 150], [460, 150]]
+  ch16:           # not in the chain -- parked far right
+    image: [[40, 330], [600, 330], [600, 120], [40, 120]]
+    map:   [[800, 460], [960, 460], [960, 150], [800, 150]]

@@ -1,0 +1,45 @@
+services:
+  edge-agent:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.edge-agent
+    image: pipeline-edge-agent:latest
+    network_mode: host
+    privileged: true
+    volumes:
+      - ../configs:/configs
+      - ../run/plans:/plans
+      - /dev/dri:/dev/dri
+      - /dev/accel:/dev/accel
+    environment:
+      EDGE_ID: intel-box-01
+
+  surveillance-runtime:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.surveillance
+    image: surveillance-edge-runtime:latest
+    network_mode: host
+    profiles: ["runtime"]
+    volumes:
+      - ../run/plans:/plans
+      - ../run/generated/surveillance:/generated/surveillance
+      - ../models/surveillance:/models/surveillance
+      - ../state/surveillance:/state/surveillance
+      - /dev/dri:/dev/dri
+      - /dev/accel:/dev/accel
+
+  traffic-runtime:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.traffic
+    image: traffic-edge-runtime:latest
+    network_mode: host
+    profiles: ["runtime"]
+    volumes:
+      - ../run/plans:/plans
+      - ../run/generated/traffic:/generated/traffic
+      - ../models/traffic:/models/traffic
+      - ../state/traffic:/state/traffic
+      - /dev/dri:/dev/dri
+      - /dev/accel:/dev/accel

@@ -1,0 +1,41 @@
+app_id: reid
+solution_pack: surveillance
+version: 0.1.0
+description: Multimodal person Re-ID with shared global identity.
+requires:
+  data:
+    - person_tracks
+    - body_embeddings
+  services:
+    - global_reid_service
+optional:
+  data:
+    - face_embeddings
+    - gait_embeddings
+models:
+  - person_detector
+  - body_reid_embedder
+  - face_embedder
+  - segmenter
+  - gait_embedder
+state:
+  - reid_gallery
+  - persistent_identity_store
+produces:
+  data:
+    - global_person_id
+  events:
+    - identity_event
+    - cross_camera_identity_event
+hardware:
+  preferred:
+    person_detector: GPU
+    body_reid_embedder: NPU
+    face_embedder: GPU
+    segmenter: GPU
+    gait_embedder: NPU
+    global_reid_service: CPU
+policy:
+  enable_face_fusion: true
+  enable_gait: true
+  body_embed_every_n_frames: 1

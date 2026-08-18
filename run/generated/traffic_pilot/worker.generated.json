@@ -1,0 +1,65 @@
+{
+  "json_streaming": {
+    "enabled": true,
+    "outputs": [
+      {
+        "auth": {
+          "password": ""
+        },
+        "enabled": true,
+        "host": "localhost",
+        "maxlen": 10000,
+        "name": "redis_management",
+        "port": 6379,
+        "stream": "traffic:analytics",
+        "type": "redis"
+      }
+    ],
+    "queue_size": 1000
+  },
+  "models": {
+    "license_plate_ocr": {
+      "backend": "openvino",
+      "batch_size": 128,
+      "stable_char_ratio": 0.75
+    },
+    "plate": {
+      "backend": "openvino",
+      "batch_size": 64,
+      "confidence": 0.25
+    },
+    "vehicle": {
+      "backend": "openvino",
+      "batch_size": "streams",
+      "classes": [
+        "pedestrian",
+        "bicycle",
+        "car",
+        "motorcycle",
+        "bus",
+        "truck"
+      ],
+      "confidence": {
+        "bicycle": 0.25,
+        "bus": 0.25,
+        "car": 0.25,
+        "motorcycle": 0.25,
+        "pedestrian": 0.25,
+        "truck": 0.25
+      },
+      "processing_interval": 0,
+      "tracker": {
+        "bbox_smoothing": 0.25,
+        "class_aware": false,
+        "class_switch_cost": 0.15,
+        "draw_predictions": true,
+        "max_disappeared": 45,
+        "max_distance": 320,
+        "min_iou": 0.01
+      }
+    }
+  },
+  "visualization": {
+    "text_renderer": "pillow"
+  }
+}

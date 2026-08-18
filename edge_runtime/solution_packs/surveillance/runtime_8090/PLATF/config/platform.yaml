@@ -1,0 +1,33 @@
+# PLATF platform configuration.
+# The backbone (detection/tracking/embedding) config still lives in
+# MTMC/configs/*.yaml and is reused; this file configures the PLATF layer.
+
+store:
+  max_age_s: 86400        # drop a Person unseen this long (24h)
+  exemplar_cap: 10        # top-quality exemplars kept per modality per person
+
+# Plugins run in this order (identity FIRST so downstream plugins get a resolved
+# Person). Each entry: name + per-plugin config. Only enabled plugins load.
+plugins:
+  - name: reid
+    enabled: true
+  - name: face
+    enabled: false
+  - name: intrusion
+    enabled: false
+    zones: []             # [{camera, name, polygon:[[x,y]...]}]
+  - name: loitering
+    enabled: false
+    dwell_s: 30
+  - name: counting
+    enabled: false
+    lines: []             # [{camera, name, a:[x,y], b:[x,y]}]
+  - name: absence
+    enabled: false
+    timeout_s: 300
+
+# Storage paths (all under PLATF/).
+paths:
+  galleries: PLATF/galleries
+  cache: PLATF/cache
+  data: PLATF/data

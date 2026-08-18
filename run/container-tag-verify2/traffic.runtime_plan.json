@@ -1,0 +1,505 @@
+{
+  "api_tags": {
+    "graph_status": {
+      "api_version": "edge-api/v1",
+      "direction": "output",
+      "edge_id": "intel-box-01",
+      "payload_type": "application/json",
+      "revision": 1,
+      "solution_pack": "traffic",
+      "tag": "status.graph",
+      "topic": "intel-box-01.traffic.status.graph"
+    },
+    "runtime_health": {
+      "api_version": "edge-api/v1",
+      "direction": "output",
+      "edge_id": "intel-box-01",
+      "payload_type": "application/json",
+      "revision": 1,
+      "solution_pack": "traffic",
+      "tag": "health.runtime",
+      "topic": "intel-box-01.traffic.health.runtime"
+    },
+    "runtime_metrics": {
+      "api_version": "edge-api/v1",
+      "direction": "output",
+      "edge_id": "intel-box-01",
+      "payload_type": "application/json",
+      "revision": 1,
+      "solution_pack": "traffic",
+      "tag": "metric.runtime",
+      "topic": "intel-box-01.traffic.metric.runtime"
+    }
+  },
+  "cameras": [
+    {
+      "api_tags": {
+        "apps": {
+          "anpr": {
+            "api_version": "edge-api/v1",
+            "app_id": "anpr",
+            "camera_id": "cam4",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "traffic",
+            "tag": "output.analytics.event",
+            "topic": "intel-box-01.traffic.cam4.anpr.output.analytics.event"
+          },
+          "vehicle_counting": {
+            "api_version": "edge-api/v1",
+            "app_id": "vehicle_counting",
+            "camera_id": "cam4",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "traffic",
+            "tag": "output.analytics.event",
+            "topic": "intel-box-01.traffic.cam4.vehicle_counting.output.analytics.event"
+          },
+          "wrong_way": {
+            "api_version": "edge-api/v1",
+            "app_id": "wrong_way",
+            "camera_id": "cam4",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "traffic",
+            "tag": "output.analytics.event",
+            "topic": "intel-box-01.traffic.cam4.wrong_way.output.analytics.event"
+          }
+        },
+        "frame_overlay": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam4",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "image/jpeg",
+          "revision": 1,
+          "solution_pack": "traffic",
+          "tag": "output.frame.overlay",
+          "topic": "intel-box-01.traffic.cam4.output.frame.overlay"
+        },
+        "input": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam4",
+          "direction": "input",
+          "edge_id": "intel-box-01",
+          "payload_type": "rtsp",
+          "revision": 1,
+          "solution_pack": "traffic",
+          "tag": "input.camera.stream",
+          "topic": "intel-box-01.traffic.cam4.input.camera.stream"
+        },
+        "metrics": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam4",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "solution_pack": "traffic",
+          "tag": "metric.camera",
+          "topic": "intel-box-01.traffic.cam4.metric.camera"
+        },
+        "snapshot": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam4",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "image/jpeg",
+          "revision": 1,
+          "solution_pack": "traffic",
+          "tag": "output.event.snapshot",
+          "topic": "intel-box-01.traffic.cam4.output.event.snapshot"
+        }
+      },
+      "apps": [
+        "anpr",
+        "wrong_way",
+        "vehicle_counting"
+      ],
+      "camera_id": "cam4",
+      "config": {},
+      "edges": [
+        [
+          "camera_source",
+          "decode"
+        ],
+        [
+          "decode",
+          "vehicle_detector"
+        ],
+        [
+          "vehicle_detector",
+          "vehicle_tracker"
+        ],
+        [
+          "vehicle_detector",
+          "plate_detector"
+        ],
+        [
+          "plate_detector",
+          "ocr_service"
+        ],
+        [
+          "ocr_service",
+          "anpr"
+        ],
+        [
+          "anpr",
+          "event_sink"
+        ],
+        [
+          "vehicle_tracker",
+          "wrong_way"
+        ],
+        [
+          "wrong_way",
+          "event_sink"
+        ],
+        [
+          "vehicle_tracker",
+          "vehicle_counting"
+        ],
+        [
+          "vehicle_counting",
+          "event_sink"
+        ]
+      ],
+      "feature_flags": {
+        "body": false,
+        "face": false,
+        "gait": false,
+        "ocr": true,
+        "person_detect": false,
+        "plate": true,
+        "reid": false,
+        "track": true,
+        "vehicle_detect": true
+      },
+      "fps": 8.0,
+      "nodes": [
+        "camera_source",
+        "decode",
+        "vehicle_detector",
+        "vehicle_tracker",
+        "plate_detector",
+        "ocr_service",
+        "anpr",
+        "wrong_way",
+        "vehicle_counting",
+        "event_sink"
+      ],
+      "plugins": [
+        "anpr",
+        "wrong_way",
+        "vehicle_counting"
+      ],
+      "required_data": [
+        "vehicle_tracks",
+        "plate_detections",
+        "plate_ocr",
+        "direction_line_geometry",
+        "line_geometry"
+      ],
+      "required_models": [
+        "vehicle_detector",
+        "plate_detector",
+        "plate_ocr"
+      ],
+      "required_services": [],
+      "required_state": [
+        "plate_read_history"
+      ],
+      "solution_pack": "traffic",
+      "source": "rtsp://example/cam4"
+    },
+    {
+      "api_tags": {
+        "apps": {
+          "illegal_parking": {
+            "api_version": "edge-api/v1",
+            "app_id": "illegal_parking",
+            "camera_id": "cam5",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "traffic",
+            "tag": "output.analytics.event",
+            "topic": "intel-box-01.traffic.cam5.illegal_parking.output.analytics.event"
+          },
+          "pedestrian_counting": {
+            "api_version": "edge-api/v1",
+            "app_id": "pedestrian_counting",
+            "camera_id": "cam5",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "traffic",
+            "tag": "output.analytics.event",
+            "topic": "intel-box-01.traffic.cam5.pedestrian_counting.output.analytics.event"
+          },
+          "vehicle_counting": {
+            "api_version": "edge-api/v1",
+            "app_id": "vehicle_counting",
+            "camera_id": "cam5",
+            "direction": "output",
+            "edge_id": "intel-box-01",
+            "payload_type": "application/json",
+            "revision": 1,
+            "solution_pack": "traffic",
+            "tag": "output.analytics.event",
+            "topic": "intel-box-01.traffic.cam5.vehicle_counting.output.analytics.event"
+          }
+        },
+        "frame_overlay": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam5",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "image/jpeg",
+          "revision": 1,
+          "solution_pack": "traffic",
+          "tag": "output.frame.overlay",
+          "topic": "intel-box-01.traffic.cam5.output.frame.overlay"
+        },
+        "input": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam5",
+          "direction": "input",
+          "edge_id": "intel-box-01",
+          "payload_type": "rtsp",
+          "revision": 1,
+          "solution_pack": "traffic",
+          "tag": "input.camera.stream",
+          "topic": "intel-box-01.traffic.cam5.input.camera.stream"
+        },
+        "metrics": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam5",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "solution_pack": "traffic",
+          "tag": "metric.camera",
+          "topic": "intel-box-01.traffic.cam5.metric.camera"
+        },
+        "snapshot": {
+          "api_version": "edge-api/v1",
+          "camera_id": "cam5",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "image/jpeg",
+          "revision": 1,
+          "solution_pack": "traffic",
+          "tag": "output.event.snapshot",
+          "topic": "intel-box-01.traffic.cam5.output.event.snapshot"
+        }
+      },
+      "apps": [
+        "vehicle_counting",
+        "pedestrian_counting",
+        "illegal_parking"
+      ],
+      "camera_id": "cam5",
+      "config": {},
+      "edges": [
+        [
+          "camera_source",
+          "decode"
+        ],
+        [
+          "decode",
+          "vehicle_detector"
+        ],
+        [
+          "vehicle_detector",
+          "vehicle_tracker"
+        ],
+        [
+          "vehicle_tracker",
+          "vehicle_counting"
+        ],
+        [
+          "vehicle_counting",
+          "event_sink"
+        ],
+        [
+          "vehicle_tracker",
+          "pedestrian_counting"
+        ],
+        [
+          "pedestrian_counting",
+          "event_sink"
+        ],
+        [
+          "vehicle_tracker",
+          "illegal_parking"
+        ],
+        [
+          "illegal_parking",
+          "event_sink"
+        ]
+      ],
+      "feature_flags": {
+        "body": false,
+        "face": false,
+        "gait": false,
+        "ocr": false,
+        "person_detect": false,
+        "plate": false,
+        "reid": false,
+        "track": true,
+        "vehicle_detect": true
+      },
+      "fps": 8.0,
+      "nodes": [
+        "camera_source",
+        "decode",
+        "vehicle_detector",
+        "vehicle_tracker",
+        "vehicle_counting",
+        "pedestrian_counting",
+        "illegal_parking",
+        "event_sink"
+      ],
+      "plugins": [
+        "vehicle_counting",
+        "pedestrian_counting",
+        "illegal_parking"
+      ],
+      "required_data": [
+        "vehicle_tracks",
+        "line_geometry",
+        "pedestrian_tracks",
+        "parking_zone_geometry"
+      ],
+      "required_models": [
+        "vehicle_detector"
+      ],
+      "required_services": [],
+      "required_state": [],
+      "solution_pack": "traffic",
+      "source": "rtsp://example/cam5"
+    }
+  ],
+  "edge_id": "intel-box-01",
+  "revision": 1,
+  "shared_services": [
+    {
+      "api_tags": {
+        "health": {
+          "api_version": "edge-api/v1",
+          "device": "GPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "ocr_service",
+          "solution_pack": "traffic",
+          "tag": "health.runtime",
+          "topic": "intel-box-01.traffic.ocr_service.health.runtime"
+        },
+        "metrics": {
+          "api_version": "edge-api/v1",
+          "device": "GPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "ocr_service",
+          "solution_pack": "traffic",
+          "tag": "metric.runtime",
+          "topic": "intel-box-01.traffic.ocr_service.metric.runtime"
+        }
+      },
+      "device": "GPU",
+      "models": [
+        "plate_ocr"
+      ],
+      "name": "ocr_service",
+      "solution_pack": "traffic",
+      "state": []
+    },
+    {
+      "api_tags": {
+        "health": {
+          "api_version": "edge-api/v1",
+          "device": "NPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "plate_detector",
+          "solution_pack": "traffic",
+          "tag": "health.runtime",
+          "topic": "intel-box-01.traffic.plate_detector.health.runtime"
+        },
+        "metrics": {
+          "api_version": "edge-api/v1",
+          "device": "NPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "plate_detector",
+          "solution_pack": "traffic",
+          "tag": "metric.runtime",
+          "topic": "intel-box-01.traffic.plate_detector.metric.runtime"
+        }
+      },
+      "device": "NPU",
+      "models": [
+        "plate_detector"
+      ],
+      "name": "plate_detector",
+      "solution_pack": "traffic",
+      "state": []
+    },
+    {
+      "api_tags": {
+        "health": {
+          "api_version": "edge-api/v1",
+          "device": "GPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "vehicle_detector",
+          "solution_pack": "traffic",
+          "tag": "health.runtime",
+          "topic": "intel-box-01.traffic.vehicle_detector.health.runtime"
+        },
+        "metrics": {
+          "api_version": "edge-api/v1",
+          "device": "GPU",
+          "direction": "output",
+          "edge_id": "intel-box-01",
+          "payload_type": "application/json",
+          "revision": 1,
+          "service": "vehicle_detector",
+          "solution_pack": "traffic",
+          "tag": "metric.runtime",
+          "topic": "intel-box-01.traffic.vehicle_detector.metric.runtime"
+        }
+      },
+      "device": "GPU",
+      "models": [
+        "vehicle_detector"
+      ],
+      "name": "vehicle_detector",
+      "solution_pack": "traffic",
+      "state": []
+    }
+  ],
+  "solution_pack": "traffic",
+  "status": "accepted",
+  "warnings": []
+}

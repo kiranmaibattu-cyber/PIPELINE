@@ -1,0 +1,11 @@
+# Phase 1: Intel host + Axelera Metis AIPU + Arc iGPU (hybrid inference).
+#
+# Hybrid split (per-stage, see config/worker.json `models.<m>.backend`):
+#   - vehicle (+ optionally plate) -> Axelera AIPU  (Voyager runtime wheel,
+#     installed from the Axelera apt repo by the Dockerfile, NOT via pip).
+#   - plate / CCT OCR -> OpenVINO on the Intel Arc iGPU / NPU (openvino below).
+# onnxruntime is kept as the CPU fallback OCR path.
+
+-r base.txt
+onnxruntime==1.23.2
+openvino==2026.2.0

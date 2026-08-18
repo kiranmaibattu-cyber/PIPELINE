@@ -1,0 +1,32 @@
+app_id: face_recognition
+solution_pack: surveillance
+version: 0.1.0
+description: Enrolled-gallery face recognition anchored to global person identity.
+requires:
+  data:
+    - person_tracks
+    - face_embeddings
+    - global_person_id
+  services:
+    - enrolled_face_gallery
+    - identity_anchor
+models:
+  - person_detector
+  - face_embedder
+state:
+  - enrolled_face_gallery
+  - identity_store
+produces:
+  data:
+    - recognized_identity
+  events:
+    - face_recognized_event
+    - unauthorised_event
+hardware:
+  preferred:
+    person_detector: GPU
+    face_embedder: GPU
+    identity_anchor: CPU
+policy:
+  requires_global_id: true
+  persist_recognized_identity: true

@@ -1,0 +1,75 @@
+{
+  "autocall": {
+    "enabled": false
+  },
+  "face_groups": {},
+  "mapper": {
+    "on": true
+  },
+  "usecases": {
+    "absence": [],
+    "counting": [
+      "cam3"
+    ],
+    "face": [
+      "cam2"
+    ],
+    "intrusion": [
+      "cam2",
+      "cam3"
+    ],
+    "loitering": [],
+    "reid": [
+      "cam1",
+      "cam2"
+    ]
+  },
+  "zones": {
+    "cameras": {
+      "cam3": {
+        "lines": [
+          {
+            "a": [
+              0.2,
+              0.7
+            ],
+            "b": [
+              0.8,
+              0.7
+            ],
+            "in_side": "right",
+            "name": "entry"
+          }
+        ],
+        "zones": [
+          {
+            "kind": "intrusion",
+            "name": "restricted",
+            "poly": [
+              [
+                0.1,
+                0.1
+              ],
+              [
+                0.8,
+                0.1
+              ],
+              [
+                0.8,
+                0.9
+              ],
+              [
+                0.1,
+                0.9
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "frame": [
+      1920,
+      1080
+    ]
+  }
+}
