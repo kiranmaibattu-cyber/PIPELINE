@@ -1,0 +1,30 @@
+{
+  "edge_id": "intel-box-01",
+  "revision": 5,
+  "management_url": "https://management.example.com",
+  "model_bundles": {
+    "surveillance": {
+      "version": "surveillance-intel-v1",
+      "url": "https://management.example.com/api/v1/model-bundles/surveillance-intel-v1.tar.gz",
+      "sha256": "REPLACE_WITH_ARCHIVE_SHA256",
+      "archive_format": "tar.gz",
+      "auth_token_env": "PIPELINE_MODEL_TOKEN"
+    },
+    "traffic": {
+      "version": "traffic-intel-v1",
+      "url": "https://management.example.com/api/v1/model-bundles/traffic-intel-v1.tar.gz",
+      "sha256": "REPLACE_WITH_ARCHIVE_SHA256",
+      "archive_format": "tar.gz",
+      "auth_token_env": "PIPELINE_MODEL_TOKEN"
+    }
+  },
+  "cameras": [
+    {
+      "camera_id": "cam1",
+      "source": "rtsp://camera.example/stream",
+      "solution_pack": "surveillance",
+      "fps": 10,
+      "apps": ["reid", "face_recognition"]
+    }
+  ]
+}

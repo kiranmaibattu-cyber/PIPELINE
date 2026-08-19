@@ -11,6 +11,8 @@ from edge_runtime.graph.hardware_probe import HardwareProbe
 from edge_runtime.graph.manifest_loader import ManifestRepository
 from edge_runtime.graph.planner import CapacityPlanner, PlacementPolicy, RuntimePlanner
 from edge_runtime.graph.serializer import GraphPlanWriter
+from edge_runtime.model_registry.delivery import HttpBundleDownloader, ModelBundleResolver, ModelBundleStore
+from edge_runtime.model_registry.manager import ModelManager
 from edge_runtime.model_registry.registry import ModelPreparer, ModelRegistry
 from edge_runtime.runtime.event_uploader import EventUploader, ManagementEvent
 from edge_runtime.runtime.supervisor import RuntimeSupervisor
@@ -27,7 +29,7 @@ class EdgeAgent:
         graph_builder: EdgeGraphBuilder,
         planner: RuntimePlanner,
         writer: GraphPlanWriter,
-        model_preparer: ModelPreparer,
+        model_manager: ModelManager,
         supervisor: RuntimeSupervisor,
         uploader: EventUploader,
     ) -> None:
@@ -37,7 +39,7 @@ class EdgeAgent:
         self._graph_builder = graph_builder
         self._planner = planner
         self._writer = writer
-        self._model_preparer = model_preparer
+        self._model_manager = model_manager
         self._supervisor = supervisor
         self._uploader = uploader
 
@@ -46,9 +48,34 @@ class EdgeAgent:
         hardware = self._hardware_probe.probe(desired.edge_id)
         camera_graphs = self._graph_builder.build_camera_graphs(desired)
         compiled = self._planner.compile(desired, hardware, camera_graphs)
-        model_results = self._model_preparer.prepare(compiled.solution_plans)
+        try:
+            prepared_models = self._model_manager.prepare(
+                compiled.solution_plans,
+                desired.model_bundles,
+            )
+        except (FileNotFoundError, OSError, KeyError, ValueError) as exc:
+            referenced_packs = sorted(
+                {reference.solution_pack for reference in desired.model_bundles}
+                or {plan.solution_pack for plan in compiled.solution_plans}
+            )
+            for solution_pack in referenced_packs:
+                self._uploader.publish(ManagementEvent(
+                    edge_id=desired.edge_id,
+                    revision=desired.revision,
+                    event_type="model_delivery_failed",
+                    payload={
+                        "solution_pack": solution_pack,
+                        "status": "failed",
+                        "reason": str(exc),
+                    },
+                ))
+            print(f"model delivery failed: {exc}")
+            return 2
         self._writer.write(compiled, output_dir)
-        supervision = self._supervisor.apply(compiled.solution_plans)
+        supervision = self._supervisor.apply(
+            compiled.solution_plans,
+            prepared_models.runtime_mounts,
+        )
         hardware_payload = {
             "devices": list(hardware.devices),
             "runtimes": list(hardware.runtimes),
@@ -58,7 +85,7 @@ class EdgeAgent:
         for plan in compiled.solution_plans:
             plan_models = [
                 asdict(result)
-                for result in model_results
+                for result in prepared_models.results
                 if result.solution_pack == plan.solution_pack
             ]
             self._uploader.publish(ManagementEvent(
@@ -76,6 +103,7 @@ class EdgeAgent:
                     ],
                     "api_tags": plan.api_tags,
                     "model_bundles": plan_models,
+                    "model_delivery": prepared_models.deliveries.get(plan.solution_pack, {}),
                     "hardware": hardware_payload,
                     "supervision": [
                         result.__dict__
@@ -102,6 +130,13 @@ def build_agent(args) -> EdgeAgent:
     graph_builder = EdgeGraphBuilder(camera_builder)
     planner = RuntimePlanner(PlacementPolicy(manifests), CapacityPlanner())
     output_dir = Path(args.output_dir).resolve()
+    local_models_root = Path(args.models_root or (host_root / "models")).resolve()
+    host_models_root = Path(args.host_models_root or (host_root / "models")).resolve()
+    registry = ModelRegistry.from_file(root / "edge_runtime" / "model_registry" / "models.yaml")
+    model_resolver = ModelBundleResolver(
+        local_models_root,
+        ModelBundleStore(local_models_root, HttpBundleDownloader()),
+    )
     return EdgeAgent(
         desired_loader=DesiredStateLoader(),
         manifest_repo=manifests,
@@ -109,9 +144,11 @@ def build_agent(args) -> EdgeAgent:
         graph_builder=graph_builder,
         planner=planner,
         writer=GraphPlanWriter(),
-        model_preparer=ModelPreparer(
-            ModelRegistry.from_file(root / "edge_runtime" / "model_registry" / "models.yaml"),
-            Path(args.models_root or (host_root / "models")).resolve(),
+        model_manager=ModelManager(
+            resolver=model_resolver,
+            verifier=ModelPreparer(registry, local_models_root),
+            local_models_root=local_models_root,
+            host_models_root=host_models_root,
         ),
         supervisor=RuntimeSupervisor(output_dir, root=host_root, dry_run=not args.apply, engine=args.container_engine),
         uploader=EventUploader(output_dir / "management_outbox.jsonl"),
@@ -125,6 +162,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--desired-state", required=True, help="desired_state JSON path")
     parser.add_argument("--output-dir", default="/plans", help="compiled plan output directory")
     parser.add_argument("--models-root", help="host or mounted root containing external model bundles")
+    parser.add_argument(
+        "--host-models-root",
+        help="same model root as seen by the host container engine (defaults to HOST_ROOT/models)",
+    )
     parser.add_argument("--container-engine", default="docker", help="docker-compatible CLI to use in generated commands")
     parser.add_argument("--apply", action="store_true", help="apply plan instead of dry-run")
     return parser.parse_args()

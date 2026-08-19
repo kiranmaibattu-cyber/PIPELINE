@@ -32,11 +32,22 @@ class CameraDesiredState:
 
 
 @dataclass(frozen=True)
+class ModelBundleReference:
+    solution_pack: str
+    version: str
+    url: str
+    sha256: str
+    archive_format: str = "tar.gz"
+    auth_token_env: str | None = None
+
+
+@dataclass(frozen=True)
 class DesiredState:
     edge_id: str
     revision: int
     cameras: tuple[CameraDesiredState, ...]
     management_url: str | None = None
+    model_bundles: tuple[ModelBundleReference, ...] = ()
 
 
 @dataclass(frozen=True)

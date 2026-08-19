@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import shutil
 import subprocess
+from typing import Mapping
 
 from edge_runtime.graph.models import SolutionRuntimePlan
 from edge_runtime.runtime.container_commands import ContainerCommand, ContainerCommandBuilder, IMAGE_BY_PACK
@@ -28,7 +29,12 @@ class RuntimeSupervisor:
         self._dry_run = dry_run
         self._engine = engine
 
-    def apply(self, plans: tuple[SolutionRuntimePlan, ...]) -> tuple[SupervisionResult, ...]:
+    def apply(
+        self,
+        plans: tuple[SolutionRuntimePlan, ...],
+        model_mounts: Mapping[str, Path] | None = None,
+    ) -> tuple[SupervisionResult, ...]:
+        mounts = model_mounts or {}
         results = []
         wanted = {plan.solution_pack for plan in plans if plan.cameras}
         for solution_pack in sorted(set(IMAGE_BY_PACK) - wanted):
@@ -51,7 +57,7 @@ class RuntimeSupervisor:
             results.append(self._execute(
                 solution_pack=plan.solution_pack,
                 action="start",
-                command=self._commands.build(plan),
+                command=self._commands.build(plan, mounts.get(plan.solution_pack)),
                 prefix=f"runtime plan written to {plan_path}; ",
             ))
         return tuple(results)

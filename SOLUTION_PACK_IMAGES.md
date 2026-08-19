@@ -44,6 +44,8 @@ on an edge box:
 - hardware probing and capacity planning;
 - GPU/NPU/CPU service placement;
 - runtime-plan generation;
+- management model-bundle download, checksum verification, and immutable caching;
+- required-model registry verification and read-only model mount selection;
 - solution-pack container command generation and supervision.
 
 The agent reads management desired state from `/configs/desired_state.json` and
@@ -51,6 +53,10 @@ writes compiled plans to `/plans`. In production these paths are supplied by
 the platform. The solution-pack images consume the resulting plans.
 
 The edge agent does not contain camera models, galleries, or application state.
+When desired state includes a `model_bundles` reference, it downloads the bundle
+from the management server over the private management network into its mounted
+model cache. The solution image never downloads models and remains offline during
+analytics execution.
 
 ## Surveillance image
 
@@ -85,8 +91,9 @@ Default accelerator placement preserves the 8090 pipeline assignment:
 | `/generated/surveillance` | Read-write | Generated streams and use-case runtime configuration |
 | `/state/surveillance` | Read-write, persistent | Face gallery, Re-ID gallery, history, crops, snapshots, and event outbox |
 
-Models are not baked into the image. The required model volume must contain the
-matching `.xml` and `.bin` files before cameras are assigned.
+Models are not baked into the image. The platform can provide the read-only model
+volume directly, or the edge agent can populate it from a versioned management
+bundle before starting this image.
 
 ### Surveillance management interface
 
@@ -129,7 +136,9 @@ plate detection and OCR.
 | `/generated/traffic` | Read-write | Generated camera and worker configuration |
 | `/state/traffic` | Read-write, persistent | Rules, events, snapshots, crops, videos, and runtime history |
 
-Models are mounted and are not baked into the traffic image.
+Models are mounted and are not baked into the traffic image. The platform can
+provide the volume directly, or the edge agent can populate it from a verified
+management bundle before starting this image.
 
 ### Traffic management interface
 
@@ -149,6 +158,7 @@ repository's `docker/docker-compose.yml` is intended for local edge testing.
 ```text
 management desired state
         -> edge agent
+        -> download/cache/verify selected model bundle
         -> compiled runtime plan
         -> solution-pack container
         -> cameras and mounted models

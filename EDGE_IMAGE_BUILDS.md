@@ -46,3 +46,23 @@ Load an archive with Docker or Podman:
 docker load -i traffic-edge-runtime-intel-285h-20260819-3175ba8ca08b.tar
 podman load -i pipeline-edge-agent-intel-285h-20260819-63f219c86d71.tar
 ```
+
+## Model delivery build 2026-08-19
+
+This is a separate edge-agent build. It adds management model-bundle download,
+archive and per-file SHA-256 verification, immutable local caching, and exact
+read-only model mounts. It does not replace or rename the earlier archives.
+
+| Image | Docker tag | Docker image ID | Repository artifact |
+|---|---|---|---|
+| Edge agent | `pipeline-edge-agent:intel-285h-model-delivery-v1` | `c7bd2e208db8` | `pipeline-edge-agent-intel-285h-model-delivery-v1-c7bd2e208db8.tar` |
+
+```text
+19b1d9ba4d60a341736207dd9007c5e2ccfd48440fbd85417827adb7fdf025f0  pipeline-edge-agent-intel-285h-model-delivery-v1-c7bd2e208db8.tar
+```
+
+Load it without affecting the prior named build:
+
+```bash
+podman load -i pipeline-edge-agent-intel-285h-model-delivery-v1-c7bd2e208db8.tar
+```
