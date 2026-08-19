@@ -34,11 +34,11 @@ class ContainerCommandBuilder:
         self._plan_dir = plan_dir
         self._engine = engine
 
-    def build(self, plan: SolutionRuntimePlan) -> ContainerCommand:
+    def build(self, plan: SolutionRuntimePlan, model_source: Path | None = None) -> ContainerCommand:
         image = IMAGE_BY_PACK[plan.solution_pack]
         container = CONTAINER_BY_PACK[plan.solution_pack]
         generated = self._root / "run" / "generated" / plan.solution_pack
-        models = self._root / "models" / plan.solution_pack
+        models = model_source or self._root / "models" / plan.solution_pack
         state = self._root / "state" / plan.solution_pack
         plans = self._plan_dir or self._root / "run" / "plans"
         command = [
@@ -64,7 +64,7 @@ class ContainerCommandBuilder:
             "-v",
             f"{generated}:/generated/{plan.solution_pack}",
             "-v",
-            f"{models}:/models/{plan.solution_pack}",
+            f"{models}:/models/{plan.solution_pack}:ro",
             "-v",
             f"{state}:/state/{plan.solution_pack}",
         ]

@@ -60,8 +60,14 @@ class RuntimeSupervisorTest(unittest.TestCase):
         self.assertIn("surveillance-edge-runtime:intel-285h", command.command)
         self.assertNotIn("/usr/lib/x86_64-linux-gnu/libze_intel_npu.so", command.command)
         self.assertIn(f"{ROOT / 'run' / 'plans'}:/plans", command.command)
-        self.assertIn(f"{ROOT / 'models' / 'surveillance'}:/models/surveillance", command.command)
+        self.assertIn(f"{ROOT / 'models' / 'surveillance'}:/models/surveillance:ro", command.command)
         self.assertIn(f"{ROOT / 'state' / 'surveillance'}:/state/surveillance", command.command)
+
+    def test_container_command_mounts_resolved_bundle_read_only(self) -> None:
+        plan = {plan.solution_pack: plan for plan in _plans()}["traffic"]
+        bundle = Path("/var/lib/pipeline/models/.bundles/traffic/v2-deadbeef")
+        command = ContainerCommandBuilder(ROOT, engine="docker").build(plan, bundle)
+        self.assertIn(f"{bundle}:/models/traffic:ro", command.command)
 
     def test_supervisor_dry_run_restarts_wanted_solution_packs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

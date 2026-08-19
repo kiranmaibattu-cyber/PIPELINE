@@ -199,6 +199,39 @@ It records the model id, version, expected runtime mount, file list, and SHA-256
 checksums. The edge agent validates only the models required by the compiled graph
 before it starts or prints container commands.
 
+Management can deliver an immutable model archive through desired state. The
+archive must contain the contents of one solution-pack model directory at its
+root, not an additional `surveillance/` or `traffic/` parent directory:
+
+```json
+"model_bundles": {
+  "surveillance": {
+    "version": "surveillance-intel-v1",
+    "url": "https://management.example/api/v1/model-bundles/surveillance-intel-v1.tar.gz",
+    "sha256": "<64-character archive SHA-256>",
+    "archive_format": "tar.gz",
+    "auth_token_env": "PIPELINE_MODEL_TOKEN"
+  }
+}
+```
+
+The edge agent downloads the archive, verifies its archive checksum, safely
+extracts it into an immutable versioned cache, verifies every graph-required
+model against `models.yaml`, and only then starts the runtime. The activated
+bundle is mounted at `/models/<solution_pack>:ro`. A failed download, checksum,
+extraction, or required-model check prevents that revision from starting.
+
+Create an archive for upload to the management model API with:
+
+```bash
+./scripts/package_model_bundle.sh surveillance intel-v1 dist/model-bundles
+```
+
+The management API stores both generated files, serves the `.tar.gz` URL, and
+places the digest from `.sha256` in desired state. Authentication tokens are
+provided to the edge agent through the named environment variable; they are not
+stored in desired-state JSON.
+
 For a host-run edge agent:
 
 ```bash
@@ -210,27 +243,29 @@ PYTHONPATH=. python -m edge_runtime.agent.edge_agent \
   --output-dir run/plans
 ```
 
-For a containerized edge agent, mount the external model directory and point
-`--models-root` at that mount:
+For a containerized edge agent, mount a writable model cache and provide both its
+agent-visible path and the same directory's host-visible path. The latter is used
+when the agent asks the host Docker/Podman daemon to start a solution runtime:
 
 ```bash
 podman run --rm --network=host \
   --device /dev/dri:/dev/dri \
   --device /dev/accel:/dev/accel \
   -v "$PWD/configs/desired_state.example.json:/configs/desired_state.json:ro" \
-  -v "$PWD/models:/models-host:ro" \
+  -v "$PWD/models:/models-cache" \
   -v "$PWD/run/plans:/plans" \
   pipeline-edge-agent:latest \
   --root /opt/pipeline \
   --host-root "$PWD" \
-  --models-root /models-host \
+  --models-root /models-cache \
+  --host-models-root "$PWD/models" \
   --desired-state /configs/desired_state.json \
   --output-dir /plans
 ```
 
-Later, the management server should download the selected model versions into the
-edge box's model directory, then ask the edge agent to validate checksums and start
-the runtime image with those model volumes mounted.
+See `configs/desired_state.management-models.example.json` for the complete
+management-delivery schema. Existing desired states without `model_bundles` keep
+using local `models/<solution_pack>` directories for development and migration.
 
 Install Docker on Ubuntu when running from a root-capable shell:
 

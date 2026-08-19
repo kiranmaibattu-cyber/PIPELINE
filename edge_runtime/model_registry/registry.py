@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Mapping
 
 import yaml
 
@@ -73,12 +73,18 @@ class ModelPreparer:
         self._registry = registry
         self._models_root = models_root
 
-    def prepare(self, plans: tuple[SolutionRuntimePlan, ...]) -> tuple[ModelPreparationResult, ...]:
+    def prepare(
+        self,
+        plans: tuple[SolutionRuntimePlan, ...],
+        bundle_roots: Mapping[str, Path] | None = None,
+    ) -> tuple[ModelPreparationResult, ...]:
+        roots = bundle_roots or {}
         results = []
         for solution_pack, model_ids in self._required_models(plans).items():
+            solution_root = roots.get(solution_pack, self._models_root / solution_pack)
             for model_id in sorted(model_ids):
                 bundle = self._registry.get(solution_pack, model_id)
-                files = tuple(str(self._models_root / solution_pack / item.path) for item in bundle.files)
+                files = tuple(str(solution_root / item.path) for item in bundle.files)
                 self._verify_files(bundle, files)
                 results.append(ModelPreparationResult(
                     solution_pack=solution_pack,
@@ -89,7 +95,7 @@ class ModelPreparer:
                 ))
             if solution_pack == "surveillance" and "face_embedder" in model_ids:
                 bundle = self._registry.get("surveillance", "face_reid_assets")
-                files = tuple(str(self._models_root / "surveillance" / item.path) for item in bundle.files)
+                files = tuple(str(solution_root / item.path) for item in bundle.files)
                 self._verify_files(bundle, files)
                 results.append(ModelPreparationResult(
                     solution_pack="surveillance",
