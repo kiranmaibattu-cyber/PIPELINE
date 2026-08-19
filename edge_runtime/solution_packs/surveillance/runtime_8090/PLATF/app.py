@@ -23,6 +23,7 @@ import signal
 import threading
 import time
 import urllib.parse
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -35,6 +36,12 @@ from PLATF.investigations import InvestigationStore
 from PLATF.server import LivePlatform, _obs_from_dict
 
 UI = Path(__file__).resolve().parent / "ui" / "dashboard.html"
+
+
+def _safe_name(value: str) -> str:
+    text = str(value or "")
+    safe = "".join(ch if ch.isalnum() else "_" for ch in text).strip("_")
+    return safe or "item"
 
 
 class App:
@@ -54,6 +61,7 @@ class App:
         self.plat.stream_name = "engine"
         self.plat.obs_base_dir = self.crops_dir    # crops/<...> resolve here
         self.plat.camera_source = self.camera_source   # enrollment opens its own capture
+        self.plat.management_snapshot = self._save_management_snapshot
         self._load_runtime_config()
         self.autocall = AutoCallDispatcher(self.autocall_config, outcome_callback=self._autocall_outcome)
         self.plat.bus.subscribe("unauthorised", self.autocall.on_alert)
@@ -601,6 +609,20 @@ class App:
                 return f.read()
         except Exception:
             return None
+
+    def _save_management_snapshot(self, camera: str, event_type: str) -> str | None:
+        frame = self.frame(camera)
+        if not frame:
+            return None
+        root = Path(os.environ.get("MANAGEMENT_SNAPSHOT_DIR", "/state/surveillance/snapshots"))
+        root.mkdir(parents=True, exist_ok=True)
+        safe_cam = _safe_name(camera)
+        safe_type = _safe_name(event_type)
+        stamp = _safe_name(datetime.now(timezone.utc).isoformat())[:40]
+        filename = f"{safe_cam}_{safe_type}_{stamp}.jpg"
+        path = root / filename
+        path.write_bytes(frame)
+        return f"snapshots/{filename}"
 
     def placeholder_frame(self, camera: str | None, max_w: int = 0, label: str = "waiting for frame"):
         """A valid JPEG for temporarily missing stream frames.

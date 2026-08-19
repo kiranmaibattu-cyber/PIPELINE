@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from edge_runtime.runtime.plan_loader import RuntimePlanLoader
+from edge_runtime.runtime.source_resolver import CameraSourceResolver
 from edge_runtime.solution_packs.surveillance.runtime.config_adapter import (
     SurveillanceConfigAdapter,
 )
@@ -34,7 +35,7 @@ def main() -> int:
     state_dir = Path(args.state_dir)
     models_dir = Path(args.models_dir)
 
-    plan = RuntimePlanLoader().load(Path(args.plan))
+    plan = CameraSourceResolver().resolve_plan(RuntimePlanLoader().load(Path(args.plan)))
     SurveillanceConfigAdapter().write(plan, generated_dir)
     _install_runtime_config(generated_dir)
     _prepare_model_mount(models_dir)
@@ -100,6 +101,9 @@ def _configure_environment(plan, state_dir: Path, models_dir: Path, port: int) -
     os.environ.setdefault("FACE_GALLERY_DIR", str(state_dir / "face_gallery"))
     os.environ.setdefault("REID_GALLERY_DIR", str(state_dir / "reid_gallery"))
     os.environ.setdefault("HISTORY_DIR", str(state_dir / "history"))
+    os.environ.setdefault("PLATF_HISTORY_DIR", str(state_dir / "history"))
+    os.environ.setdefault("MANAGEMENT_EVENTS_PATH", str(state_dir / "events.jsonl"))
+    os.environ.setdefault("MANAGEMENT_SNAPSHOT_DIR", str(state_dir / "snapshots"))
 
     # The copied 8090 runtime was tuned for a larger long-running host and defaults
     # to four model-server replicas for detector/embed/face. On this edge image the
