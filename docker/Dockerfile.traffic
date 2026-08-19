@@ -2,7 +2,9 @@ FROM pipeline-ubuntu-python:24.04
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/opt/pipeline \
-    SOLUTION_PACK=traffic
+    SOLUTION_PACK=traffic \
+    APEX_API_HOST=0.0.0.0 \
+    APEX_API_PORT=8080
 
 WORKDIR /opt/pipeline
 
@@ -19,4 +21,6 @@ COPY edge_runtime /opt/pipeline/edge_runtime
 #   generated: /generated/traffic
 #   models:    /models/traffic/openvino
 #   state:     /state/traffic
-CMD ["python", "-m", "edge_runtime.solution_packs.traffic.runtime_pilot.launch"]
+EXPOSE 8080
+
+CMD ["python", "-m", "edge_runtime.runtime.solution_pack_entrypoint", "--solution-pack", "traffic", "--runtime-module", "edge_runtime.solution_packs.traffic.runtime_pilot.launch", "--plan", "/plans/traffic.runtime_plan.json", "--generated-dir", "/generated/traffic", "--state-dir", "/state/traffic", "--models-dir", "/models/traffic/openvino"]

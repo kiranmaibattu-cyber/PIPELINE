@@ -417,6 +417,7 @@ class AsyncAnalyticsDispatcher:
     ):
         self.sink = sink
         self.camera_configs = camera_configs or {}
+        self.local_sink = self._local_sink_from_env()
         self.queue: queue.Queue[dict | None] = queue.Queue(maxsize=max_queue_size)
         self.dropped = 0          # payloads dropped because the queue was full (backpressure)
         self.published = 0        # payloads the sink accepted
@@ -438,6 +439,11 @@ class AsyncAnalyticsDispatcher:
         return self
 
     def publish_packets(self, packets: Iterable[FramePacket]) -> None:
+        packets = list(packets)
+        if self.local_sink is not None:
+            for packet in packets:
+                events = simple_events(packet.analytics_events)
+                self.local_sink.publish_packet(packet, events)
         if self.sink is None:
             return
         for packet in packets:
@@ -485,6 +491,15 @@ class AsyncAnalyticsDispatcher:
         self.sequence_by_camera[camera_name] = value
         return value
 
+    @staticmethod
+    def _local_sink_from_env():
+        try:
+            from .local_event_sink import LocalManagementEventSink
+            return LocalManagementEventSink.from_env()
+        except Exception as exc:
+            logger.warning("Local management event sink disabled: %s", exc)
+            return None
+
     def stats(self) -> dict:
         """Snapshot for the worker_metrics heartbeat (see monitor.WorkerMetricsMonitor).
         Raw cumulative counters; fps deltas are computed by the caller."""
@@ -496,6 +511,7 @@ class AsyncAnalyticsDispatcher:
             "errors": self.publish_errors,
             "last_error": self.last_error,
             "sinks": sink_kinds(self.sink),
+            "local_event_sink": self.local_sink is not None,
             "sequence_by_camera": dict(self.sequence_by_camera),
         }
 

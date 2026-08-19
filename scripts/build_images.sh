@@ -18,10 +18,12 @@ fi
 
 "$ENGINE" build -f docker/Dockerfile.base -t pipeline-ubuntu-python:24.04 .
 "$ENGINE" build -f docker/Dockerfile.edge-agent -t pipeline-edge-agent:latest .
-"$ENGINE" build -f docker/Dockerfile.surveillance -t surveillance-edge-runtime:latest .
-"$ENGINE" build -f docker/Dockerfile.traffic -t traffic-edge-runtime:latest .
+"$ENGINE" build -f docker/Dockerfile.surveillance -t surveillance-edge-runtime:intel-285h .
+"$ENGINE" build -f docker/Dockerfile.traffic -t traffic-edge-runtime:intel-285h .
+"$ENGINE" tag surveillance-edge-runtime:intel-285h surveillance-edge-runtime:latest
+"$ENGINE" tag traffic-edge-runtime:intel-285h traffic-edge-runtime:latest
 
 echo "built:"
 echo "  pipeline-edge-agent:latest"
-echo "  surveillance-edge-runtime:latest"
-echo "  traffic-edge-runtime:latest"
+echo "  surveillance-edge-runtime:intel-285h"
+echo "  traffic-edge-runtime:intel-285h"

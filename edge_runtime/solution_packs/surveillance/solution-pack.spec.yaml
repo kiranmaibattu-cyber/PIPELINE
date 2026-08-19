@@ -1,0 +1,88 @@
+solution_pack: surveillance
+image: surveillance-edge-runtime:intel-285h
+hardware_profile: intel-285h
+camera_model: platform-managed
+max_streams_per_instance: 16
+endpoints:
+  liveness:
+    path: /healthz
+    port: 8080
+    format: application/json
+  readiness:
+    path: /readyz
+    port: 8080
+    format: application/json
+  metrics:
+    path: /metrics
+    port: 8080
+    format: application/json
+  analytics_events:
+    path: /events
+    port: 8080
+    protocol: server-sent-events
+    format: text/event-stream
+  alert_snapshots:
+    path_prefix: /snapshots/
+    port: 8080
+    format: image/jpeg
+  management_api:
+    base_path: /api
+    port: 8080
+    proxied_to_runtime: true
+    paths:
+      - /api/search
+      - /api/person
+      - /api/persons
+      - /api/person_audit
+      - /api/history
+      - /api/history_crop
+      - /api/alert_history
+      - /api/face_gallery
+      - /api/face_gallery/reload
+      - /api/face_chip
+      - /api/enrollment
+      - /api/enrollment/start
+      - /api/enrollment/retake
+      - /api/enrollment/cancel
+      - /api/enrollment/revoke
+      - /api/enrollment/save
+      - /api/face_group
+      - /api/events
+      - /api/alerts
+      - /api/counting
+      - /api/summary
+      - /api/live
+      - /api/cameras
+inputs:
+  cameras:
+    source: mounted_file_or_secret
+    plan_path: /plans/surveillance.runtime_plan.json
+    accepted_source_refs:
+      - env:CAMERA_RTSP_ENV_NAME
+      - file:/mounted/secret/path
+      - secret:/mounted/secret/path
+  models:
+    mount_path: /models/surveillance
+    required: true
+storage:
+  durable_config:
+    mount_path: /state/surveillance
+    contains:
+      - face_gallery
+      - reid_gallery
+      - history
+    sizing_hint: "1-10 GB depending on gallery/history retention"
+  cache:
+    mount_path: /state/surveillance
+    sizing_hint: "event/snapshot retention dependent"
+    serves:
+      - /state/surveillance/snapshots
+      - /state/surveillance/crops
+devices:
+  required:
+    - /dev/dri
+    - /dev/accel
+runtime:
+  no_internet_required: true
+  writes_inside_image: false
+  graceful_sigterm: true

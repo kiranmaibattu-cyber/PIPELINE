@@ -1,5 +1,7 @@
 FROM ubuntu:24.04
 
+ARG INTEL_NPU_DRIVER_VERSION=1.33.0.20260529-26625960453
+
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_BREAK_SYSTEM_PACKAGES=1 \
     PYTHONUNBUFFERED=1
@@ -33,6 +35,14 @@ RUN apt-get update \
         python3-pip \
         python3-venv \
         vainfo \
+    && wget -q "https://github.com/intel/linux-npu-driver/releases/download/v1.33.0/linux-npu-driver-v${INTEL_NPU_DRIVER_VERSION}-ubuntu2404.tar.gz" \
+        -O /tmp/intel-npu-driver.tar.gz \
+    && mkdir -p /tmp/intel-npu-driver \
+    && tar -xzf /tmp/intel-npu-driver.tar.gz -C /tmp/intel-npu-driver \
+    && apt-get install -y --no-install-recommends /tmp/intel-npu-driver/intel-level-zero-npu_${INTEL_NPU_DRIVER_VERSION}~ubuntu24.04_amd64.deb \
+        /tmp/intel-npu-driver/intel-driver-compiler-npu_${INTEL_NPU_DRIVER_VERSION}~ubuntu24.04_amd64.deb \
     && rm -rf /var/lib/apt/lists/* \
+        /tmp/intel-npu-driver \
+        /tmp/intel-npu-driver.tar.gz \
     && ln -sf /usr/bin/python3 /usr/local/bin/python \
     && ln -sf /usr/bin/pip3 /usr/local/bin/pip

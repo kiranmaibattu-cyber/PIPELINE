@@ -2,7 +2,9 @@ FROM pipeline-ubuntu-python:24.04
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/opt/pipeline \
-    SOLUTION_PACK=surveillance
+    SOLUTION_PACK=surveillance \
+    APEX_API_HOST=0.0.0.0 \
+    APEX_API_PORT=8080
 
 WORKDIR /opt/pipeline
 
@@ -22,4 +24,6 @@ COPY edge_runtime /opt/pipeline/edge_runtime
 #   generated: /generated/surveillance
 #   models:    /models/surveillance
 #   state:     /state/surveillance
-CMD ["python", "-m", "edge_runtime.solution_packs.surveillance.runtime_8090.launch"]
+EXPOSE 8080
+
+CMD ["python", "-m", "edge_runtime.runtime.solution_pack_entrypoint", "--solution-pack", "surveillance", "--runtime-module", "edge_runtime.solution_packs.surveillance.runtime_8090.launch", "--plan", "/plans/surveillance.runtime_plan.json", "--generated-dir", "/generated/surveillance", "--state-dir", "/state/surveillance", "--models-dir", "/models/surveillance", "--runtime-port", "8090", "--metrics-proxy-url", "http://127.0.0.1:8090/api/metrics"]

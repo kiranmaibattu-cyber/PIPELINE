@@ -31,6 +31,7 @@ import time
 import urllib.parse
 import urllib.request
 from collections import defaultdict
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -52,6 +53,52 @@ FRAME_W, FRAME_H = (int(x) for x in os.environ.get("PLATF_FRAME", "640x360").spl
 # proxies so the whole live app lives on one port. It is not a second UI.
 BACKBONE_URL = os.environ.get("BACKBONE_URL", "http://localhost:8083")
 CAM_SID: dict = {}          # camera name -> backbone stream id (for frame proxy)
+
+
+class _ManagementOutbox:
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.Lock()
+
+    @classmethod
+    def from_env(cls):
+        raw = os.environ.get("MANAGEMENT_EVENTS_PATH")
+        return cls(Path(raw)) if raw else None
+
+    def write(self, event: dict) -> None:
+        row = dict(event)
+        row.setdefault("solution_pack", "surveillance")
+        row.setdefault("timestamp_utc", datetime.now(timezone.utc).isoformat())
+        with self._lock:
+            with self.path.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(row, sort_keys=True) + "\n")
+
+
+def _app_id_for_event(event_type: str | None) -> str:
+    mapping = {
+        "identity": "reid",
+        "face_recognized": "face_recognition",
+        "unauthorised": "face_recognition",
+        "face_enrolled": "face_recognition",
+        "intrusion": "intrusion",
+        "loitering": "loitering",
+        "count": "people_counting",
+        "absence": "absence",
+        "person_merged": "reid",
+    }
+    return mapping.get(str(event_type or ""), str(event_type or "analytics"))
+
+
+def _event_needs_snapshot(event_type: str | None) -> bool:
+    return str(event_type or "") in {
+        "intrusion",
+        "loitering",
+        "count",
+        "absence",
+        "face_recognized",
+        "unauthorised",
+    }
 
 
 def refresh_cam_sid():
@@ -88,6 +135,8 @@ class LivePlatform:
         self.bus = EventBus()
         self.events: list = []      # identity events, as dicts
         self.bus.subscribe(EventBus.ALL, self._append_event)
+        self._management_outbox = _ManagementOutbox.from_env()
+        self.management_snapshot = None
         self._watch_alerted: dict[tuple[str, str, int], float] = {}
         self.bus.subscribe("unauthorised", self._note_watch_alert)
         # When each enrolled face was last recognised, for the roster. Stamped with
@@ -195,6 +244,33 @@ class LivePlatform:
         row = event.as_dict()
         row.setdefault("wall", time.time())
         self.events.append(row)
+        if self._management_outbox is not None:
+            self._management_outbox.write(self._management_row(row))
+
+    def _management_row(self, row: dict) -> dict:
+        payload = dict(row.get("payload") or {})
+        event_type = row.get("type")
+        snapshot_ref = row.get("snapshot_ref") or payload.get("snapshot_ref") or payload.get("crop")
+        if (not snapshot_ref and row.get("camera") and self.management_snapshot is not None
+                and _event_needs_snapshot(event_type)):
+            try:
+                snapshot_ref = self.management_snapshot(str(row.get("camera")), str(event_type or "event"))
+            except Exception:
+                snapshot_ref = None
+        out = {
+            "event_type": event_type,
+            "type": event_type,
+            "app_id": _app_id_for_event(event_type),
+            "camera_id": row.get("camera"),
+            "person_id": row.get("person_id"),
+            "global_id": row.get("person_id"),
+            "zone": row.get("zone"),
+            "timestamp": row.get("t"),
+            "payload": payload,
+        }
+        if snapshot_ref:
+            out["snapshot_ref"] = str(snapshot_ref)
+        return out
 
     def history_crop_path(self, sighting_id: int):
         """Absolute path of one sighting's stored evidence crop."""

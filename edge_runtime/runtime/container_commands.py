@@ -8,8 +8,8 @@ from edge_runtime.graph.models import SolutionRuntimePlan
 
 
 IMAGE_BY_PACK = {
-    "surveillance": "surveillance-edge-runtime:latest",
-    "traffic": "traffic-edge-runtime:latest",
+    "surveillance": "surveillance-edge-runtime:intel-285h",
+    "traffic": "traffic-edge-runtime:intel-285h",
 }
 
 CONTAINER_BY_PACK = {
@@ -57,6 +57,8 @@ class ContainerCommandBuilder:
             f"pipeline.solution-pack={plan.solution_pack}",
             "--label",
             f"pipeline.revision={plan.revision}",
+            "-e",
+            f"APEX_API_PORT={_api_port(plan.solution_pack)}",
             "-v",
             f"{plans}:/plans",
             "-v",
@@ -69,7 +71,6 @@ class ContainerCommandBuilder:
         if self._engine.endswith("podman"):
             command.extend(["--group-add", "keep-groups"])
         command.extend(self._device_args())
-        command.extend(self._intel_runtime_mounts())
         command.append(image)
         return ContainerCommand(plan.solution_pack, image, tuple(command))
 
@@ -90,27 +91,15 @@ class ContainerCommandBuilder:
                 args.extend(["--device", f"{device}:{device}"])
         return args
 
-    @staticmethod
-    def _intel_runtime_mounts() -> list[str]:
-        # The Intel GPU/OpenCL/VA-API stack is baked into the image. The current
-        # edge host has the NPU packages installed locally without an apt source,
-        # so mount only the NPU driver/compiler until the package source is part
-        # of the base image.
-        if not Path("/dev/accel").exists():
-            return []
-        mounts = []
-        for path in (
-            "/usr/lib/x86_64-linux-gnu/libze_intel_npu.so.1.33.0",
-            "/usr/lib/x86_64-linux-gnu/libze_intel_npu.so.1",
-            "/usr/lib/x86_64-linux-gnu/libze_intel_npu.so",
-            "/usr/lib/x86_64-linux-gnu/libopenvino_intel_npu_compiler.so",
-            "/usr/lib/x86_64-linux-gnu/libopenvino_intel_npu_compiler_loader.so",
-        ):
-            mounts.extend(["-v", f"{path}:{path}:ro"])
-        return mounts
-
 
 def _quote(value: str) -> str:
     if not value or any(ch.isspace() for ch in value):
         return "'" + value.replace("'", "'\"'\"'") + "'"
     return value
+
+
+def _api_port(solution_pack: str) -> str:
+    return {
+        "surveillance": "18090",
+        "traffic": "18091",
+    }.get(solution_pack, "18080")

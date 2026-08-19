@@ -5,7 +5,6 @@ services:
       dockerfile: docker/Dockerfile.edge-agent
     image: pipeline-edge-agent:latest
     network_mode: host
-    privileged: true
     volumes:
       - ../configs:/configs
       - ../run/plans:/plans
@@ -18,7 +17,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.surveillance
-    image: surveillance-edge-runtime:latest
+    image: surveillance-edge-runtime:intel-285h
     network_mode: host
     profiles: ["runtime"]
     volumes:
@@ -28,12 +27,14 @@ services:
       - ../state/surveillance:/state/surveillance
       - /dev/dri:/dev/dri
       - /dev/accel:/dev/accel
+    environment:
+      APEX_API_PORT: "18090"
 
   traffic-runtime:
     build:
       context: ..
       dockerfile: docker/Dockerfile.traffic
-    image: traffic-edge-runtime:latest
+    image: traffic-edge-runtime:intel-285h
     network_mode: host
     profiles: ["runtime"]
     volumes:
@@ -43,3 +44,5 @@ services:
       - ../state/traffic:/state/traffic
       - /dev/dri:/dev/dri
       - /dev/accel:/dev/accel
+    environment:
+      APEX_API_PORT: "18091"

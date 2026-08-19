@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from edge_runtime.runtime.plan_loader import RuntimePlanLoader
+from edge_runtime.runtime.source_resolver import CameraSourceResolver
 from edge_runtime.solution_packs.traffic.runtime.config_adapter import TrafficConfigAdapter
 
 
@@ -33,7 +34,7 @@ def main() -> int:
     state_dir = Path(args.state_dir)
     models_dir = Path(args.models_dir)
 
-    plan = RuntimePlanLoader().load(Path(args.plan))
+    plan = CameraSourceResolver().resolve_plan(RuntimePlanLoader().load(Path(args.plan)))
     TrafficConfigAdapter().write(plan, generated_dir)
     worker_config = _write_worker_config(plan, generated_dir)
     _configure_environment(plan, generated_dir, state_dir, models_dir, worker_config)
@@ -123,6 +124,8 @@ def _configure_environment(
     os.environ.setdefault("OPENVINO_MODELS_DIR", str(models_dir))
     os.environ.setdefault("CAMERAS_FILE", str(generated_dir / "cameras.generated.json"))
     os.environ.setdefault("WORKER_CONFIG_PATH", str(worker_config))
+    os.environ.setdefault("STATE_DIR", str(state_dir))
+    os.environ.setdefault("MANAGEMENT_STATE_DIR", str(state_dir))
     os.environ.setdefault("VIDEO_DIR", str(state_dir / "videos"))
     os.environ.setdefault("INFER_FPS", _infer_fps(plan))
 
