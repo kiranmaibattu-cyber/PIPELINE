@@ -164,6 +164,23 @@ Build all images with:
 
 Set `CONTAINER_ENGINE=podman` when Podman should be used instead of Docker.
 
+After authenticating the selected container engine to GHCR, publish all three
+images with:
+
+```bash
+./scripts/push_images.sh
+```
+
+The publish script verifies the repository source label and forces Docker
+schema v2 when using Podman so GitHub links these packages to the `PIPELINE`
+repository. The published image references are:
+
+```text
+ghcr.io/kiranmaibattu-cyber/surveillance-edge-runtime:intel-285h
+ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime:intel-285h
+ghcr.io/kiranmaibattu-cyber/pipeline-edge-agent:latest
+```
+
 ## Current contract limitations
 
 The current images implement the ApexFabric endpoint and mount contract, but
