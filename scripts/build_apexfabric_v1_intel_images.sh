@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${APEXFABRIC_IMAGE_VERSION:-2026.08.20}"
+VERSION="${APEXFABRIC_IMAGE_VERSION:-2026.08.20-v2}"
 ENGINE="${CONTAINER_ENGINE:-}"
 if [[ -z "$ENGINE" ]]; then
   if command -v docker >/dev/null 2>&1; then

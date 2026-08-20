@@ -1,6 +1,6 @@
 FROM pipeline-ubuntu-python:24.04
 
-ARG IMAGE_VERSION=2026.08.20
+ARG IMAGE_VERSION=2026.08.20-v2
 
 LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/PIPELINE" \
       org.opencontainers.image.title="ApexFabric Traffic Edge Runtime" \
@@ -16,6 +16,7 @@ ENV PYTHONUNBUFFERED=1 \
     APEXFABRIC_CONTRACT_VERSION=v1 \
     EDGE_AGENT_COMPILE_ONLY=1 \
     APEXFABRIC_SECRETS_ROOT=/run/secrets/apexfabric \
+    APEXFABRIC_STATE_ROOT=/state \
     APEX_API_HOST=0.0.0.0 \
     APEX_API_PORT=8080 \
     HOME=/tmp/apexfabric \
@@ -34,11 +35,11 @@ COPY models/traffic /models/traffic
 
 RUN python -c "from pathlib import Path; from edge_runtime.model_registry.baked import BakedModelValidator; from edge_runtime.model_registry.registry import ModelRegistry; BakedModelValidator(ModelRegistry.from_file(Path('/opt/pipeline/edge_runtime/model_registry/models.yaml')), Path('/models')).validate('traffic')" \
     && useradd --uid 10001 --create-home --shell /usr/sbin/nologin apexruntime \
-    && mkdir -p /plans /tmp/apexfabric /run/secrets/apexfabric \
-    && chown -R apexruntime:apexruntime /plans /tmp/apexfabric
+    && mkdir -p /plans /tmp/apexfabric /state /run/secrets/apexfabric \
+    && chown -R apexruntime:apexruntime /plans /tmp/apexfabric /state
 
-# ApexFabric V1 compiles /configs/desired_state.json into /plans, keeps generated
-# and reconstructable state under /tmp, and uses models baked under /models.
+# ApexFabric V1 compiles /configs/desired_state.json into /plans, keeps
+# persistent event/snapshot state under /state, and uses baked models under /models.
 EXPOSE 8080
 
 USER 10001:10001

@@ -13,6 +13,54 @@
     "solution_pack": {"const": "traffic"},
     "application": {"enum": ["anpr", "wrong_way", "vehicle_counting", "pedestrian_counting", "illegal_parking"]},
     "event_type": {"enum": ["plate_read_event", "wrong_way_event", "vehicle_count_event", "pedestrian_count_event", "illegal_parking_event"]},
-    "payload": {"type": "object"}
+    "payload": {
+      "type": "object",
+      "properties": {
+        "vehicle_ref": {"type": "string", "minLength": 1},
+        "vehicle_track_id": {"type": ["integer", "string"]},
+        "vehicle": {"$ref": "#/$defs/vehicle"},
+        "plate": {"$ref": "#/$defs/plate"},
+        "snapshot_ref": {"type": "string", "minLength": 1},
+        "snapshot_url": {"type": "string", "pattern": "^/snapshots/"},
+        "snapshot_content_type": {"type": "string", "minLength": 1},
+        "snapshot_assets": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/snapshot_asset"}
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "plate": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "text": {"type": "string", "minLength": 1},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+      },
+      "additionalProperties": true
+    },
+    "vehicle": {
+      "type": "object",
+      "required": ["ref", "track_id", "camera_id"],
+      "properties": {
+        "ref": {"type": "string", "minLength": 1},
+        "track_id": {"type": ["integer", "string"]},
+        "camera_id": {"type": "string", "minLength": 1},
+        "plate": {"$ref": "#/$defs/plate"}
+      },
+      "additionalProperties": true
+    },
+    "snapshot_asset": {
+      "type": "object",
+      "required": ["ref", "url", "content_type"],
+      "properties": {
+        "ref": {"type": "string", "minLength": 1},
+        "url": {"type": "string", "pattern": "^/snapshots/"},
+        "content_type": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    }
   }
 }

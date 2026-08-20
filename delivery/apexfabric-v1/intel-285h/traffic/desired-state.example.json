@@ -7,7 +7,52 @@
       "source": "file:/run/secrets/apexfabric/cam-traffic-01.rtsp",
       "solution_pack": "traffic",
       "fps": 8,
-      "apps": ["anpr", "wrong_way", "vehicle_counting", "pedestrian_counting", "illegal_parking"]
+      "apps": ["anpr", "wrong_way", "vehicle_counting", "pedestrian_counting", "illegal_parking"],
+      "config": {
+        "zones": {
+          "anpr": [
+            {
+              "id": "cam-traffic-01-plate-roi",
+              "name": "plate_roi",
+              "poly": [[0.10, 0.45], [0.90, 0.45], [0.90, 0.95], [0.10, 0.95]]
+            }
+          ],
+          "illegal_parking": [
+            {
+              "id": "cam-traffic-01-no-parking",
+              "name": "no_parking",
+              "poly": [[0.15, 0.30], [0.85, 0.30], [0.85, 0.90], [0.15, 0.90]]
+            }
+          ]
+        },
+        "lines": {
+          "wrong_way": [
+            {
+              "id": "cam-traffic-01-wrong-way-line",
+              "name": "wrong_way_line",
+              "a": [0.15, 0.58],
+              "b": [0.85, 0.58],
+              "direction": "a_to_b"
+            }
+          ],
+          "vehicle_counting": [
+            {
+              "id": "cam-traffic-01-vehicle-count-line",
+              "name": "vehicle_count_line",
+              "a": [0.15, 0.68],
+              "b": [0.85, 0.68]
+            }
+          ],
+          "pedestrian_counting": [
+            {
+              "id": "cam-traffic-01-pedestrian-count-line",
+              "name": "pedestrian_count_line",
+              "a": [0.15, 0.78],
+              "b": [0.85, 0.78]
+            }
+          ]
+        }
+      }
     }
   ]
 }

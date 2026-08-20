@@ -6,11 +6,13 @@ not supported by this delivery.
 ## Image
 
 ```text
-traffic-edge-runtime:intel-285h-2026.08.20
+traffic-edge-runtime:intel-285h-2026.08.20-v2
 ```
 
 The image runs as UID/GID `10001`, listens on `0.0.0.0:8080`, contains its
-models, and has no Redis, management-server, or persistent-volume dependency.
+models, and has no Redis or management-server dependency. Mount persistent
+storage at `/state` so event JSONL files and alert snapshots survive Pod
+replacement and can be served through `/events` and `/snapshots/...`.
 
 ## Baked Models
 
@@ -26,6 +28,17 @@ models, and has no Redis, management-server, or persistent-volume dependency.
 Runtime compatibility: OpenVINO 2026.2, Intel GPU Level Zero/OpenCL, and Intel
 NPU Level Zero userspace.
 
+## Camera Geometry
+
+The desired-state `config` object accepts normalized camera geometry. Points use
+`[x, y]` values from `0.0` to `1.0`.
+
+`wrong_way` requires `config.lines.wrong_way`, and `illegal_parking` requires
+`config.zones.illegal_parking`. `vehicle_counting` and `pedestrian_counting`
+accept optional lines; when omitted, the runtime generates default full-width
+counting lines so those apps can still emit crossing events. `anpr` accepts an
+optional `config.zones.anpr` plate ROI.
+
 ## Acceptance
 
 Create `secrets/cam-traffic-01.rtsp` containing a fake/test RTSP URL, then:
@@ -35,14 +48,31 @@ docker run --rm -p 8080:8080 \
   --device /dev/dri:/dev/dri --device /dev/accel:/dev/accel \
   -v "$PWD/desired-state.example.json:/configs/desired_state.json:ro" \
   -v "$PWD/secrets:/run/secrets/apexfabric:ro" \
-  traffic-edge-runtime:intel-285h-2026.08.20
+  -v "$PWD/state:/state" \
+  traffic-edge-runtime:intel-285h-2026.08.20-v2
 ```
 
 The compiler command required by the contract is available in the same image.
 `GET /metrics` returns documented JSON, and `GET /events` returns normalized
 SSE analytics plus a five-second idle heartbeat. Runtime state and optional
-alert snapshots are ephemeral under `/tmp/apexfabric`. The estimated image size
-is 1.93 GB before `docker save` archive overhead.
+alert snapshots are persisted under `/state/traffic`. Traffic alert snapshots
+include event frames and, when bboxes are available, object crops. ANPR events
+save a license-plate crop and the parent vehicle crop. Vehicle events expose a
+`vehicle_ref` built from camera, runtime session, and vehicle track ID, which
+management uses to join ANPR, wrong-way, and illegal-parking events. Wrong-way
+events save the vehicle crop and include plate text and a plate crop whenever
+OCR evidence is available for that track. The separate plate crop is a zoomed
+view in the same vehicle evidence bundle. The estimated image size is 1.93 GB
+before `docker save` archive overhead.
 
 The metrics payload is defined by `metrics.schema.json`; analytics events are
-defined by `analytics-event.schema.json`.
+defined by `analytics-event.schema.json` and demonstrated by
+`analytics-event.example.json`.
+
+The local/Git LFS delivery archive is `image-2026.08.20-v2.tar`. Verify and
+load it from this directory with:
+
+```bash
+sha256sum -c image-2026.08.20-v2.sha256
+docker load -i image-2026.08.20-v2.tar
+```

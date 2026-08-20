@@ -25,7 +25,88 @@
             "uniqueItems": true,
             "items": {"enum": ["anpr", "wrong_way", "vehicle_counting", "pedestrian_counting", "illegal_parking"]}
           },
-          "config": {"type": "object"}
+          "config": {"$ref": "#/$defs/traffic_camera_config"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "point": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "number", "minimum": 0, "maximum": 1},
+        {"type": "number", "minimum": 0, "maximum": 1}
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "line": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "a", "b"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "a": {"$ref": "#/$defs/point"},
+        "b": {"$ref": "#/$defs/point"},
+        "direction": {"enum": ["a_to_b", "b_to_a", "both"]}
+      }
+    },
+    "polygon_zone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "poly"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "poly": {
+          "type": "array",
+          "minItems": 3,
+          "items": {"$ref": "#/$defs/point"}
+        }
+      }
+    },
+    "traffic_camera_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lines": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "wrong_way": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/line"}
+            },
+            "vehicle_counting": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/line"}
+            },
+            "pedestrian_counting": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/line"}
+            }
+          }
+        },
+        "zones": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "anpr": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/polygon_zone"}
+            },
+            "illegal_parking": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/polygon_zone"}
+            }
+          }
         }
       }
     }

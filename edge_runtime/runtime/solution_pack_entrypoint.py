@@ -194,7 +194,7 @@ def _metrics(status: RuntimeStatus) -> dict[str, Any]:
         "snapshots": {
             "path_prefix": "/snapshots/",
             "content_types": ["image/jpeg", "image/png"],
-            "source": "ephemeral_runtime_state",
+            "source": "persistent_state",
         },
     }
     if status.runtime_api_url:
@@ -346,18 +346,26 @@ def _parse_event(line: str) -> dict[str, Any]:
 
 def _enrich_event(status: RuntimeStatus, event: dict[str, Any]) -> dict[str, Any]:
     snapshot_ref = _event_snapshot_ref(event)
-    if snapshot_ref and "snapshot_url" not in event:
+    snapshot_assets = _event_snapshot_assets(event)
+    if (snapshot_ref and "snapshot_url" not in event) or snapshot_assets:
         enriched = dict(event)
-        enriched["snapshot_ref"] = snapshot_ref
-        enriched["snapshot_url"] = _snapshot_url(snapshot_ref)
-        enriched["snapshot_content_type"] = _snapshot_content_type(snapshot_ref)
+        if snapshot_ref:
+            enriched["snapshot_ref"] = snapshot_ref
+            enriched["snapshot_url"] = _snapshot_url(snapshot_ref)
+            enriched["snapshot_content_type"] = _snapshot_content_type(snapshot_ref)
+        if snapshot_assets:
+            enriched["snapshot_assets"] = snapshot_assets
         if isinstance(enriched.get("payload"), dict):
-            enriched["payload"] = {
-                **enriched["payload"],
-                "snapshot_ref": snapshot_ref,
-                "snapshot_url": enriched["snapshot_url"],
-                "snapshot_content_type": enriched["snapshot_content_type"],
-            }
+            payload_updates = {}
+            if snapshot_ref:
+                payload_updates.update({
+                    "snapshot_ref": snapshot_ref,
+                    "snapshot_url": enriched["snapshot_url"],
+                    "snapshot_content_type": enriched["snapshot_content_type"],
+                })
+            if snapshot_assets:
+                payload_updates["snapshot_assets"] = snapshot_assets
+            enriched["payload"] = {**enriched["payload"], **payload_updates}
         event = enriched
     timestamp = (
         event.get("timestamp")
@@ -513,6 +521,26 @@ def _event_snapshot_ref(event: dict[str, Any]) -> str | None:
     if isinstance(payload, dict):
         return _event_snapshot_ref(payload)
     return None
+
+
+def _event_snapshot_assets(event: dict[str, Any]) -> dict[str, dict[str, str]]:
+    refs = event.get("snapshot_refs")
+    if not isinstance(refs, dict):
+        payload = event.get("payload")
+        refs = payload.get("snapshot_refs") if isinstance(payload, dict) else None
+    if not isinstance(refs, dict):
+        return {}
+    assets = {}
+    for name, ref in refs.items():
+        if not isinstance(ref, str) or not ref.strip():
+            continue
+        clean_ref = ref.strip()
+        assets[str(name)] = {
+            "ref": clean_ref,
+            "url": _snapshot_url(clean_ref),
+            "content_type": _snapshot_content_type(clean_ref),
+        }
+    return assets
 
 
 def _snapshot_url(snapshot_ref: str) -> str:

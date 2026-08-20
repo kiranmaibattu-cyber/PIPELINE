@@ -6,11 +6,12 @@ not supported by this delivery.
 ## Image
 
 ```text
-surveillance-edge-runtime:intel-285h-2026.08.20
+surveillance-edge-runtime:intel-285h-2026.08.20-v2
 ```
 
 The image runs as UID/GID `10001`, listens on `0.0.0.0:8080`, contains its
-models, and has no management-server or persistent-volume dependency.
+models, and has no management-server dependency. Mount persistent storage at
+`/state` for event, gallery, history, crop, and snapshot state.
 
 ## Baked Models
 
@@ -40,13 +41,14 @@ docker run --rm -p 8080:8080 \
   --device /dev/dri:/dev/dri --device /dev/accel:/dev/accel \
   -v "$PWD/desired-state.example.json:/configs/desired_state.json:ro" \
   -v "$PWD/secrets:/run/secrets/apexfabric:ro" \
-  surveillance-edge-runtime:intel-285h-2026.08.20
+  -v "$PWD/state:/state" \
+  surveillance-edge-runtime:intel-285h-2026.08.20-v2
 ```
 
 The compiler command required by the contract is available in the same image.
 `GET /metrics` returns documented JSON, and `GET /events` returns normalized
 SSE analytics plus a five-second idle heartbeat. Runtime state and optional
-alert snapshots are ephemeral under `/tmp/apexfabric`; no copied 8090
+alert snapshots are persisted under `/state/surveillance`; no copied 8090
 administrative endpoint is exposed. The estimated image size is 2.72 GB before
 `docker save` archive overhead.
 
@@ -55,21 +57,22 @@ defined by `analytics-event.schema.json`.
 
 ## GitHub Archive Parts
 
-The complete local `image.tar` is `2.72 GB`, above GitHub Free/Pro's per-file
+The complete local `image-2026.08.20-v2.tar` is `2.72 GB`, above GitHub
+Free/Pro's per-file
 Git LFS limit. The repository therefore carries the exact archive as these
 current-build parts:
 
 ```text
-image.tar.part-aa
-image.tar.part-ab
-image.parts.sha256
+image-2026.08.20-v2.tar.part-aa
+image-2026.08.20-v2.tar.part-ab
+image-2026.08.20-v2.parts.sha256
 ```
 
 Reconstruct and verify it inside this directory:
 
 ```bash
-sha256sum -c image.parts.sha256
-cat image.tar.part-* > image.tar
-sha256sum -c image.sha256
-docker load -i image.tar
+sha256sum -c image-2026.08.20-v2.parts.sha256
+cat image-2026.08.20-v2.tar.part-* > image-2026.08.20-v2.tar
+sha256sum -c image-2026.08.20-v2.sha256
+docker load -i image-2026.08.20-v2.tar
 ```

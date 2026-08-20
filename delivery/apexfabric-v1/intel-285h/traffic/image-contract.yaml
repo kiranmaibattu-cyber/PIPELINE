@@ -1,5 +1,5 @@
 name: traffic-edge-runtime
-version: 2026.08.20
+version: 2026.08.20-v2
 contractVersion: v1
 architectures: [amd64]
 hardwareProfile: intel-285h
@@ -40,6 +40,8 @@ devices:
   - /dev/dri
   - /dev/accel
 storage:
-  persistentVolumes: []
+  persistentVolumes:
+    - mountPath: /state
+      purpose: event and snapshot storage served by /events and /snapshots
   temporaryPaths: [/plans, /tmp/apexfabric]
 externalDependencies: []

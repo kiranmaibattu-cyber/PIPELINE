@@ -62,6 +62,56 @@ class SolutionPackEntrypointTest(unittest.TestCase):
         self.assertEqual("crops/plate_1.jpg", event["payload"]["snapshot_ref"])
         self.assertEqual("/snapshots/crops/plate_1.jpg", event["payload"]["snapshot_url"])
 
+    def test_snapshot_refs_get_asset_urls(self) -> None:
+        status = RuntimeStatus(
+            solution_pack="traffic",
+            plan_path=Path("/plans/traffic.runtime_plan.json"),
+            state_dir=Path("/state/traffic"),
+        )
+        event = _enrich_event(status, {
+            "camera_id": "cam4",
+            "event_type": "plate_read",
+            "snapshot_refs": {
+                "vehicle_crop": "snapshots/plate_read/cam4_vehicle.jpg",
+                "plate_crop": "snapshots/plate_read/cam4_plate.jpg",
+            },
+        })
+
+        assets = event["payload"]["snapshot_assets"]
+        self.assertEqual(
+            "/snapshots/snapshots/plate_read/cam4_vehicle.jpg",
+            assets["vehicle_crop"]["url"],
+        )
+        self.assertEqual("image/jpeg", assets["plate_crop"]["content_type"])
+
+    def test_vehicle_correlation_is_exposed_to_management(self) -> None:
+        status = RuntimeStatus(
+            solution_pack="traffic",
+            plan_path=Path("/plans/traffic.runtime_plan.json"),
+            state_dir=Path("/state/traffic"),
+        )
+        event = _enrich_event(status, {
+            "camera_id": "cam4",
+            "event_type": "wrong_way",
+            "use_case": "wrong_way",
+            "vehicle_ref": "cam4:run-42:7",
+            "vehicle_track_id": 7,
+            "vehicle": {
+                "ref": "cam4:run-42:7",
+                "track_id": 7,
+                "plate": {"text": "KA52P1295"},
+            },
+            "snapshot_refs": {
+                "vehicle_crop": "snapshots/wrong_way/cam4_vehicle.jpg",
+                "plate_crop": "snapshots/wrong_way/cam4_plate.jpg",
+            },
+        })
+
+        self.assertEqual("cam4:run-42:7", event["payload"]["vehicle_ref"])
+        self.assertEqual("KA52P1295", event["payload"]["vehicle"]["plate"]["text"])
+        self.assertIn("vehicle_crop", event["payload"]["snapshot_assets"])
+        self.assertIn("plate_crop", event["payload"]["snapshot_assets"])
+
     def test_event_contract_redacts_camera_source(self) -> None:
         status = RuntimeStatus(
             solution_pack="traffic",

@@ -7,8 +7,8 @@ This document describes the current ApexFabric V1 delivery. It targets only
 
 | Image | Applications | Baked models |
 |---|---|---|
-| `surveillance-edge-runtime:intel-285h-2026.08.20` | Re-ID, face recognition, intrusion, people counting | `/models/surveillance` |
-| `traffic-edge-runtime:intel-285h-2026.08.20` | ANPR, wrong way, vehicle count, pedestrian count, illegal parking | `/models/traffic/openvino` |
+| `surveillance-edge-runtime:intel-285h-2026.08.20-v2` | Re-ID, face recognition, intrusion, people counting | `/models/surveillance` |
+| `traffic-edge-runtime:intel-285h-2026.08.20-v2` | ANPR, wrong way, vehicle count, pedestrian count, illegal parking | `/models/traffic/openvino` |
 
 Both images include the graph compiler, app manifests, copied headless source
 runtime, Python dependencies, FFmpeg/VAAPI support, Intel GPU userspace, Intel
@@ -72,7 +72,7 @@ The foreground runtime listens on `0.0.0.0:8080`:
 | `GET /readyz` | JSON | Plan, model, and worker readiness |
 | `GET /metrics` | Documented JSON | Runtime and event transport status |
 | `GET /events` | SSE | Normalized analytics events and heartbeat |
-| `GET /snapshots/<ref>` | JPEG/PNG | Optional event image from ephemeral runtime state |
+| `GET /snapshots/<ref>` | JPEG/PNG | Event image from persistent runtime state |
 
 The V1 surface does not expose the copied 8090 administrative API. Analytics
 events use schema version `1.0`, UTC timestamps, unique IDs, configured camera
@@ -81,10 +81,11 @@ heartbeat every five seconds when idle.
 
 ## Storage And Services
 
-Models are baked into each image. There are no model mounts, model downloads,
-persistent volumes, Redis, management callback, Docker socket, Kubernetes API,
-or other runtime services. ApexFabric supplies only desired state, Secret files,
-device access, temporary `/plans` and `/tmp`, and a Service for port `8080`.
+Models are baked into each image, so there are no model mounts or downloads.
+ApexFabric supplies desired state, Secret files, device access, temporary
+`/plans` and `/tmp`, a persistent volume at `/state`, and a Service for port
+`8080`. The runtimes do not require Redis, a management callback, Docker socket,
+Kubernetes API, or another runtime service.
 
 ## Build And Delivery
 
@@ -94,11 +95,11 @@ device access, temporary `/plans` and `/tmp`, and a Service for port `8080`.
 ```
 
 Each directory under `delivery/apexfabric-v1/intel-285h/` contains the required
-`image.tar`, archive SHA-256, desired-state schema/example, analytics schema,
-image contract, and README. The source contract is
+versioned image archive (or Git-safe parts), archive SHA-256, desired-state
+schema/example, analytics schema, image contract, and README. The source contract is
 `apexfabric-solution-image-contract-v1.md`.
 
-The full surveillance `image.tar` remains a local delivery artifact. GitHub
-stores it as `image.tar.part-aa` and `image.tar.part-ab` because the full archive
-exceeds the Git LFS per-file limit. Its delivery README contains the exact
-reassembly and verification commands.
+The full surveillance versioned archive remains a local delivery artifact.
+GitHub stores it as versioned `.part-aa` and `.part-ab` files because the full
+archive exceeds the Git LFS per-file limit. Its delivery README contains the
+exact reassembly and verification commands.

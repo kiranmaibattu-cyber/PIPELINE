@@ -27,7 +27,8 @@ def main() -> int:
         print("solution image startup failed: invalid SOLUTION_PACK", file=sys.stderr, flush=True)
         return 2
 
-    work_root = Path("/tmp/apexfabric")
+    work_root = Path(os.getenv("APEXFABRIC_WORK_ROOT", "/tmp/apexfabric"))
+    state_root = Path(os.getenv("APEXFABRIC_STATE_ROOT", "/state"))
     work_root.mkdir(parents=True, exist_ok=True)
     plan_dir = Path("/plans")
     plan_dir.mkdir(parents=True, exist_ok=True)
@@ -53,7 +54,7 @@ def main() -> int:
 
     runtime = PACK_RUNTIME[solution_pack]
     generated = work_root / "generated" / solution_pack
-    state = work_root / "state" / solution_pack
+    state = state_root / solution_pack
     generated.mkdir(parents=True, exist_ok=True)
     state.mkdir(parents=True, exist_ok=True)
     command = [

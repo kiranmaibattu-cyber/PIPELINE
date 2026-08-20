@@ -702,6 +702,7 @@ def simple_event(event: Mapping[str, object]) -> dict:
         "observed_at": observed_at,
         "subject": {
             "track_id": track_id,
+            "parent_track_id": subject.get("parent_track_id"),
             "type": subject.get("class"),
             "confidence": subject.get("confidence"),
             "bbox": bbox_payload(subject.get("bbox")),

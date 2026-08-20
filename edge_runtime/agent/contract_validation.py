@@ -12,6 +12,10 @@ class ApexFabricV1DesiredStateValidator:
 
     _ROOT_FIELDS = {"edge_id", "revision", "cameras"}
     _CAMERA_FIELDS = {"camera_id", "source", "solution_pack", "fps", "apps", "config"}
+    _TRAFFIC_LINE_APPS = {"wrong_way", "vehicle_counting", "pedestrian_counting"}
+    _TRAFFIC_REQUIRED_LINE_APPS = {"wrong_way"}
+    _TRAFFIC_ZONE_APPS = {"illegal_parking"}
+    _TRAFFIC_ALLOWED_ZONE_APPS = {"anpr", "illegal_parking"}
 
     def __init__(
         self,
@@ -86,7 +90,90 @@ class ApexFabricV1DesiredStateValidator:
         config = camera.get("config", {})
         if not isinstance(config, dict):
             raise ValueError(f"camera {camera_id} config must be an object")
+        if self._solution_pack == "traffic":
+            self._validate_traffic_config(camera_id, apps, config)
         self._validate_secret_reference(camera_id, camera["source"])
+
+    def _validate_traffic_config(self, camera_id: str, apps: list[str], config: dict) -> None:
+        unknown = set(config) - {"lines", "zones"}
+        if unknown:
+            raise ValueError(f"camera {camera_id} traffic config has unknown fields: {sorted(unknown)}")
+
+        lines = config.get("lines") or {}
+        zones = config.get("zones") or {}
+        if not isinstance(lines, dict):
+            raise ValueError(f"camera {camera_id} config.lines must be an object")
+        if not isinstance(zones, dict):
+            raise ValueError(f"camera {camera_id} config.zones must be an object")
+        unknown_lines = set(lines) - self._TRAFFIC_LINE_APPS
+        unknown_zones = set(zones) - self._TRAFFIC_ALLOWED_ZONE_APPS
+        if unknown_lines:
+            raise ValueError(f"camera {camera_id} config.lines has unknown apps: {sorted(unknown_lines)}")
+        if unknown_zones:
+            raise ValueError(f"camera {camera_id} config.zones has unknown apps: {sorted(unknown_zones)}")
+
+        for app, app_lines in lines.items():
+            if not isinstance(app_lines, list) or not app_lines:
+                raise ValueError(f"camera {camera_id} config.lines.{app} must be a non-empty array")
+            for index, line in enumerate(app_lines):
+                self._validate_line(camera_id, app, index, line)
+        for app, app_zones in zones.items():
+            if not isinstance(app_zones, list) or not app_zones:
+                raise ValueError(f"camera {camera_id} config.zones.{app} must be a non-empty array")
+            for index, zone in enumerate(app_zones):
+                self._validate_zone(camera_id, app, index, zone)
+
+        for app in self._TRAFFIC_REQUIRED_LINE_APPS & set(apps):
+            app_lines = lines.get(app)
+            if not isinstance(app_lines, list) or not app_lines:
+                raise ValueError(f"camera {camera_id} app {app} requires config.lines.{app}")
+        for app in self._TRAFFIC_ZONE_APPS & set(apps):
+            app_zones = zones.get(app)
+            if not isinstance(app_zones, list) or not app_zones:
+                raise ValueError(f"camera {camera_id} app {app} requires config.zones.{app}")
+
+    def _validate_line(self, camera_id: str, app: str, index: int, line) -> None:
+        if not isinstance(line, dict):
+            raise ValueError(f"camera {camera_id} config.lines.{app}[{index}] must be an object")
+        unknown = set(line) - {"id", "name", "a", "b", "direction"}
+        if unknown:
+            raise ValueError(
+                f"camera {camera_id} config.lines.{app}[{index}] has unknown fields: {sorted(unknown)}"
+            )
+        if not isinstance(line.get("name"), str) or not line["name"].strip():
+            raise ValueError(f"camera {camera_id} config.lines.{app}[{index}].name is required")
+        self._validate_point(camera_id, f"config.lines.{app}[{index}].a", line.get("a"))
+        self._validate_point(camera_id, f"config.lines.{app}[{index}].b", line.get("b"))
+        if "direction" in line and line["direction"] not in {"a_to_b", "b_to_a", "both"}:
+            raise ValueError(
+                f"camera {camera_id} config.lines.{app}[{index}].direction must be a_to_b, b_to_a, or both"
+            )
+
+    def _validate_zone(self, camera_id: str, app: str, index: int, zone) -> None:
+        if not isinstance(zone, dict):
+            raise ValueError(f"camera {camera_id} config.zones.{app}[{index}] must be an object")
+        unknown = set(zone) - {"id", "name", "poly"}
+        if unknown:
+            raise ValueError(
+                f"camera {camera_id} config.zones.{app}[{index}] has unknown fields: {sorted(unknown)}"
+            )
+        if not isinstance(zone.get("name"), str) or not zone["name"].strip():
+            raise ValueError(f"camera {camera_id} config.zones.{app}[{index}].name is required")
+        poly = zone.get("poly")
+        if not isinstance(poly, list) or len(poly) < 3:
+            raise ValueError(f"camera {camera_id} config.zones.{app}[{index}].poly needs at least 3 points")
+        for point_index, point in enumerate(poly):
+            self._validate_point(camera_id, f"config.zones.{app}[{index}].poly[{point_index}]", point)
+
+    @staticmethod
+    def _validate_point(camera_id: str, field: str, point) -> None:
+        if (
+            not isinstance(point, list)
+            or len(point) != 2
+            or any(not isinstance(value, (int, float)) or isinstance(value, bool) for value in point)
+            or any(value < 0 or value > 1 for value in point)
+        ):
+            raise ValueError(f"camera {camera_id} {field} must be [x, y] normalized from 0 to 1")
 
     def _validate_secret_reference(self, camera_id: str, source) -> None:
         if not isinstance(source, str) or not source.startswith("file:"):

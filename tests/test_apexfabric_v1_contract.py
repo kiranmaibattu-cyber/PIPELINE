@@ -68,6 +68,93 @@ class ApexFabricV1ContractTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unknown desired-state fields"):
                 validator.validate(desired)
 
+    def test_rejects_wrong_way_without_roi(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            secret = root / "cam1.rtsp"
+            secret.write_text("rtsp://camera.test/stream\n", encoding="utf-8")
+            desired = self._write_desired(
+                root,
+                f"file:{secret}",
+                cameras=[{
+                    "camera_id": "cam1",
+                    "source": f"file:{secret}",
+                    "solution_pack": "traffic",
+                    "fps": 8,
+                    "apps": ["wrong_way"],
+                }],
+            )
+            validator = ApexFabricV1DesiredStateValidator("traffic", self.manifests, root)
+
+            with self.assertRaisesRegex(ValueError, "requires config.lines.wrong_way"):
+                validator.validate(desired)
+
+    def test_accepts_counting_apps_without_roi(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            secret = root / "cam1.rtsp"
+            secret.write_text("rtsp://camera.test/stream\n", encoding="utf-8")
+            desired = self._write_desired(
+                root,
+                f"file:{secret}",
+                cameras=[{
+                    "camera_id": "cam1",
+                    "source": f"file:{secret}",
+                    "solution_pack": "traffic",
+                    "fps": 8,
+                    "apps": ["vehicle_counting", "pedestrian_counting"],
+                }],
+            )
+            validator = ApexFabricV1DesiredStateValidator("traffic", self.manifests, root)
+
+            validator.validate(desired)
+
+    def test_accepts_traffic_apps_with_roi(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            secret = root / "cam1.rtsp"
+            secret.write_text("rtsp://camera.test/stream\n", encoding="utf-8")
+            desired = self._write_desired(
+                root,
+                f"file:{secret}",
+                cameras=[{
+                    "camera_id": "cam1",
+                    "source": f"file:{secret}",
+                    "solution_pack": "traffic",
+                    "fps": 8,
+                    "apps": ["wrong_way", "vehicle_counting", "pedestrian_counting", "illegal_parking"],
+                    "config": {
+                        "lines": {
+                            "wrong_way": [{
+                                "name": "wrong_way_line",
+                                "a": [0.15, 0.58],
+                                "b": [0.85, 0.58],
+                                "direction": "a_to_b",
+                            }],
+                            "vehicle_counting": [{
+                                "name": "vehicle_count_line",
+                                "a": [0.15, 0.68],
+                                "b": [0.85, 0.68],
+                            }],
+                            "pedestrian_counting": [{
+                                "name": "pedestrian_count_line",
+                                "a": [0.15, 0.78],
+                                "b": [0.85, 0.78],
+                            }],
+                        },
+                        "zones": {
+                            "illegal_parking": [{
+                                "name": "no_parking",
+                                "poly": [[0.15, 0.30], [0.85, 0.30], [0.85, 0.90], [0.15, 0.90]],
+                            }],
+                        },
+                    },
+                }],
+            )
+            validator = ApexFabricV1DesiredStateValidator("traffic", self.manifests, root)
+
+            validator.validate(desired)
+
     def test_all_baked_intel_models_match_registry(self) -> None:
         registry = ModelRegistry.from_file(
             ROOT / "edge_runtime" / "model_registry" / "models.yaml"

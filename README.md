@@ -9,17 +9,18 @@ The current ApexFabric V1 delivery targets only `linux/amd64` on Intel Core
 Ultra 9 285H. It builds two self-contained solution images:
 
 ```text
-surveillance-edge-runtime:intel-285h-2026.08.20
-traffic-edge-runtime:intel-285h-2026.08.20
+surveillance-edge-runtime:intel-285h-2026.08.20-v2
+traffic-edge-runtime:intel-285h-2026.08.20-v2
 ```
 
 These images bake in runtime code, model files, model metadata, Intel GPU/NPU
 userspace libraries, the graph compiler, and the HTTP/SSE contract. They read
 `/configs/desired_state.json`, read camera values from Secret files under
-`/run/secrets/apexfabric`, write only temporary data under `/plans` and `/tmp`,
-and expose `/healthz`, `/readyz`, `/metrics`, and `/events` on port `8080`.
-They do not require the edge-agent image, Redis, persistent volumes, a management
-server, host networking, or Jetson/Metis runtimes.
+`/run/secrets/apexfabric`, write persistent events, snapshots, and runtime state
+under `/state`, and expose `/healthz`, `/readyz`, `/metrics`, `/events`, and
+`/snapshots/...` on port `8080`. They require a persistent volume mounted at
+`/state`, but do not require the edge-agent image, Redis, a management-server
+callback, host networking, or Jetson/Metis runtimes.
 
 Build and package the Intel V1 images with:
 
