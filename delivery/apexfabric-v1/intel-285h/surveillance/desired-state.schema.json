@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://apexfabric.local/schemas/v1/surveillance-desired-state.json",
+  "title": "ApexFabric Surveillance Desired State V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["edge_id", "revision", "cameras"],
+  "properties": {
+    "edge_id": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "cameras": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["camera_id", "source", "solution_pack", "apps"],
+        "properties": {
+          "camera_id": {"type": "string", "minLength": 1},
+          "source": {"type": "string", "pattern": "^file:/run/secrets/apexfabric/[A-Za-z0-9._-]+$"},
+          "solution_pack": {"const": "surveillance"},
+          "fps": {"type": "number", "exclusiveMinimum": 0},
+          "apps": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"enum": ["reid", "face_recognition", "intrusion", "people_counting"]}
+          },
+          "config": {"type": "object"}
+        }
+      }
+    }
+  }
+}

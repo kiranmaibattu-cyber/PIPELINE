@@ -28,6 +28,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import MTMC.streamapp_2tier as bb
+from edge_runtime.runtime.source_resolver import CameraSourceResolver
 from PLATF.autocall import DEFAULT_CONFIG as AUTOCALL_DEFAULT_CONFIG
 from PLATF.autocall import AutoCallDispatcher
 from PLATF.bev import BEV
@@ -77,7 +78,8 @@ class App:
 
     @staticmethod
     def _runtime_path():
-        return Path(__file__).resolve().parent / "config" / "runtime_usecases.json"
+        configured = os.environ.get("PLATF_RUNTIME_CONFIG")
+        return Path(configured) if configured else Path(__file__).resolve().parent / "config" / "runtime_usecases.json"
 
     def _load_runtime_config(self):
         """Restore user-authored zones and per-camera toggles after a restart."""
@@ -266,7 +268,9 @@ class App:
         self.plat.box_state = bb.BOX_STATE
         self.plat.bus.subscribe("*", self._engine_alert)
         for s in streams:
-            self.add_stream(s["source"], s.get("camera"),
+            source = CameraSourceResolver().resolve(str(s["source"]))
+            print(f"Camera {s.get('camera')} source loaded from mounted Secret", flush=True)
+            self.add_stream(source, s.get("camera"),
                             bool(s.get("face", True)), bool(s.get("gait", True)),
                             warm=0.4, persist=False)
         self.plat.set_cameras(self.cam_sid.keys())

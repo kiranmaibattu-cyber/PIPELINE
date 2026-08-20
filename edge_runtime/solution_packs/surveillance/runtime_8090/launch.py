@@ -4,12 +4,10 @@ from __future__ import annotations
 import argparse
 import os
 import runpy
-import shutil
 import sys
 from pathlib import Path
 
 from edge_runtime.runtime.plan_loader import RuntimePlanLoader
-from edge_runtime.runtime.source_resolver import CameraSourceResolver
 from edge_runtime.solution_packs.surveillance.runtime.config_adapter import (
     SurveillanceConfigAdapter,
 )
@@ -35,11 +33,10 @@ def main() -> int:
     state_dir = Path(args.state_dir)
     models_dir = Path(args.models_dir)
 
-    plan = CameraSourceResolver().resolve_plan(RuntimePlanLoader().load(Path(args.plan)))
+    plan = RuntimePlanLoader().load(Path(args.plan))
     SurveillanceConfigAdapter().write(plan, generated_dir)
-    _install_runtime_config(generated_dir)
-    _prepare_model_mount(models_dir)
     _configure_environment(plan, state_dir, models_dir, args.port)
+    os.environ["PLATF_RUNTIME_CONFIG"] = str(generated_dir / "runtime_usecases.generated.json")
 
     streams_path = generated_dir / "streams.generated.yaml"
     print(f"surveillance 8090 config prepared in {generated_dir.resolve()}", flush=True)
@@ -59,22 +56,6 @@ def main() -> int:
     ]
     runpy.run_module("PLATF.app", run_name="__main__")
     return 0
-
-
-def _install_runtime_config(generated_dir: Path) -> None:
-    target_dir = RUNTIME_ROOT / "PLATF" / "config"
-    target_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(
-        generated_dir / "runtime_usecases.generated.json",
-        target_dir / "runtime_usecases.json",
-    )
-
-
-def _prepare_model_mount(models_dir: Path) -> None:
-    runtime_models = RUNTIME_ROOT / "models"
-    if runtime_models.exists():
-        return
-    runtime_models.symlink_to(models_dir, target_is_directory=True)
 
 
 def _configure_environment(plan, state_dir: Path, models_dir: Path, port: int) -> None:
@@ -120,10 +101,7 @@ def _configure_environment(plan, state_dir: Path, models_dir: Path, port: int) -
 
 
 def _uses_live_rtsp(plan) -> bool:
-    return any(
-        str(camera.get("source", "")).lower().startswith("rtsp://")
-        for camera in plan.get("cameras", [])
-    )
+    return bool(plan.get("cameras"))
 
 
 if __name__ == "__main__":

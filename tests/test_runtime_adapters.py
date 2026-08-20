@@ -6,7 +6,6 @@ import unittest
 from pathlib import Path
 
 from edge_runtime.solution_packs.surveillance.runtime.config_adapter import SurveillanceConfigAdapter
-from edge_runtime.solution_packs.surveillance.runtime_8090 import launch as surveillance_launch
 from edge_runtime.solution_packs.traffic.runtime.config_adapter import TrafficConfigAdapter
 from edge_runtime.solution_packs.traffic.runtime_pilot import launch as traffic_launch
 
@@ -34,23 +33,13 @@ class RuntimeAdapterTest(unittest.TestCase):
         self.assertIn("parking_violation_detection", cameras["cam5"]["analytics"])
         self.assertNotIn("plate_detection", cameras["cam5"]["analytics"])
 
-    def test_surveillance_launcher_installs_8090_runtime_usecases(self) -> None:
+    def test_surveillance_runtime_usecases_stay_in_generated_directory(self) -> None:
         plan = json.loads((ROOT / "run" / "plans" / "surveillance.runtime_plan.json").read_text())
         with tempfile.TemporaryDirectory() as tmp:
             output_dir = Path(tmp)
             SurveillanceConfigAdapter().write(plan, output_dir)
-            surveillance_launch._install_runtime_config(output_dir)
-        runtime_config = (
-            ROOT
-            / "edge_runtime"
-            / "solution_packs"
-            / "surveillance"
-            / "runtime_8090"
-            / "PLATF"
-            / "config"
-            / "runtime_usecases.json"
-        )
-        usecases = json.loads(runtime_config.read_text(encoding="utf-8"))["usecases"]
+            runtime_config = output_dir / "runtime_usecases.generated.json"
+            usecases = json.loads(runtime_config.read_text(encoding="utf-8"))["usecases"]
         self.assertEqual(usecases["reid"], ["cam1", "cam2"])
         self.assertEqual(usecases["intrusion"], ["cam2", "cam3"])
 
@@ -62,6 +51,8 @@ class RuntimeAdapterTest(unittest.TestCase):
         self.assertEqual(data["models"]["vehicle"]["backend"], "openvino")
         self.assertEqual(data["models"]["plate"]["backend"], "openvino")
         self.assertEqual(data["models"]["license_plate_ocr"]["backend"], "openvino")
+        self.assertFalse(data["json_streaming"]["debug_tap"])
+        self.assertEqual([], data["json_streaming"]["outputs"])
 
 
 if __name__ == "__main__":

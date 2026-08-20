@@ -1,210 +1,104 @@
-# ApexFabric Edge Images
+# ApexFabric V1 Intel Solution Images
 
-This repository builds three Intel `intel-285h` edge images. The images contain
-the application code and Intel userspace runtimes. Camera assignments, models,
-generated configuration, and persistent application data are supplied through
-mounted paths when a container is deployed.
+This document describes the current ApexFabric V1 delivery. It targets only
+`linux/amd64` on Intel Core Ultra 9 285H; Jetson Orin and Metis are excluded.
 
-## Image summary
+## Images
 
-| Image | Purpose | Platform API |
+| Image | Applications | Baked models |
 |---|---|---|
-| `pipeline-edge-agent:latest` | Compiles management desired state into hardware-aware runtime plans and supervises solution-pack containers | Not exposed |
-| `surveillance-edge-runtime:intel-285h` | Runs Re-ID, face recognition, intrusion, people counting, and related surveillance use cases using the copied headless 8090 runtime | Container port `8080` |
-| `traffic-edge-runtime:intel-285h` | Runs ANPR, wrong-way driving, vehicle count, pedestrian count, illegal parking, and related traffic use cases using the copied Traffic Pilot OpenVINO runtime | Container port `8080` |
+| `surveillance-edge-runtime:intel-285h-2026.08.20` | Re-ID, face recognition, intrusion, people counting | `/models/surveillance` |
+| `traffic-edge-runtime:intel-285h-2026.08.20` | ANPR, wrong way, vehicle count, pedestrian count, illegal parking | `/models/traffic/openvino` |
 
-The build also creates local convenience tags
-`surveillance-edge-runtime:latest` and `traffic-edge-runtime:latest`. ApexFabric
-deployments should use the hardware-specific `intel-285h` tags or immutable
-registry digests.
+Both images include the graph compiler, app manifests, copied headless source
+runtime, Python dependencies, FFmpeg/VAAPI support, Intel GPU userspace, Intel
+NPU userspace/compiler, model files, and model checksum metadata. They run as
+UID/GID `10001`, require `/dev/dri` and `/dev/accel` for configured camera
+workloads, and do not include either historical UI.
 
-## Common runtime contents
+The fixed hardware placement remains aligned with the source pipelines:
 
-The three images inherit from `pipeline-ubuntu-python:24.04`, which includes:
-
-- Ubuntu 24.04 and Python 3.
-- FFmpeg and VA-API support for Intel iGPU hardware decode.
-- Intel media, OpenCL, Level Zero, and GPU userspace libraries.
-- Intel NPU Level Zero userspace and the Intel NPU compiler.
-- OpenVINO and the Python dependencies required by each runtime.
-
-Only host kernel drivers and device nodes are expected from the edge box. The
-platform grants `/dev/dri` for the Intel GPU/media engine and `/dev/accel` for
-the Intel NPU. The container does not install drivers at deployment time and
-does not require internet access at runtime.
-
-## Edge agent image
-
-`pipeline-edge-agent:latest` contains the platform control-plane code that runs
-on an edge box:
-
-- desired-state loading and validation;
-- app manifest and dependency resolution;
-- per-camera DAG graph compilation;
-- hardware probing and capacity planning;
-- GPU/NPU/CPU service placement;
-- runtime-plan generation;
-- management model-bundle download, checksum verification, and immutable caching;
-- required-model registry verification and read-only model mount selection;
-- solution-pack container command generation and supervision.
-
-The agent reads management desired state from `/configs/desired_state.json` and
-writes compiled plans to `/plans`. In production these paths are supplied by
-the platform. The solution-pack images consume the resulting plans.
-
-The edge agent does not contain camera models, galleries, or application state.
-When desired state includes a `model_bundles` reference, it downloads the bundle
-from the management server over the private management network into its mounted
-model cache. The solution image never downloads models and remains offline during
-analytics execution.
-
-## Surveillance image
-
-`surveillance-edge-runtime:intel-285h` contains:
-
-- the graph-plan adapter and ApexFabric process wrapper;
-- the copied headless 8090/PLATF/MTMC runtime;
-- person detection and tracking orchestration;
-- body Re-ID, face embedding/recognition, gait, identity fusion, intrusion,
-  and people-counting runtime code;
-- management event and alert snapshot generation;
-- management API proxying for search, persons, history, Re-ID/face galleries,
-  face enrollment, alerts, counting, live view, cameras, zones, and use cases.
-
-Default accelerator placement preserves the 8090 pipeline assignment:
-
-| Stage | Device |
-|---|---|
-| Video decode | Intel iGPU/media engine |
-| Person detector | Intel GPU |
-| Body embedding | Intel NPU |
-| Face model | Intel GPU |
-| Gait embedding | Intel NPU |
-| Segmentation | Intel GPU |
-
-### Surveillance mounts
-
-| Container path | Access | Contents |
+| Pack | Stage | Device |
 |---|---|---|
-| `/plans/surveillance.runtime_plan.json` | Read-only input | Cameras, apps, graph services, revision, and edge ID |
-| `/models/surveillance` | Read-only input | OpenVINO detector, body Re-ID, face, gait, and segmentation model files |
-| `/generated/surveillance` | Read-write | Generated streams and use-case runtime configuration |
-| `/state/surveillance` | Read-write, persistent | Face gallery, Re-ID gallery, history, crops, snapshots, and event outbox |
+| Surveillance | Decode | Intel iGPU VAAPI |
+| Surveillance | Person detector | Intel GPU |
+| Surveillance | Body Re-ID | Intel NPU |
+| Surveillance | Face model | Intel GPU |
+| Surveillance | Gait | Intel NPU |
+| Traffic | Decode | Intel iGPU VAAPI |
+| Traffic | Vehicle detector | Intel GPU |
+| Traffic | Plate detector | Intel NPU |
+| Traffic | OCR | Intel GPU/NPU |
 
-Models are not baked into the image. The platform can provide the read-only model
-volume directly, or the edge agent can populate it from a versioned management
-bundle before starting this image.
+There is no CPU decode or CPU detector fallback in the V1 Intel configuration.
+If required hardware is unavailable, graph compilation or runtime startup fails
+instead of silently changing pipeline placement.
 
-### Surveillance management interface
+## Inputs
+
+ApexFabric mounts the desired state at:
+
+```text
+/configs/desired_state.json
+```
+
+Each camera source is a `file:` reference under:
+
+```text
+/run/secrets/apexfabric/<camera-id>.rtsp
+```
+
+The compiler validates the desired state, Secret reference, available Intel
+devices, capacity, and every required baked model checksum. The generated plan
+retains the `file:` reference; resolved RTSP values are used only in memory by
+the runtime and are excluded from generated files, events, and logs.
+
+The same image supports the required init-container command:
+
+```bash
+python -m edge_runtime.agent.edge_agent \
+  --desired-state /configs/desired_state.json \
+  --output-dir /plans \
+  --models-root /models
+```
+
+## Outputs
+
+The foreground runtime listens on `0.0.0.0:8080`:
 
 | Endpoint | Format | Purpose |
 |---|---|---|
-| `/healthz` | JSON | Process liveness; independent of camera health |
-| `/readyz` | JSON | Plan/runtime readiness; zero-camera configuration is valid |
-| `/metrics` | JSON | Runtime, camera, event, snapshot, and management API status |
-| `/events` | Server-Sent Events | Alerts and analytics metadata with snapshot references |
-| `/snapshots/<ref>` | JPEG/PNG | Alert snapshot or crop stored in the mounted state volume |
-| `/api/...` | JSON/image | Proxied 8090 search, gallery, enrollment, history, identity, and use-case APIs |
+| `GET /healthz` | JSON | Process and child-runtime health |
+| `GET /readyz` | JSON | Plan, model, and worker readiness |
+| `GET /metrics` | Documented JSON | Runtime and event transport status |
+| `GET /events` | SSE | Normalized analytics events and heartbeat |
+| `GET /snapshots/<ref>` | JPEG/PNG | Optional event image from ephemeral runtime state |
 
-Management should store camera credentials in a Secret and put an `env:`,
-`file:`, or `secret:` source reference in the runtime plan. Face and Re-ID
-gallery updates made through the management API persist under
-`/state/surveillance`.
+The V1 surface does not expose the copied 8090 administrative API. Analytics
+events use schema version `1.0`, UTC timestamps, unique IDs, configured camera
+IDs, documented application/event names, and redacted payloads. SSE sends a
+heartbeat every five seconds when idle.
 
-## Traffic image
+## Storage And Services
 
-`traffic-edge-runtime:intel-285h` contains:
+Models are baked into each image. There are no model mounts, model downloads,
+persistent volumes, Redis, management callback, Docker socket, Kubernetes API,
+or other runtime services. ApexFabric supplies only desired state, Secret files,
+device access, temporary `/plans` and `/tmp`, and a Service for port `8080`.
 
-- the graph-plan adapter and ApexFabric process wrapper;
-- the copied Traffic Pilot OpenVINO runtime without the Metis execution path;
-- VA-API/FFmpeg hardware decode;
-- OpenVINO vehicle detection, plate detection, and OCR;
-- tracking and traffic analytics for ANPR, wrong-way driving, vehicle count,
-  pedestrian count, and illegal parking;
-- local management event and alert snapshot generation.
-
-The current Intel path uses the iGPU media engine for decode, the Intel GPU for
-the primary vehicle detector, and graph-plan-selected GPU/NPU placement for
-plate detection and OCR.
-
-### Traffic mounts
-
-| Container path | Access | Contents |
-|---|---|---|
-| `/plans/traffic.runtime_plan.json` | Read-only input | Cameras, apps, graph services, revision, and edge ID |
-| `/models/traffic/openvino` | Read-only input | Vehicle, license-plate, and OCR OpenVINO `.xml`/`.bin` files |
-| `/generated/traffic` | Read-write | Generated camera and worker configuration |
-| `/state/traffic` | Read-write, persistent | Rules, events, snapshots, crops, videos, and runtime history |
-
-Models are mounted and are not baked into the traffic image. The platform can
-provide the volume directly, or the edge agent can populate it from a verified
-management bundle before starting this image.
-
-### Traffic management interface
-
-| Endpoint | Format | Purpose |
-|---|---|---|
-| `/healthz` | JSON | Process liveness; independent of camera health |
-| `/readyz` | JSON | Plan/runtime readiness; zero-camera configuration is valid |
-| `/metrics` | JSON | Runtime, event, and snapshot status |
-| `/events` | Server-Sent Events | ANPR and traffic analytics events |
-| `/snapshots/<ref>` | JPEG/PNG | Event image stored in the mounted state volume |
-
-## Deployment example
-
-The ApexFabric scheduler supplies equivalent mounts and device access. The
-repository's `docker/docker-compose.yml` is intended for local edge testing.
-
-```text
-management desired state
-        -> edge agent
-        -> download/cache/verify selected model bundle
-        -> compiled runtime plan
-        -> solution-pack container
-        -> cameras and mounted models
-        -> events, metrics, snapshots, galleries, and API results
-        -> management server
-```
-
-Build all images with:
+## Build And Delivery
 
 ```bash
-./scripts/build_images.sh
+./scripts/build_apexfabric_v1_intel_images.sh
+./scripts/package_apexfabric_v1_intel_images.sh
 ```
 
-Set `CONTAINER_ENGINE=podman` when Podman should be used instead of Docker.
+Each directory under `delivery/apexfabric-v1/intel-285h/` contains the required
+`image.tar`, archive SHA-256, desired-state schema/example, analytics schema,
+image contract, and README. The source contract is
+`apexfabric-solution-image-contract-v1.md`.
 
-After authenticating the selected container engine to GHCR, publish all three
-images with:
-
-```bash
-./scripts/push_images.sh
-```
-
-The publish script verifies the repository source label and forces Docker
-schema v2 when using Podman so GitHub links these packages to the `PIPELINE`
-repository. The published image references are:
-
-```text
-ghcr.io/kiranmaibattu-cyber/surveillance-edge-runtime:intel-285h
-ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime:intel-285h
-ghcr.io/kiranmaibattu-cyber/pipeline-edge-agent:latest
-```
-
-## Current contract limitations
-
-The current images implement the ApexFabric endpoint and mount contract, but
-the following items still require production hardening:
-
-- Pin the Ubuntu base image by digest and lock all apt/pip dependency versions
-  for fully reproducible builds.
-- Move the remaining surveillance runtime config/symlink writes out of
-  `/opt/pipeline` and into mounted generated/state paths.
-- Split durable gallery/config storage from reconstructable snapshot/cache
-  storage into separate platform volumes.
-- Enforce Secret references by rejecting credential-bearing camera URLs in
-  runtime-plan files.
-- Make readiness depend on successful model compilation, accelerator access,
-  and camera pipeline initialization rather than only child-process state.
-- Benchmark the GPU/NPU-only images before treating the declared 16-camera
-  surveillance and 26-camera traffic values as qualified capacity.
+The full surveillance `image.tar` remains a local delivery artifact. GitHub
+stores it as `image.tar.part-aa` and `image.tar.part-ab` because the full archive
+exceeds the Git LFS per-file limit. Its delivery README contains the exact
+reassembly and verification commands.

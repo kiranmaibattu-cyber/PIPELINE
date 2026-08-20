@@ -39,8 +39,12 @@ class SolutionPackEntrypointTest(unittest.TestCase):
             "snapshot_ref": "snapshots/cam1_event_1.jpg",
         })
 
-        self.assertEqual("/snapshots/snapshots/cam1_event_1.jpg", event["snapshot_url"])
-        self.assertEqual("image/jpeg", event["snapshot_content_type"])
+        self.assertEqual("1.0", event["schema_version"])
+        self.assertEqual("cam1", event["camera_id"])
+        self.assertEqual("intrusion", event["application"])
+        self.assertEqual("intrusion_event", event["event_type"])
+        self.assertEqual("/snapshots/snapshots/cam1_event_1.jpg", event["payload"]["snapshot_url"])
+        self.assertEqual("image/jpeg", event["payload"]["snapshot_content_type"])
 
     def test_nested_payload_snapshot_ref_gets_url(self) -> None:
         status = RuntimeStatus(
@@ -55,8 +59,44 @@ class SolutionPackEntrypointTest(unittest.TestCase):
             }
         })
 
-        self.assertEqual("crops/plate_1.jpg", event["snapshot_ref"])
-        self.assertEqual("/snapshots/crops/plate_1.jpg", event["snapshot_url"])
+        self.assertEqual("crops/plate_1.jpg", event["payload"]["snapshot_ref"])
+        self.assertEqual("/snapshots/crops/plate_1.jpg", event["payload"]["snapshot_url"])
+
+    def test_event_contract_redacts_camera_source(self) -> None:
+        status = RuntimeStatus(
+            solution_pack="traffic",
+            plan_path=Path("/plans/traffic.runtime_plan.json"),
+            state_dir=Path("/tmp/apexfabric/state/traffic"),
+        )
+        event = _enrich_event(status, {
+            "camera_id": "cam4",
+            "app_id": "anpr",
+            "event_type": "plate_read_event",
+            "timestamp_utc": "2026-08-20T10:00:00+05:30",
+            "payload": {
+                "plate": "KA52P1295",
+                "source": "rtsp://admin:password@camera/stream",
+            },
+        })
+
+        self.assertEqual("2026-08-20T04:30:00Z", event["timestamp"])
+        self.assertEqual("anpr", event["application"])
+        self.assertNotIn("source", event["payload"])
+
+    def test_traffic_runtime_names_are_normalized_to_contract(self) -> None:
+        status = RuntimeStatus(
+            solution_pack="traffic",
+            plan_path=Path("/plans/traffic.runtime_plan.json"),
+            state_dir=Path("/state/traffic"),
+        )
+        event = _enrich_event(status, {
+            "camera_id": "cam1",
+            "use_case": "wrong_way_driving_detection",
+            "type": "wrong_way",
+        })
+
+        self.assertEqual("wrong_way", event["application"])
+        self.assertEqual("wrong_way_event", event["event_type"])
 
     def test_snapshot_path_is_resolved_inside_state_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

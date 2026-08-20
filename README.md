@@ -3,6 +3,36 @@
 Standalone edge graph project. It does not import from `RE_ID_E` or
 `traffic-pilot`; runtime code needed by an edge image is copied/adapted here.
 
+## ApexFabric V1 Intel Delivery
+
+The current ApexFabric V1 delivery targets only `linux/amd64` on Intel Core
+Ultra 9 285H. It builds two self-contained solution images:
+
+```text
+surveillance-edge-runtime:intel-285h-2026.08.20
+traffic-edge-runtime:intel-285h-2026.08.20
+```
+
+These images bake in runtime code, model files, model metadata, Intel GPU/NPU
+userspace libraries, the graph compiler, and the HTTP/SSE contract. They read
+`/configs/desired_state.json`, read camera values from Secret files under
+`/run/secrets/apexfabric`, write only temporary data under `/plans` and `/tmp`,
+and expose `/healthz`, `/readyz`, `/metrics`, and `/events` on port `8080`.
+They do not require the edge-agent image, Redis, persistent volumes, a management
+server, host networking, or Jetson/Metis runtimes.
+
+Build and package the Intel V1 images with:
+
+```bash
+./scripts/build_apexfabric_v1_intel_images.sh
+./scripts/package_apexfabric_v1_intel_images.sh
+```
+
+See [SOLUTION_PACK_IMAGES.md](SOLUTION_PACK_IMAGES.md) and
+`delivery/apexfabric-v1/intel-285h/` for the current contract and delivery
+artifacts. The phase-1 edge-agent/model-bundle sections below document the
+older standalone deployment mode and are not the ApexFabric V1 image contract.
+
 ## Phase 1
 
 This phase builds the control plane inside the edge box:

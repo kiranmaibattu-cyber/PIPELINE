@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://apexfabric.local/schemas/v1/surveillance-analytics-event.json",
+  "title": "ApexFabric Surveillance Analytics Event V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "event_id", "timestamp", "camera_id", "solution_pack", "application", "event_type", "payload"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "event_id": {"type": "string", "minLength": 1},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "camera_id": {"type": "string", "minLength": 1},
+    "solution_pack": {"const": "surveillance"},
+    "application": {"enum": ["reid", "face_recognition", "intrusion", "people_counting"]},
+    "event_type": {"enum": ["identity_event", "cross_camera_identity_event", "face_recognized_event", "unauthorised_event", "intrusion_event", "people_count_event"]},
+    "payload": {"type": "object"}
+  }
+}

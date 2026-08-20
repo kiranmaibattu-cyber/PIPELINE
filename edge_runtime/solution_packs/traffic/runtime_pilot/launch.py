@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 
 from edge_runtime.runtime.plan_loader import RuntimePlanLoader
-from edge_runtime.runtime.source_resolver import CameraSourceResolver
 from edge_runtime.solution_packs.traffic.runtime.config_adapter import TrafficConfigAdapter
 
 
@@ -34,7 +33,7 @@ def main() -> int:
     state_dir = Path(args.state_dir)
     models_dir = Path(args.models_dir)
 
-    plan = CameraSourceResolver().resolve_plan(RuntimePlanLoader().load(Path(args.plan)))
+    plan = RuntimePlanLoader().load(Path(args.plan))
     TrafficConfigAdapter().write(plan, generated_dir)
     worker_config = _write_worker_config(plan, generated_dir)
     _configure_environment(plan, generated_dir, state_dir, models_dir, worker_config)
@@ -87,19 +86,9 @@ def _write_worker_config(plan: dict[str, Any], generated_dir: Path) -> Path:
         "visualization": {"text_renderer": "pillow"},
         "json_streaming": {
             "enabled": True,
+            "debug_tap": False,
             "queue_size": 1000,
-            "outputs": [
-                {
-                    "name": "redis_management",
-                    "type": "redis",
-                    "enabled": True,
-                    "host": os.getenv("REDIS_HOST", "localhost"),
-                    "port": int(os.getenv("REDIS_PORT", "6379")),
-                    "stream": os.getenv("ANALYTICS_REDIS_STREAM", "traffic:analytics"),
-                    "maxlen": 10000,
-                    "auth": {"password": os.getenv("REDIS_PASSWORD", "")},
-                }
-            ],
+            "outputs": [],
         },
     }
     path.write_text(json.dumps(config, indent=2, sort_keys=True), encoding="utf-8")
@@ -132,8 +121,8 @@ def _configure_environment(
     os.environ.setdefault("VEHICLE_DEVICE", placements.get("vehicle_detector", "GPU"))
     os.environ.setdefault("PLATE_DEVICE", placements.get("plate_detector", "NPU"))
     os.environ.setdefault("OCR_DEVICE", _ocr_device(placements.get("ocr_service", "GPU")))
-    os.environ.setdefault("REDIS_HOST", os.getenv("MANAGEMENT_REDIS_HOST", "localhost"))
-    os.environ.setdefault("REDIS_PORT", os.getenv("MANAGEMENT_REDIS_PORT", "6379"))
+    os.environ.setdefault("DISABLE_DEBUG_TAP", "1")
+    os.environ.setdefault("DISABLE_REDIS", "1")
 
 
 def _infer_fps(plan: dict[str, Any]) -> str:

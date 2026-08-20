@@ -43,6 +43,9 @@ _PROF = {"geo": 0.0, "track": 0.0, "ocr": 0.0, "analytics": 0.0, "n": 0}
 
 def load_cameras() -> list[dict]:
     import json
+    from edge_runtime.runtime.source_resolver import CameraSourceResolver
+
+    resolver = CameraSourceResolver()
     video_dir = os.getenv("VIDEO_DIR", "")
     with open(CAMERAS_FILE) as fh:
         data = json.load(fh)
@@ -50,8 +53,13 @@ def load_cameras() -> list[dict]:
     for cam in data.get("cameras", []):
         if not cam.get("enabled", True):
             continue
-        uri = (cam.get("source") or {}).get("uri")
-        if not uri:
+        source_ref = (cam.get("source") or {}).get("uri")
+        if not source_ref:
+            continue
+        try:
+            uri = resolver.resolve(str(source_ref))
+        except RuntimeError as exc:
+            log.error("camera %s source Secret could not be loaded: %s", cam.get("name"), exc)
             continue
         if not uri.startswith(STREAM_SCHEMES):
             if not os.path.isabs(uri) and video_dir:
@@ -59,7 +67,9 @@ def load_cameras() -> list[dict]:
             if not os.path.exists(uri):
                 log.warning("camera %s: file %r missing, skipping", cam.get("name"), uri)
                 continue
-        cams.append({"name": cam["name"], "uri": uri, "cfg": cam})
+        safe_cfg = dict(cam)
+        safe_cfg["source"] = {**(cam.get("source") or {}), "uri": source_ref}
+        cams.append({"name": cam["name"], "uri": uri, "cfg": safe_cfg})
     return cams
 
 

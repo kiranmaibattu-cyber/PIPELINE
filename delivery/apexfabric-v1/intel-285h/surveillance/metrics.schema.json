@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://apexfabric.local/schemas/v1/surveillance-metrics.json",
+  "title": "ApexFabric Surveillance Metrics V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "runtime", "events", "snapshots"],
+  "properties": {
+    "format": {"const": "application/json"},
+    "runtime": {"$ref": "#/$defs/runtime"},
+    "events": {"$ref": "#/$defs/events"},
+    "snapshots": {"$ref": "#/$defs/snapshots"},
+    "runtime_metrics": {"type": "object"},
+    "metrics_proxy_error": {"type": "string"}
+  },
+  "$defs": {
+    "runtime": {
+      "type": "object",
+      "required": ["solution_pack", "plan_loaded", "models_ready", "camera_count", "configured_cameras", "child_running", "uptime_seconds", "stop_requested"],
+      "properties": {
+        "solution_pack": {"const": "surveillance"},
+        "edge_id": {"type": ["string", "null"]},
+        "revision": {"type": ["integer", "null"]},
+        "plan_loaded": {"type": "boolean"},
+        "models_ready": {"type": "boolean"},
+        "camera_count": {"type": "integer", "minimum": 0},
+        "configured_cameras": {"type": "integer", "minimum": 0},
+        "child_running": {"type": "boolean"},
+        "child_exit_code": {"type": ["integer", "null"]},
+        "uptime_seconds": {"type": "number", "minimum": 0},
+        "stop_requested": {"type": "boolean"},
+        "last_error": {"type": ["string", "null"]}
+      }
+    },
+    "events": {
+      "type": "object",
+      "required": ["protocol", "path"],
+      "properties": {"protocol": {"const": "server-sent-events"}, "path": {"const": "/events"}}
+    },
+    "snapshots": {
+      "type": "object",
+      "required": ["path_prefix", "content_types", "source"],
+      "properties": {
+        "path_prefix": {"const": "/snapshots/"},
+        "content_types": {"type": "array", "items": {"type": "string"}},
+        "source": {"const": "ephemeral_runtime_state"}
+      }
+    }
+  }
+}

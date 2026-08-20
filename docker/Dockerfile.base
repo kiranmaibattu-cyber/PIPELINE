@@ -1,12 +1,14 @@
-FROM ubuntu:24.04
+FROM docker.io/library/ubuntu@sha256:561618e2c15bf2397621dd04f96926663a3b5616c189cf7e38db7e82f5c538ea
 
 ARG INTEL_NPU_DRIVER_VERSION=1.33.0.20260529-26625960453
+ARG TARGETARCH=amd64
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_BREAK_SYSTEM_PACKAGES=1 \
     PYTHONUNBUFFERED=1
 
-RUN apt-get update \
+RUN test "$TARGETARCH" = "amd64" \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         gnupg \

@@ -1,0 +1,22 @@
+services:
+  surveillance:
+    image: surveillance-edge-runtime:intel-285h-2026.08.20
+    ports:
+      - "18090:8080"
+    volumes:
+      - ../delivery/apexfabric-v1/intel-285h/surveillance/desired-state.example.json:/configs/desired_state.json:ro
+      - ../run/secrets/surveillance:/run/secrets/apexfabric:ro
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/accel:/dev/accel
+
+  traffic:
+    image: traffic-edge-runtime:intel-285h-2026.08.20
+    ports:
+      - "18091:8080"
+    volumes:
+      - ../delivery/apexfabric-v1/intel-285h/traffic/desired-state.example.json:/configs/desired_state.json:ro
+      - ../run/secrets/traffic:/run/secrets/apexfabric:ro
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/accel:/dev/accel

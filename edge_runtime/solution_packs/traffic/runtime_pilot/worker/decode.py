@@ -42,7 +42,7 @@ _HW = os.getenv("OV_DECODE_HW", "1") != "0"
 _VAAPI_DEVICE = os.getenv("VAAPI_DEVICE", "/dev/dri/renderD128")
 
 
-def _probe_resolution(uri: str) -> tuple[int, int]:
+def _probe_resolution(uri: str) -> tuple[int, int] | None:
     attempts = int(os.getenv("RTSP_PROBE_RETRIES", "3")) if uri.startswith(("rtsp://", "rtsps://")) else 1
     for attempt in range(attempts):
         try:
@@ -59,7 +59,7 @@ def _probe_resolution(uri: str) -> tuple[int, int]:
         except Exception:
             if attempt + 1 < attempts:
                 time.sleep(0.35)
-    raise RuntimeError(f"could not probe resolution for {uri}")
+    return None
 
 
 def _ffmpeg_cmd(uri: str, fps: int, is_stream: bool) -> list[str]:
@@ -92,11 +92,20 @@ class FfmpegDecoder:
         self.fps = int(fps)
         self.name = name
         self.is_stream = uri.startswith(STREAM_SCHEMES)
-        self.w, self.h = _probe_resolution(uri)
+        self.w = 0
+        self.h = 0
         self._nv12 = _HW
-        # NV12 is 1.5 bytes/px; BGR is 3 bytes/px
-        self._fsize = self.w * self.h * 3 // 2 if self._nv12 else self.w * self.h * 3
+        self._fsize = 0
         self._proc: subprocess.Popen | None = None
+
+    def _ensure_geometry(self) -> bool:
+        dimensions = _probe_resolution(self.uri)
+        if dimensions is None:
+            return False
+        self.w, self.h = dimensions
+        # NV12 is 1.5 bytes/px; BGR is 3 bytes/px.
+        self._fsize = self.w * self.h * 3 // 2 if self._nv12 else self.w * self.h * 3
+        return True
 
     def _spawn(self) -> None:
         self._proc = subprocess.Popen(
@@ -121,6 +130,15 @@ class FfmpegDecoder:
         backoff = 1.0
         while True:
             if self._proc is None:
+                if not self._ensure_geometry():
+                    logger.warning(
+                        "decode[%s] source unavailable; retrying in %.0fs",
+                        self.name,
+                        backoff,
+                    )
+                    time.sleep(backoff)
+                    backoff = min(backoff * 2, 10.0)
+                    continue
                 self._spawn()
             frame = self._read_one()
             if frame is None:

@@ -534,10 +534,10 @@ _HW_OK = HW_DECODE and _have_ffmpeg_vaapi()
 
 
 def _dec_tag(src):
-    """Short label for decoder logs, with any rtsp://user:pass@ credentials stripped."""
-    # strip credentials BEFORE truncating: truncation could otherwise cut inside
-    # "user:pass@" and leave the password in the log.
-    s = re.sub(r"://[^/@]*@", "://", str(src))
+    """Return a decoder label that never exposes a camera endpoint."""
+    if _is_rtsp(src):
+        return "mounted camera source"
+    s = str(src)
     return s if len(s) <= 80 else s[:77] + "..."
 
 
@@ -564,10 +564,16 @@ def make_decoder(src, start_s=0.0, src_fps=None, out_fps=None):
                     print(f"[dec] {tag} decoding on iGPU (VA-API), {dims[0]}x{dims[1]} source",
                           flush=True)
                     return d
-                why = f"VA-API decode failed: {d.why_failed()}"
+                why = (
+                    "VA-API decode failed"
+                    if _is_rtsp(src)
+                    else f"VA-API decode failed: {d.why_failed()}"
+                )
                 d.release()
             except Exception as exc:
-                why = f"VA-API decoder raised {type(exc).__name__}: {exc}"
+                why = f"VA-API decoder raised {type(exc).__name__}"
+                if not _is_rtsp(src):
+                    why += f": {exc}"
         if not strict_hw:
             break
         print(f"[dec] {tag} VA-API startup retry -- {why}", flush=True)

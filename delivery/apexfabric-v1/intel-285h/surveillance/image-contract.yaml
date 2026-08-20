@@ -1,0 +1,45 @@
+name: surveillance-edge-runtime
+version: 2026.08.20
+contractVersion: v1
+architectures: [amd64]
+hardwareProfile: intel-285h
+models:
+  delivery: baked-in
+  root: /models/surveillance
+  metadata: /opt/pipeline/edge_runtime/model_registry/models.yaml
+configuration:
+  desiredStatePath: /configs/desired_state.json
+secrets:
+  root: /run/secrets/apexfabric
+  referenceFormat: file:/run/secrets/apexfabric/<camera-id>.rtsp
+runtimePlan:
+  compiler: python -m edge_runtime.agent.edge_agent
+  output: /plans/surveillance.runtime_plan.json
+network:
+  port: 8080
+  hostNetworkRequired: false
+endpoints:
+  health: /healthz
+  readiness: /readyz
+  metrics: /metrics
+  events: /events
+metricsFormat: application/json
+eventProtocol: sse
+process:
+  uid: 10001
+  gid: 10001
+  readOnlyRootSupported: true
+resources:
+  cpuRequest: "8"
+  memoryRequest: 16Gi
+  maxCameraStreams: 16
+accelerators:
+  - intel-igpu
+  - intel-npu
+devices:
+  - /dev/dri
+  - /dev/accel
+storage:
+  persistentVolumes: []
+  temporaryPaths: [/plans, /tmp/apexfabric]
+externalDependencies: []

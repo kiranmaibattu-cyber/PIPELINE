@@ -46,6 +46,8 @@ class SystemMonitor:
 
     @classmethod
     def from_env(cls, interval: float = 5.0) -> "SystemMonitor":
+        if os.getenv("DISABLE_REDIS") == "1":
+            return cls(redis_client=None, interval=interval)
         try:
             import redis
         except ImportError:
@@ -175,6 +177,8 @@ class WorkerMetricsMonitor:
 
     @classmethod
     def from_env(cls, dispatcher, interval: float = 2.0) -> "WorkerMetricsMonitor":
+        if os.getenv("DISABLE_REDIS") == "1":
+            return cls(dispatcher, redis_client=None, interval=interval)
         try:
             import redis
         except ImportError:

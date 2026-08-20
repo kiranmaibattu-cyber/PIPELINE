@@ -65,6 +65,13 @@ class ModelRegistry:
             raise KeyError(f"unknown model bundle {solution_pack}/{model_id}")
         return self._by_key[key]
 
+    def for_solution_pack(self, solution_pack: str) -> tuple[ModelBundle, ...]:
+        return tuple(
+            bundle
+            for (pack, _model_id), bundle in sorted(self._by_key.items())
+            if pack == solution_pack
+        )
+
 
 class ModelPreparer:
     """Validates that required external model bundles are present on the edge box."""

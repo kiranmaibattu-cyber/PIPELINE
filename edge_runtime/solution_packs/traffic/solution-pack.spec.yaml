@@ -1,59 +1,35 @@
 solution_pack: traffic
-image: traffic-edge-runtime:intel-285h
+image: traffic-edge-runtime:intel-285h-2026.08.20
+contract_version: v1
 hardware_profile: intel-285h
+architecture: amd64
 camera_model: platform-managed
 max_streams_per_instance: 26
 endpoints:
-  liveness:
-    path: /healthz
-    port: 8080
-    format: application/json
-  readiness:
-    path: /readyz
-    port: 8080
-    format: application/json
-  metrics:
-    path: /metrics
-    port: 8080
-    format: application/json
+  liveness: {path: /healthz, port: 8080, format: application/json}
+  readiness: {path: /readyz, port: 8080, format: application/json}
+  metrics: {path: /metrics, port: 8080, format: application/json}
   analytics_events:
     path: /events
     port: 8080
     protocol: server-sent-events
     format: text/event-stream
-  alert_snapshots:
-    path_prefix: /snapshots/
-    port: 8080
-    format: image/jpeg
 inputs:
-  cameras:
-    source: mounted_file_or_secret
-    plan_path: /plans/traffic.runtime_plan.json
-    accepted_source_refs:
-      - env:CAMERA_RTSP_ENV_NAME
-      - file:/mounted/secret/path
-      - secret:/mounted/secret/path
+  desired_state: /configs/desired_state.json
+  camera_secrets:
+    root: /run/secrets/apexfabric
+    reference: file:/run/secrets/apexfabric/<camera-id>.rtsp
   models:
-    mount_path: /models/traffic/openvino
-    required: true
+    delivery: baked-in
+    path: /models/traffic/openvino
 storage:
-  durable_config:
-    mount_path: /state/traffic
-    contains:
-      - rules
-      - runtime_history
-    sizing_hint: "1-10 GB depending on analytics retention"
-  cache:
-    mount_path: /state/traffic
-    sizing_hint: "optional live/snapshot retention dependent"
-    serves:
-      - /state/traffic/snapshots
-      - /state/traffic/crops
+  persistent_volumes: []
+  temporary_paths: [/plans, /tmp/apexfabric]
 devices:
-  required:
-    - /dev/dri
-    - /dev/accel
+  required: [/dev/dri, /dev/accel]
 runtime:
   no_internet_required: true
-  writes_inside_image: false
+  external_dependencies: []
+  run_as_user: 10001
   graceful_sigterm: true
+  host_network_required: false

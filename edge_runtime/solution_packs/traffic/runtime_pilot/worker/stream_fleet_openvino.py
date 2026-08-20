@@ -98,6 +98,8 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
 
     live_view = None
     try:
+        if os.getenv("DISABLE_REDIS") == "1":
+            raise RuntimeError("Redis disabled by image contract")
         import redis as _redis
         from live_view import LiveView
         live_r = _redis.Redis(host=redis_host, port=redis_port, socket_timeout=0.5)

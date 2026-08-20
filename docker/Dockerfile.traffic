@@ -1,14 +1,25 @@
 FROM pipeline-ubuntu-python:24.04
 
+ARG IMAGE_VERSION=2026.08.20
+
 LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/PIPELINE" \
       org.opencontainers.image.title="ApexFabric Traffic Edge Runtime" \
-      org.opencontainers.image.description="Intel 285H traffic solution-pack runtime"
+      org.opencontainers.image.description="Intel 285H traffic solution-pack runtime" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      io.apexfabric.contract.version="v1" \
+      io.apexfabric.hardware.profile="intel-285h" \
+      io.apexfabric.models.delivery="baked-in"
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/opt/pipeline \
     SOLUTION_PACK=traffic \
+    APEXFABRIC_CONTRACT_VERSION=v1 \
+    EDGE_AGENT_COMPILE_ONLY=1 \
+    APEXFABRIC_SECRETS_ROOT=/run/secrets/apexfabric \
     APEX_API_HOST=0.0.0.0 \
-    APEX_API_PORT=8080
+    APEX_API_PORT=8080 \
+    HOME=/tmp/apexfabric \
+    XDG_CACHE_HOME=/tmp/apexfabric/cache
 
 WORKDIR /opt/pipeline
 
@@ -19,12 +30,16 @@ COPY edge_runtime/solution_packs/traffic/runtime_pilot/requirements-openvino.txt
 RUN pip install --no-cache-dir -r /opt/pipeline/requirements-traffic-openvino.txt
 
 COPY edge_runtime /opt/pipeline/edge_runtime
+COPY models/traffic /models/traffic
 
-# Image contract:
-#   input:     /plans/traffic.runtime_plan.json
-#   generated: /generated/traffic
-#   models:    /models/traffic/openvino
-#   state:     /state/traffic
+RUN python -c "from pathlib import Path; from edge_runtime.model_registry.baked import BakedModelValidator; from edge_runtime.model_registry.registry import ModelRegistry; BakedModelValidator(ModelRegistry.from_file(Path('/opt/pipeline/edge_runtime/model_registry/models.yaml')), Path('/models')).validate('traffic')" \
+    && useradd --uid 10001 --create-home --shell /usr/sbin/nologin apexruntime \
+    && mkdir -p /plans /tmp/apexfabric /run/secrets/apexfabric \
+    && chown -R apexruntime:apexruntime /plans /tmp/apexfabric
+
+# ApexFabric V1 compiles /configs/desired_state.json into /plans, keeps generated
+# and reconstructable state under /tmp, and uses models baked under /models.
 EXPOSE 8080
 
-CMD ["python", "-m", "edge_runtime.runtime.solution_pack_entrypoint", "--solution-pack", "traffic", "--runtime-module", "edge_runtime.solution_packs.traffic.runtime_pilot.launch", "--plan", "/plans/traffic.runtime_plan.json", "--generated-dir", "/generated/traffic", "--state-dir", "/state/traffic", "--models-dir", "/models/traffic/openvino"]
+USER 10001:10001
+CMD ["python", "-m", "edge_runtime.runtime.solution_image_entrypoint"]
