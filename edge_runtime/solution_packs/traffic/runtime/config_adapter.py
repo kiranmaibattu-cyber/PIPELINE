@@ -14,24 +14,6 @@ APP_TO_ANALYTICS = {
     "illegal_parking": "parking_violation_detection",
 }
 
-DEFAULT_COUNT_LINES = {
-    "vehicle_counting": {
-        "id": "default_vehicle_count_line",
-        "name": "default_vehicle_count_line",
-        "a": [0.10, 0.65],
-        "b": [0.90, 0.65],
-        "direction": "both",
-    },
-    "pedestrian_counting": {
-        "id": "default_pedestrian_count_line",
-        "name": "default_pedestrian_count_line",
-        "a": [0.10, 0.75],
-        "b": [0.90, 0.75],
-        "direction": "both",
-    },
-}
-
-
 class TrafficConfigAdapter:
     """Converts the graph plan to the config shape expected by Traffic Pilot."""
 
@@ -75,12 +57,12 @@ class TrafficConfigAdapter:
         elif use_case == "vehicle_counting":
             block["lines"] = [
                 _geometry_line(line, "object_counting")
-                for line in _line_items_or_default(config, "vehicle_counting")
+                for line in _items(config, "lines", "vehicle_counting")
             ]
         elif use_case == "pedestrian_counting":
             block["lines"] = [
                 _geometry_line(line, "pedestrian_counting")
-                for line in _line_items_or_default(config, "pedestrian_counting")
+                for line in _items(config, "lines", "pedestrian_counting")
             ]
         elif use_case == "parking_violation_detection":
             block["zones"] = [_geometry_zone(z, "no_parking") for z in _items(config, "zones", "illegal_parking")]
@@ -99,13 +81,6 @@ def _source_type(source: str) -> str:
 
 def _items(config: dict[str, Any], group: str, app: str) -> list[dict[str, Any]]:
     return list(((config.get(group) or {}).get(app) or []))
-
-
-def _line_items_or_default(config: dict[str, Any], app: str) -> list[dict[str, Any]]:
-    items = _items(config, "lines", app)
-    if items:
-        return items
-    return [DEFAULT_COUNT_LINES[app]]
 
 
 def _geometry_line(item: dict[str, Any], purpose: str) -> dict[str, Any]:

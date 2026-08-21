@@ -59,6 +59,8 @@ def geometry_points(
 
     src_width, src_height = source_size(camera_config)
     frame_height, frame_width = frame_shape[:2]
+    if parsed and all(0.0 <= x <= 1.0 and 0.0 <= y <= 1.0 for x, y in parsed):
+        return [(x * frame_width, y * frame_height) for x, y in parsed]
     if src_width and src_height and (src_width != frame_width or src_height != frame_height):
         scale_x = frame_width / src_width
         scale_y = frame_height / src_height
@@ -305,7 +307,13 @@ class TrafficAnalyticsStage(InferenceStage):
                 or in_any_zone(current, zones, packet.frame.shape, camera_config)
             ):
                 continue
-            for line_index, line in enumerate(config.get("lines") or []):
+            lines = config.get("lines") or []
+            if not lines:
+                self._handle_unbounded_counting(
+                    packet, detection, use_case, event_type
+                )
+                continue
+            for line_index, line in enumerate(lines):
                 line_points = geometry_points(line, packet.frame.shape, camera_config)
                 track_id = int(detection.metadata["track_id"])
                 line_id = geometry_id(line, "line")
@@ -344,6 +352,7 @@ class TrafficAnalyticsStage(InferenceStage):
                     value=self.count_totals[count_key],
                     direction=direction,
                     direction_count=self.count_directions[direction_key],
+                    count_mode="line_crossing",
                 )
                 self._attach_object_use_case(
                     detection,
@@ -360,6 +369,34 @@ class TrafficAnalyticsStage(InferenceStage):
                     },
                 )
                 packet.add_event(event)
+
+    def _handle_unbounded_counting(self, packet, detection, use_case, event_type):
+        """Count each stable track once when management supplies no line/ROI."""
+        if int(detection.metadata.get("track_hits") or 1) < self.min_track_hits_for_count:
+            return
+        track_id = int(detection.metadata["track_id"])
+        count_key = (packet.name, use_case, "all_tracks")
+        track_key = (*count_key, track_id)
+        if track_key in self.counted:
+            return
+        self.counted[track_key] = time.time()
+        self.count_totals[count_key] = self.count_totals.get(count_key, 0) + 1
+        event = self._event(
+            packet,
+            detection,
+            use_case,
+            event_type,
+            value=self.count_totals[count_key],
+            count_mode="unique_track",
+        )
+        self._attach_object_use_case(
+            detection,
+            use_case,
+            "track_counted",
+            event_type=event_type,
+            count={"total": self.count_totals[count_key], "mode": "unique_track"},
+        )
+        packet.add_event(event)
 
     def _stable_line_crossing(
         self,
@@ -730,6 +767,7 @@ class TrafficAnalyticsStage(InferenceStage):
         direction_count=None,
         line_index=None,
         zone_index=None,
+        count_mode=None,
     ):
         observed_at = datetime.now(timezone.utc).isoformat()
         event = {
@@ -752,6 +790,8 @@ class TrafficAnalyticsStage(InferenceStage):
             event["geometry"] = geometry_ref(zone, "zone", zone_index)
         if value is not None:
             event["value"] = value
+        if count_mode is not None:
+            event["count_mode"] = count_mode
         if direction is not None:
             event["direction"] = direction
             event["direction_count"] = direction_count

@@ -725,6 +725,9 @@ def simple_event(event: Mapping[str, object]) -> dict:
     if event.get("value") is not None:
         count["total"] = event.get("value")
         payload["details"]["total"] = event.get("value")
+    if event.get("count_mode"):
+        count["mode"] = event.get("count_mode")
+        payload["details"]["count_mode"] = event.get("count_mode")
     if event.get("direction"):
         direction = direction_payload(
             str(event.get("direction")),

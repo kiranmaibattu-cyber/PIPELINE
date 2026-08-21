@@ -33,7 +33,7 @@ class RuntimeAdapterTest(unittest.TestCase):
         self.assertIn("parking_violation_detection", cameras["cam5"]["analytics"])
         self.assertNotIn("plate_detection", cameras["cam5"]["analytics"])
 
-    def test_traffic_counting_apps_get_default_lines_without_roi(self) -> None:
+    def test_traffic_counting_apps_use_unique_track_mode_without_roi(self) -> None:
         plan = {
             "cameras": [{
                 "camera_id": "cam-counting",
@@ -48,12 +48,8 @@ class RuntimeAdapterTest(unittest.TestCase):
 
         vehicle_lines = analytics["vehicle_counting"]["lines"]
         pedestrian_lines = analytics["pedestrian_counting"]["lines"]
-        self.assertEqual(1, len(vehicle_lines))
-        self.assertEqual("default_vehicle_count_line", vehicle_lines[0]["id"])
-        self.assertEqual("both", vehicle_lines[0]["direction"])
-        self.assertEqual(1, len(pedestrian_lines))
-        self.assertEqual("default_pedestrian_count_line", pedestrian_lines[0]["id"])
-        self.assertEqual("both", pedestrian_lines[0]["direction"])
+        self.assertEqual([], vehicle_lines)
+        self.assertEqual([], pedestrian_lines)
 
     def test_surveillance_runtime_usecases_stay_in_generated_directory(self) -> None:
         plan = json.loads((ROOT / "run" / "plans" / "surveillance.runtime_plan.json").read_text())

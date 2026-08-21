@@ -36,8 +36,16 @@ OPENVINO_MODELS_DIR = os.getenv("OPENVINO_MODELS_DIR", f"{REPO}/models/openvino"
 # OCR fit on the NPU). All overridable so the capacity probe can re-assign.
 VEHICLE_DEVICE = os.getenv("VEHICLE_DEVICE", "GPU")
 PLATE_DEVICE = os.getenv("PLATE_DEVICE", "GPU")
-VEHICLE_CLASS_IDS = {2, 3, 5, 7}
-VEHICLE_CLASS_NAMES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
+VEHICLE_CLASS_IDS = {0, 1, 2, 3, 5, 7}
+VEHICLE_CLASS_NAMES = {
+    0: "pedestrian",
+    1: "bicycle",
+    2: "car",
+    3: "motorcycle",
+    5: "bus",
+    7: "truck",
+}
+PLATE_PARENT_CLASSES = {"car", "motorcycle", "bus", "truck"}
 
 
 def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: int,
@@ -119,6 +127,8 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
         vdets = veh.detect(frame)
         dets = list(vdets)
         for vd in vdets:
+            if vd.class_name not in PLATE_PARENT_CLASSES:
+                continue
             x1, y1, x2, y2 = vd.bbox
             crop = frame[y1:y2, x1:x2]
             for pd in plate.detect(crop):

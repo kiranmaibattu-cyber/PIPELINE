@@ -6,7 +6,7 @@ not supported by this delivery.
 ## Image
 
 ```text
-traffic-edge-runtime:intel-285h-2026.08.20-v2
+traffic-edge-runtime:intel-285h-2026.08.21-v3
 ```
 
 The image runs as UID/GID `10001`, listens on `0.0.0.0:8080`, contains its
@@ -35,9 +35,10 @@ The desired-state `config` object accepts normalized camera geometry. Points use
 
 `wrong_way` requires `config.lines.wrong_way`, and `illegal_parking` requires
 `config.zones.illegal_parking`. `vehicle_counting` and `pedestrian_counting`
-accept optional lines; when omitted, the runtime generates default full-width
-counting lines so those apps can still emit crossing events. `anpr` accepts an
-optional `config.zones.anpr` plate ROI.
+accept optional lines. When a line is omitted, each stable unique track is
+counted once. When management supplies a line, the runtime emits directional
+line-crossing counts. Normalized geometry is scaled to the decoded frame size.
+`anpr` accepts an optional `config.zones.anpr` plate ROI.
 
 ## Acceptance
 
@@ -49,7 +50,7 @@ docker run --rm -p 8080:8080 \
   -v "$PWD/desired-state.example.json:/configs/desired_state.json:ro" \
   -v "$PWD/secrets:/run/secrets/apexfabric:ro" \
   -v "$PWD/state:/state" \
-  traffic-edge-runtime:intel-285h-2026.08.20-v2
+  traffic-edge-runtime:intel-285h-2026.08.21-v3
 ```
 
 The compiler command required by the contract is available in the same image.
@@ -69,10 +70,10 @@ The metrics payload is defined by `metrics.schema.json`; analytics events are
 defined by `analytics-event.schema.json` and demonstrated by
 `analytics-event.example.json`.
 
-The local/Git LFS delivery archive is `image-2026.08.20-v2.tar`. Verify and
+The local/Git LFS delivery archive is `image-2026.08.21-v3.tar`. Verify and
 load it from this directory with:
 
 ```bash
-sha256sum -c image-2026.08.20-v2.sha256
-docker load -i image-2026.08.20-v2.tar
+sha256sum -c image-2026.08.21-v3.sha256
+docker load -i image-2026.08.21-v3.tar
 ```
