@@ -72,6 +72,18 @@ class TrafficCountingTest(unittest.TestCase):
         )
         self.assertEqual([], third.analytics_events)
 
+    def test_no_geometry_mode_does_not_enable_unselected_counting_app(self) -> None:
+        config = {"traffic1": {"runtime_analytics": {
+            "vehicle_counting": {"lines": [], "zones": [], "constraint_zones": []},
+            "plate_detection": {"lines": [], "zones": [], "constraint_zones": []},
+        }}}
+        stage = TrafficAnalyticsStage(config)
+        pedestrian = _packet(1, 2, class_name="pedestrian")
+
+        stage.process([pedestrian])
+
+        self.assertEqual([], pedestrian.analytics_events)
+
 
 if __name__ == "__main__":
     unittest.main()

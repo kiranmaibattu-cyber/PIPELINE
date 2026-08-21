@@ -298,6 +298,8 @@ class TrafficAnalyticsStage(InferenceStage):
             ("pedestrian_counting", "pedestrian", "pedestrian_count"),
         )
         for use_case, class_group, event_type in cases:
+            if use_case not in runtime:
+                continue
             if not class_matches(detection, class_group):
                 continue
             config = runtime.get(use_case) or {}
