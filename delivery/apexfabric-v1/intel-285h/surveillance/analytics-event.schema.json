@@ -12,7 +12,58 @@
     "camera_id": {"type": "string", "minLength": 1},
     "solution_pack": {"const": "surveillance"},
     "application": {"enum": ["reid", "face_recognition", "intrusion", "people_counting"]},
-    "event_type": {"enum": ["identity_event", "cross_camera_identity_event", "face_recognized_event", "unauthorised_event", "intrusion_event", "people_count_event"]},
+    "event_type": {"enum": ["identity_event", "cross_camera_identity_event", "face_recognized_event", "face_enrolled_event", "unauthorised_event", "intrusion_event", "people_count_event"]},
     "payload": {"type": "object"}
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"event_type": {"enum": ["identity_event", "cross_camera_identity_event"]}}},
+      "then": {"properties": {"payload": {"required": ["global_id", "person_ref"]}}}
+    },
+    {
+      "if": {"properties": {"event_type": {"enum": ["face_recognized_event", "unauthorised_event"]}}},
+      "then": {"properties": {"payload": {"required": ["employee_id", "dist", "global_id", "person_ref"]}}}
+    },
+    {
+      "if": {"properties": {"event_type": {"const": "face_enrolled_event"}}},
+      "then": {"properties": {"payload": {"required": ["name", "vectors", "coverage"]}}}
+    },
+    {
+      "if": {"properties": {"event_type": {"const": "intrusion_event"}}},
+      "then": {"properties": {"payload": {"required": ["zone", "who", "global_id", "person_ref"]}}}
+    },
+    {
+      "if": {"properties": {"event_type": {"const": "people_count_event"}}},
+      "then": {
+        "properties": {
+          "payload": {
+            "oneOf": [
+              {
+                "required": ["mode", "count"],
+                "properties": {
+                  "mode": {"const": "occupancy"},
+                  "count": {"type": "integer", "minimum": 0}
+                }
+              },
+              {
+                "required": ["mode", "direction", "tally"],
+                "properties": {
+                  "mode": {"const": "line_crossing"},
+                  "direction": {"enum": ["in", "out"]},
+                  "tally": {
+                    "type": "object",
+                    "required": ["in", "out"],
+                    "properties": {
+                      "in": {"type": "integer", "minimum": 0},
+                      "out": {"type": "integer", "minimum": 0}
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
 }

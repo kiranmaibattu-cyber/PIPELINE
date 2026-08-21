@@ -1,5 +1,5 @@
 name: traffic-edge-runtime
-version: 2026.08.21-v4
+version: 2026.08.21-v5
 contractVersion: v1
 architectures: [amd64]
 hardwareProfile: intel-285h
@@ -9,6 +9,13 @@ models:
   metadata: /opt/pipeline/edge_runtime/model_registry/models.yaml
 configuration:
   desiredStatePath: /configs/desired_state.json
+  hotReload:
+    enabled: true
+    pollSeconds: 2
+    strategy: transactional-child-restart
+    revisionPolicy: nondecreasing
+    mountPath: /configs
+    kubernetesSubPathSupported: false
 secrets:
   root: /run/secrets/apexfabric
   referenceFormat: file:/run/secrets/apexfabric/<camera-id>.rtsp

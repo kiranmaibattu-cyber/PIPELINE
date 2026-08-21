@@ -565,6 +565,8 @@ class App:
             now = time.time()
             if obs is not None:
                 buf.append(obs)
+            elif not buf:
+                self.plat.host.idle()
             if buf and (len(buf) >= 256 or obs is None or now - last_flush > 0.5):
                 try:
                     self.plat.ingest([_obs_from_dict(d) for d in buf])
@@ -614,7 +616,8 @@ class App:
         except Exception:
             return None
 
-    def _save_management_snapshot(self, camera: str, event_type: str) -> str | None:
+    def _save_management_snapshot(self, camera: str, event_type: str, event=None):
+        """Persist event evidence and return state-relative correlated assets."""
         frame = self.frame(camera)
         if not frame:
             return None
@@ -626,7 +629,47 @@ class App:
         filename = f"{safe_cam}_{safe_type}_{stamp}.jpg"
         path = root / filename
         path.write_bytes(frame)
-        return f"snapshots/{filename}"
+        assets = {"frame": f"snapshots/{filename}"}
+        person_crop = self._event_person_crop(frame, camera, event or {})
+        if person_crop:
+            crop_name = f"{safe_cam}_{safe_type}_{stamp}_person.jpg"
+            (root / crop_name).write_bytes(person_crop)
+            assets["person_crop"] = f"snapshots/{crop_name}"
+        return assets
+
+    def _event_person_crop(self, frame: bytes, camera: str, event: dict) -> bytes | None:
+        """Find the alert track/global id in live boxes and encode its person crop."""
+        try:
+            import cv2
+            import numpy as np
+
+            payload = event.get("payload") or {}
+            who = str(payload.get("who") or "")
+            track = None
+            if who.startswith(f"{camera}:"):
+                track = int(who.rsplit(":", 1)[1])
+            gid = event.get("person_id")
+            live = self.plat.live_view().get("cameras", {}).get(camera, {})
+            candidates = live.get("boxes") or []
+            box = next((b for b in candidates if track is not None and b.get("track") == track), None)
+            if box is None and gid is not None:
+                box = next((b for b in candidates if b.get("gid") == gid), None)
+            coords = list((box or {}).get("bbox") or [])
+            image = cv2.imdecode(np.frombuffer(frame, dtype=np.uint8), cv2.IMREAD_COLOR)
+            if image is None or len(coords) != 4:
+                return None
+            h, w = image.shape[:2]
+            x1, y1, x2, y2 = [int(round(value)) for value in coords]
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(w, x2), min(h, y2)
+            if x2 <= x1 or y2 <= y1:
+                return None
+            ok, encoded = cv2.imencode(
+                ".jpg", image[y1:y2, x1:x2], [cv2.IMWRITE_JPEG_QUALITY, 90]
+            )
+            return encoded.tobytes() if ok else None
+        except Exception:
+            return None
 
     def placeholder_frame(self, camera: str | None, max_w: int = 0, label: str = "waiting for frame"):
         """A valid JPEG for temporarily missing stream frames.
@@ -1113,6 +1156,20 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(404, "{}")
 
     def do_DELETE(self):
+        parsed = urllib.parse.urlparse(self.path)
+        prefix = "/api/face_gallery/"
+        if parsed.path.startswith(prefix) and APP is not None:
+            name = urllib.parse.unquote(parsed.path[len(prefix):]).strip()
+            if not name:
+                return self._send(400, json.dumps({"error": "name is required"}))
+            try:
+                out = APP.plat.delete_face_person(name)
+                APP.persist_runtime_config()
+                return self._send(200, json.dumps(out))
+            except KeyError:
+                return self._send(404, json.dumps({"error": "person not found"}))
+            except Exception as exc:
+                return self._send(400, json.dumps({"error": str(exc)}))
         m = re.match(r"/api/streams/(\d+)", self.path)
         if m and APP is not None:
             return self._send(200, json.dumps(APP.remove_stream(int(m.group(1)))))

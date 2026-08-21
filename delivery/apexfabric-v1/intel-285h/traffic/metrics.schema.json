@@ -14,7 +14,7 @@
   "$defs": {
     "runtime": {
       "type": "object",
-      "required": ["solution_pack", "plan_loaded", "models_ready", "camera_count", "configured_cameras", "child_running", "uptime_seconds", "stop_requested"],
+      "required": ["solution_pack", "plan_loaded", "models_ready", "camera_count", "configured_cameras", "child_running", "uptime_seconds", "stop_requested", "desired_state"],
       "properties": {
         "solution_pack": {"const": "traffic"},
         "edge_id": {"type": ["string", "null"]},
@@ -27,7 +27,25 @@
         "child_exit_code": {"type": ["integer", "null"]},
         "uptime_seconds": {"type": "number", "minimum": 0},
         "stop_requested": {"type": "boolean"},
-        "last_error": {"type": ["string", "null"]}
+        "last_error": {"type": ["string", "null"]},
+        "desired_state": {"$ref": "#/$defs/desiredStateReload"}
+      }
+    },
+    "desiredStateReload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "active_hash", "observed_hash", "pending_revision", "reload_state", "reload_attempts", "reload_applied", "reload_rejected", "last_reload_at", "last_reload_error"],
+      "properties": {
+        "path": {"type": ["string", "null"]},
+        "active_hash": {"type": ["string", "null"]},
+        "observed_hash": {"type": ["string", "null"]},
+        "pending_revision": {"type": ["integer", "null"]},
+        "reload_state": {"enum": ["disabled", "idle", "compiling", "applying", "rejected"]},
+        "reload_attempts": {"type": "integer", "minimum": 0},
+        "reload_applied": {"type": "integer", "minimum": 0},
+        "reload_rejected": {"type": "integer", "minimum": 0},
+        "last_reload_at": {"type": ["number", "null"]},
+        "last_reload_error": {"type": ["string", "null"]}
       }
     },
     "events": {

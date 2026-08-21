@@ -124,6 +124,26 @@ class EnrollmentGalleryAdapter:
                 self._signature = self._disk_signature()
         return len(doomed)
 
+    def delete_person(self, person: str) -> dict:
+        """Atomically remove one enrolled identity and all of its stored chips."""
+        from PLATF.face_enroll_gallery import safe_name
+
+        person = safe_name(str(person))
+        with self._lock:
+            doomed = [v for v in self.gallery.vecs if v.person == person]
+            if not doomed:
+                raise KeyError(person)
+            for vector in doomed:
+                if vector.chip_path:
+                    try:
+                        (self.root / vector.chip_path).unlink()
+                    except OSError:
+                        pass
+            self.gallery.vecs = [v for v in self.gallery.vecs if v.person != person]
+            self.gallery.save()
+            self._signature = self._disk_signature()
+            return {**self.status(), "deleted": person, "vectors_removed": len(doomed)}
+
     def enroll(self, name: str, exemplars: list) -> dict:
         """Enroll a tracked Person from several already aligned AdaFace embeddings.
 
@@ -181,8 +201,6 @@ class EnrollmentGalleryAdapter:
             from PLATF.face_enroll_gallery import Gallery
 
             gallery = Gallery(root)
-            if len(getattr(gallery, "vecs", [])) == 0:
-                return None
             return cls(gallery, root)
         except Exception:
             return None

@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+import os
 from pathlib import Path
 
 from edge_runtime.solution_packs.surveillance.runtime.config_adapter import SurveillanceConfigAdapter
+from edge_runtime.solution_packs.surveillance.runtime_8090 import launch as surveillance_launch
 from edge_runtime.solution_packs.traffic.runtime.config_adapter import TrafficConfigAdapter
 from edge_runtime.solution_packs.traffic.runtime_pilot import launch as traffic_launch
 
@@ -60,6 +62,57 @@ class RuntimeAdapterTest(unittest.TestCase):
             usecases = json.loads(runtime_config.read_text(encoding="utf-8"))["usecases"]
         self.assertEqual(usecases["reid"], ["cam1", "cam2"])
         self.assertEqual(usecases["intrusion"], ["cam2", "cam3"])
+
+    def test_surveillance_launcher_initializes_persistent_face_gallery(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            gallery = Path(tmp) / "state" / "face_gallery"
+            surveillance_launch._initialize_face_gallery(gallery)
+            self.assertTrue((gallery / "index.json").is_file())
+            self.assertTrue((gallery / "vectors.npy").is_file())
+
+    def test_surveillance_runtime_config_preserves_face_groups_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            generated = root / "generated"
+            state = root / "state"
+            generated.mkdir()
+            (generated / "runtime_usecases.generated.json").write_text(json.dumps({
+                "usecases": {"reid": ["cam-new"]},
+                "zones": {"cameras": {"cam-new": {}}},
+                "face_groups": {},
+            }), encoding="utf-8")
+            persisted = state / "runtime" / "runtime_usecases.json"
+            persisted.parent.mkdir(parents=True)
+            persisted.write_text(json.dumps({
+                "usecases": {"reid": ["stale-cam"]},
+                "zones": {"cameras": {"stale-cam": {}}},
+                "face_groups": {"Alice": "unauthorised"},
+            }), encoding="utf-8")
+
+            path = surveillance_launch._prepare_runtime_config(generated, state)
+            data = json.loads(path.read_text(encoding="utf-8"))
+
+        self.assertEqual(["cam-new"], data["usecases"]["reid"])
+        self.assertIn("cam-new", data["zones"]["cameras"])
+        self.assertEqual({"Alice": "unauthorised"}, data["face_groups"])
+
+    def test_surveillance_launcher_exports_runtime_gallery_names(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp) / "state"
+            models = Path(tmp) / "models"
+            old = {key: os.environ.get(key) for key in ("FACE_GALLERY", "REJOIN_STORE")}
+            try:
+                os.environ.pop("FACE_GALLERY", None)
+                os.environ.pop("REJOIN_STORE", None)
+                surveillance_launch._configure_environment({"cameras": []}, state, models, 8090)
+                self.assertEqual(str(state / "face_gallery"), os.environ["FACE_GALLERY"])
+                self.assertEqual(str(state / "reid_gallery"), os.environ["REJOIN_STORE"])
+            finally:
+                for key, value in old.items():
+                    if value is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = value
 
     def test_traffic_launcher_writes_openvino_worker_config(self) -> None:
         plan = json.loads((ROOT / "run" / "plans" / "traffic.runtime_plan.json").read_text())

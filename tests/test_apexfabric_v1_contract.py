@@ -155,6 +155,37 @@ class ApexFabricV1ContractTest(unittest.TestCase):
 
             validator.validate(desired)
 
+    def test_surveillance_intrusion_requires_zone(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            secret = root / "cam1.rtsp"
+            secret.write_text("rtsp://camera.test/stream\n", encoding="utf-8")
+            desired = self._write_desired(root, f"file:{secret}", cameras=[{
+                "camera_id": "cam1", "source": f"file:{secret}",
+                "solution_pack": "surveillance", "apps": ["intrusion"],
+            }])
+            validator = ApexFabricV1DesiredStateValidator("surveillance", self.manifests, root)
+            with self.assertRaisesRegex(ValueError, "requires config.zones.intrusion"):
+                validator.validate(desired)
+
+    def test_surveillance_counting_accepts_occupancy_or_line_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            secret = root / "cam1.rtsp"
+            secret.write_text("rtsp://camera.test/stream\n", encoding="utf-8")
+            validator = ApexFabricV1DesiredStateValidator("surveillance", self.manifests, root)
+            occupancy = self._write_desired(root, f"file:{secret}", cameras=[{
+                "camera_id": "cam1", "source": f"file:{secret}",
+                "solution_pack": "surveillance", "apps": ["people_counting"],
+            }])
+            validator.validate(occupancy)
+            line = json.loads(occupancy.read_text(encoding="utf-8"))
+            line["cameras"][0]["config"] = {"lines": {"people_counting": [{
+                "name": "door", "a": [0.1, 0.5], "b": [0.9, 0.5], "in_side": "right",
+            }]}}
+            occupancy.write_text(json.dumps(line), encoding="utf-8")
+            validator.validate(occupancy)
+
     def test_all_baked_intel_models_match_registry(self) -> None:
         registry = ModelRegistry.from_file(
             ROOT / "edge_runtime" / "model_registry" / "models.yaml"

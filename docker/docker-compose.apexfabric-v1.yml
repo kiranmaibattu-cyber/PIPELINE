@@ -7,6 +7,9 @@ services:
       - ../delivery/apexfabric-v1/intel-285h/surveillance/desired-state.example.json:/configs/desired_state.json:ro
       - ../run/secrets/surveillance:/run/secrets/apexfabric:ro
       - ../state/surveillance:/state/surveillance
+    tmpfs:
+      - /plans:uid=10001,gid=10001,mode=0750
+      - /tmp/apexfabric:uid=10001,gid=10001,mode=0750
     devices:
       - /dev/dri:/dev/dri
       - /dev/accel:/dev/accel

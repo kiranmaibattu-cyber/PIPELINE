@@ -74,10 +74,12 @@ The foreground runtime listens on `0.0.0.0:8080`:
 | `GET /events` | SSE | Normalized analytics events and heartbeat |
 | `GET /snapshots/<ref>` | JPEG/PNG | Event image from persistent runtime state |
 
-The V1 surface does not expose the copied 8090 administrative API. Analytics
-events use schema version `1.0`, UTC timestamps, unique IDs, configured camera
-IDs, documented application/event names, and redacted payloads. SSE sends a
-heartbeat every five seconds when idle.
+The surveillance image exposes only the management-facing subset of the copied
+runtime API for search, gallery enrollment/roster/group management, and related
+read models. Stream creation and historical UI ownership remain outside the
+image contract. Analytics events use schema version `1.0`, UTC timestamps,
+unique IDs, configured camera IDs, documented application/event names, and
+redacted payloads. SSE sends a heartbeat every five seconds when idle.
 
 ## Storage And Services
 
@@ -86,6 +88,11 @@ ApexFabric supplies desired state, Secret files, device access, temporary
 `/plans` and `/tmp`, a persistent volume at `/state`, and a Service for port
 `8080`. The runtimes do not require Redis, a management callback, Docker socket,
 Kubernetes API, or another runtime service.
+
+For surveillance, `/state/surveillance` contains the face gallery, persistent
+ReID rejoin state, history, event JSONL, crops, snapshots, and mutable face-group
+labels. Management reads and changes that state through the image HTTP API; it
+does not need to mount the PVC directly.
 
 ## Build And Delivery
 

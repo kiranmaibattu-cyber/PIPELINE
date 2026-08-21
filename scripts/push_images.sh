@@ -15,11 +15,11 @@ fi
 
 REGISTRY_NAMESPACE="${REGISTRY_NAMESPACE:-ghcr.io/kiranmaibattu-cyber}"
 SOURCE_REPOSITORY="https://github.com/kiranmaibattu-cyber/PIPELINE"
+VERSION="${APEXFABRIC_IMAGE_VERSION:-2026.08.20-v2}"
 
 IMAGES=(
-  "surveillance-edge-runtime:intel-285h"
-  "traffic-edge-runtime:intel-285h"
-  "pipeline-edge-agent:latest"
+  "surveillance-edge-runtime:intel-285h-${VERSION}"
+  "traffic-edge-runtime:intel-285h-${VERSION}"
 )
 
 for image in "${IMAGES[@]}"; do

@@ -148,6 +148,33 @@ class SolutionPackEntrypointTest(unittest.TestCase):
         self.assertEqual("wrong_way", event["application"])
         self.assertEqual("wrong_way_event", event["event_type"])
 
+    def test_face_enrollment_event_is_normalized_to_contract(self) -> None:
+        status = RuntimeStatus(
+            solution_pack="surveillance",
+            plan_path=Path("/plans/surveillance.runtime_plan.json"),
+            state_dir=Path("/state/surveillance"),
+        )
+        event = _enrich_event(status, {
+            "camera_id": "cam1", "type": "face_enrolled", "payload": {"name": "Alice"},
+        })
+        self.assertEqual("face_recognition", event["application"])
+        self.assertEqual("face_enrolled_event", event["event_type"])
+
+    def test_surveillance_identity_fields_are_preserved_and_correlated(self) -> None:
+        status = RuntimeStatus(
+            solution_pack="surveillance",
+            plan_path=Path("/plans/surveillance.runtime_plan.json"),
+            state_dir=Path("/state/surveillance"),
+            edge_id="edge-01",
+        )
+        event = _enrich_event(status, {
+            "camera_id": "cam1", "type": "intrusion", "person_id": 42,
+            "global_id": 42, "zone": "restricted", "payload": {"who": "cam1:7"},
+        })
+        self.assertEqual(42, event["payload"]["global_id"])
+        self.assertEqual("restricted", event["payload"]["zone"])
+        self.assertEqual("edge-01:42", event["payload"]["person_ref"])
+
     def test_snapshot_path_is_resolved_inside_state_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp) / "state" / "surveillance"

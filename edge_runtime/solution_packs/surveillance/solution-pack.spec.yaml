@@ -1,6 +1,10 @@
 solution_pack: surveillance
-image: surveillance-edge-runtime:intel-285h-2026.08.20
+image: surveillance-edge-runtime:intel-285h-2026.08.20-v2
 contract_version: v1
+contract_extensions:
+  persistent_surveillance_state:
+    required: true
+    mount_path: /state/surveillance
 hardware_profile: intel-285h
 architecture: amd64
 camera_model: platform-managed
@@ -14,6 +18,9 @@ endpoints:
     port: 8080
     protocol: server-sent-events
     format: text/event-stream
+  snapshots: {path: /snapshots/<state-relative-path>, port: 8080, format: image/jpeg}
+  face_gallery: {path: /api/face_gallery, port: 8080, format: application/json}
+  face_enrollment: {path: /api/enrollment, port: 8080, format: application/json}
 inputs:
   desired_state: /configs/desired_state.json
   camera_secrets:
@@ -23,7 +30,9 @@ inputs:
     delivery: baked-in
     path: /models/surveillance
 storage:
-  persistent_volumes: []
+  persistent_volumes:
+    - mount_path: /state/surveillance
+      purpose: face gallery, ReID rejoin state, history, events, crops, and snapshots
   temporary_paths: [/plans, /tmp/apexfabric]
 devices:
   required: [/dev/dri, /dev/accel]

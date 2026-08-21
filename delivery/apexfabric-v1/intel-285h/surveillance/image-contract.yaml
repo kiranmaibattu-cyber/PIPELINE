@@ -1,6 +1,11 @@
 name: surveillance-edge-runtime
 version: 2026.08.20-v2
 contractVersion: v1
+contractExtensions:
+  persistentSurveillanceState:
+    required: true
+    mountPath: /state
+    reason: durable face gallery, ReID rejoin state, history, and event evidence
 architectures: [amd64]
 hardwareProfile: intel-285h
 models:
@@ -23,6 +28,10 @@ endpoints:
   readiness: /readyz
   metrics: /metrics
   events: /events
+  snapshots: /snapshots/<state-relative-path>
+  faceGallery: /api/face_gallery
+  faceEnrollment: /api/enrollment
+  faceGroup: /api/face_group
 metricsFormat: application/json
 eventProtocol: sse
 process:

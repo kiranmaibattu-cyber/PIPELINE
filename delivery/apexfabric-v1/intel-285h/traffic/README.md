@@ -6,7 +6,7 @@ not supported by this delivery.
 ## Image
 
 ```text
-traffic-edge-runtime:intel-285h-2026.08.21-v4
+traffic-edge-runtime:intel-285h-2026.08.21-v5
 ```
 
 The image runs as UID/GID `10001`, listens on `0.0.0.0:8080`, contains its
@@ -42,17 +42,33 @@ line-crossing counts. Normalized geometry is scaled to the decoded frame size.
 The runtime emits events only for apps listed on each camera; selecting ANPR
 and vehicle counting does not implicitly enable pedestrian counting.
 
+## Desired-State Hot Reload
+
+The container checks `/configs/desired_state.json` every two seconds. Management
+must increment `revision` whenever cameras, apps, FPS, or geometry change. A
+candidate is validated and compiled while the active traffic worker continues
+running. After successful compilation, only the worker child is restarted; the
+container, public API, `/state`, events, and snapshots remain available. Invalid
+or older revisions are rejected and the previous graph continues running.
+
+Mount `/configs` as a directory so atomic ConfigMap/symlink updates are visible.
+Do not mount `desired_state.json` with Kubernetes `subPath`, because `subPath`
+does not receive ConfigMap updates. Reload state is reported under
+`runtime.desired_state` in `GET /metrics`, including active/observed hashes,
+pending revision, attempts, applied/rejected counts, and the latest error.
+
 ## Acceptance
 
-Create `secrets/cam-traffic-01.rtsp` containing a fake/test RTSP URL, then:
+Create `configs/desired_state.json` from the desired-state example and create
+`secrets/cam-traffic-01.rtsp` containing a fake/test RTSP URL, then:
 
 ```bash
 docker run --rm -p 8080:8080 \
   --device /dev/dri:/dev/dri --device /dev/accel:/dev/accel \
-  -v "$PWD/desired-state.example.json:/configs/desired_state.json:ro" \
+  -v "$PWD/configs:/configs:ro" \
   -v "$PWD/secrets:/run/secrets/apexfabric:ro" \
   -v "$PWD/state:/state" \
-  traffic-edge-runtime:intel-285h-2026.08.21-v4
+  traffic-edge-runtime:intel-285h-2026.08.21-v5
 ```
 
 The compiler command required by the contract is available in the same image.
@@ -72,10 +88,10 @@ The metrics payload is defined by `metrics.schema.json`; analytics events are
 defined by `analytics-event.schema.json` and demonstrated by
 `analytics-event.example.json`.
 
-The local/Git LFS delivery archive is `image-2026.08.21-v4.tar`. Verify and
+The local/Git LFS delivery archive is `image-2026.08.21-v5.tar`. Verify and
 load it from this directory with:
 
 ```bash
-sha256sum -c image-2026.08.21-v4.sha256
-docker load -i image-2026.08.21-v4.tar
+sha256sum -c image-2026.08.21-v5.sha256
+docker load -i image-2026.08.21-v5.tar
 ```

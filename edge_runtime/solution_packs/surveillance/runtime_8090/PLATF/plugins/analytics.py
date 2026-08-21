@@ -10,6 +10,8 @@ tracker break), else on a camera-local track key.
 """
 from __future__ import annotations
 
+import time
+
 from PLATF.core import Event, Plugin
 from PLATF.plugins.zones import observation_in_zone, observation_line_side, zones_for
 
@@ -90,6 +92,9 @@ class CountingPlugin(Plugin):
         self.cfg = zones_cfg
         self._side = {}        # (who, camera, line) -> last signed side
         self.tallies = {}      # camera -> line -> {"in": n, "out": n}
+        self._last_seen = {}   # camera -> who -> (event timestamp, monotonic timestamp)
+        self._occupancy = {}   # last emitted current count per camera
+        self._active_ttl_s = 2.0
 
     def _tally(self, camera, line):
         return self.tallies.setdefault(camera, {}).setdefault(line, {"in": 0, "out": 0})
@@ -99,7 +104,11 @@ class CountingPlugin(Plugin):
         if foot is None:
             return
         who = _who(obs)
-        for ln in zones_for(self.cfg, obs.camera)["lines"]:
+        lines = zones_for(self.cfg, obs.camera)["lines"]
+        if not lines:
+            self._last_seen.setdefault(obs.camera, {})[who] = (obs.t, time.monotonic())
+            return
+        for ln in lines:
             s = observation_line_side(obs, ln, self.cfg)
             if s is None:
                 continue
@@ -114,5 +123,31 @@ class CountingPlugin(Plugin):
             direction = "in" if enters else "out"
             self._tally(obs.camera, ln["name"])[direction] += 1
             ctx.emit(Event("count", obs.t, obs.camera, obs.person_id, zone=ln["name"],
-                           payload={"who": str(who), "direction": direction,
+                           payload={"mode": "line_crossing", "who": str(who),
+                                    "direction": direction,
                                     "tally": dict(self._tally(obs.camera, ln["name"]))}))
+
+    def on_tick(self, t, ctx):
+        """Without a configured line, publish current tracked-person occupancy."""
+        self._publish_occupancy(time.monotonic(), ctx)
+
+    def on_idle(self, ctx):
+        self._publish_occupancy(time.monotonic(), ctx)
+
+    def _publish_occupancy(self, now_mono, ctx):
+        for camera, seen in list(self._last_seen.items()):
+            active = {
+                who: last_seen for who, last_seen in seen.items()
+                if now_mono - last_seen[1] <= self._active_ttl_s
+            }
+            self._last_seen[camera] = active
+            count = len(active)
+            if self._occupancy.get(camera) == count:
+                continue
+            self._occupancy[camera] = count
+            newest = max(seen.values(), default=(0.0, now_mono))
+            event_t = newest[0] + max(0.0, now_mono - newest[1])
+            ctx.emit(Event(
+                "count", event_t, camera, None,
+                payload={"mode": "occupancy", "count": count},
+            ))

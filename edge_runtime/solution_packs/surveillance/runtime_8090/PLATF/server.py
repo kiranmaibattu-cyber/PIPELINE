@@ -250,18 +250,34 @@ class LivePlatform:
     def _management_row(self, row: dict) -> dict:
         payload = dict(row.get("payload") or {})
         event_type = row.get("type")
+        camera = row.get("camera")
+        if camera is None and row.get("person_id") is not None:
+            try:
+                person = self.store.get(self.store.canonical_gid(int(row["person_id"])))
+                camera = person.current_camera if person is not None else None
+            except Exception:
+                camera = None
+        snapshot_assets = {}
         snapshot_ref = row.get("snapshot_ref") or payload.get("snapshot_ref") or payload.get("crop")
-        if (not snapshot_ref and row.get("camera") and self.management_snapshot is not None
+        if (not snapshot_ref and camera and self.management_snapshot is not None
                 and _event_needs_snapshot(event_type)):
             try:
-                snapshot_ref = self.management_snapshot(str(row.get("camera")), str(event_type or "event"))
+                snapshot_result = self.management_snapshot(
+                    str(camera), str(event_type or "event"), row
+                )
+                if isinstance(snapshot_result, dict):
+                    snapshot_ref = snapshot_result.get("frame")
+                    snapshot_assets = snapshot_result
+                else:
+                    snapshot_ref = snapshot_result
             except Exception:
                 snapshot_ref = None
+                snapshot_assets = {}
         out = {
             "event_type": event_type,
             "type": event_type,
             "app_id": _app_id_for_event(event_type),
-            "camera_id": row.get("camera"),
+            "camera_id": camera,
             "person_id": row.get("person_id"),
             "global_id": row.get("person_id"),
             "zone": row.get("zone"),
@@ -270,6 +286,8 @@ class LivePlatform:
         }
         if snapshot_ref:
             out["snapshot_ref"] = str(snapshot_ref)
+        if snapshot_assets:
+            out["snapshot_refs"] = snapshot_assets
         return out
 
     def history_crop_path(self, sighting_id: int):
@@ -900,6 +918,15 @@ class LivePlatform:
         else:
             self.face_groups[name] = group
         return {"name": name, "group": group, "groups": dict(self.face_groups)}
+
+    def delete_face_person(self, name: str) -> dict:
+        """Delete one enrollment and its watchlist label from persistent state."""
+        if self.face_gallery is None:
+            raise ValueError("face enrollment gallery is not loaded")
+        out = self.face_gallery.delete_person(name)
+        self.face_groups.pop(str(out["deleted"]), None)
+        out["groups"] = dict(self.face_groups)
+        return out
 
     def start_enrollment(self, name: str, camera: str) -> dict:
         """Open a guided session: own capture, measured yaw, Gallery.consider().

@@ -16,6 +16,8 @@ class ApexFabricV1DesiredStateValidator:
     _TRAFFIC_REQUIRED_LINE_APPS = {"wrong_way"}
     _TRAFFIC_ZONE_APPS = {"illegal_parking"}
     _TRAFFIC_ALLOWED_ZONE_APPS = {"anpr", "illegal_parking"}
+    _SURVEILLANCE_LINE_APPS = {"people_counting"}
+    _SURVEILLANCE_ZONE_APPS = {"intrusion"}
 
     def __init__(
         self,
@@ -92,7 +94,53 @@ class ApexFabricV1DesiredStateValidator:
             raise ValueError(f"camera {camera_id} config must be an object")
         if self._solution_pack == "traffic":
             self._validate_traffic_config(camera_id, apps, config)
+        elif self._solution_pack == "surveillance":
+            self._validate_surveillance_config(camera_id, apps, config)
         self._validate_secret_reference(camera_id, camera["source"])
+
+    def _validate_surveillance_config(self, camera_id: str, apps: list[str], config: dict) -> None:
+        unknown = set(config) - {"lines", "zones"}
+        if unknown:
+            raise ValueError(
+                f"camera {camera_id} surveillance config has unknown fields: {sorted(unknown)}"
+            )
+        lines = config.get("lines") or {}
+        zones = config.get("zones") or {}
+        if not isinstance(lines, dict):
+            raise ValueError(f"camera {camera_id} config.lines must be an object")
+        if not isinstance(zones, dict):
+            raise ValueError(f"camera {camera_id} config.zones must be an object")
+        if set(lines) - self._SURVEILLANCE_LINE_APPS:
+            raise ValueError(f"camera {camera_id} config.lines only supports people_counting")
+        if set(zones) - self._SURVEILLANCE_ZONE_APPS:
+            raise ValueError(f"camera {camera_id} config.zones only supports intrusion")
+
+        if "people_counting" in lines and not lines["people_counting"]:
+            raise ValueError(
+                f"camera {camera_id} config.lines.people_counting must be a non-empty array"
+            )
+        if "intrusion" in zones and not zones["intrusion"]:
+            raise ValueError(f"camera {camera_id} config.zones.intrusion must be a non-empty array")
+        for index, line in enumerate(lines.get("people_counting") or []):
+            self._validate_surveillance_counting_line(camera_id, index, line)
+        for index, zone in enumerate(zones.get("intrusion") or []):
+            self._validate_zone(camera_id, "intrusion", index, zone)
+        if "intrusion" in apps and not zones.get("intrusion"):
+            raise ValueError(f"camera {camera_id} app intrusion requires config.zones.intrusion")
+
+    def _validate_surveillance_counting_line(self, camera_id: str, index: int, line) -> None:
+        field = f"config.lines.people_counting[{index}]"
+        if not isinstance(line, dict):
+            raise ValueError(f"camera {camera_id} {field} must be an object")
+        unknown = set(line) - {"name", "a", "b", "in_side"}
+        if unknown:
+            raise ValueError(f"camera {camera_id} {field} has unknown fields: {sorted(unknown)}")
+        if not isinstance(line.get("name"), str) or not line["name"].strip():
+            raise ValueError(f"camera {camera_id} {field}.name is required")
+        self._validate_point(camera_id, f"{field}.a", line.get("a"))
+        self._validate_point(camera_id, f"{field}.b", line.get("b"))
+        if line.get("in_side", "right") not in {"left", "right"}:
+            raise ValueError(f"camera {camera_id} {field}.in_side must be left or right")
 
     def _validate_traffic_config(self, camera_id: str, apps: list[str], config: dict) -> None:
         unknown = set(config) - {"lines", "zones"}

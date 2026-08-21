@@ -7,7 +7,27 @@
       "source": "file:/run/secrets/apexfabric/cam-surveillance-01.rtsp",
       "solution_pack": "surveillance",
       "fps": 8,
-      "apps": ["reid", "face_recognition", "intrusion", "people_counting"]
+      "apps": ["reid", "face_recognition", "intrusion", "people_counting"],
+      "config": {
+        "zones": {
+          "intrusion": [
+            {
+              "name": "restricted_area",
+              "poly": [[0.10, 0.20], [0.90, 0.20], [0.90, 0.90], [0.10, 0.90]]
+            }
+          ]
+        },
+        "lines": {
+          "people_counting": [
+            {
+              "name": "main_entrance",
+              "a": [0.15, 0.60],
+              "b": [0.85, 0.60],
+              "in_side": "right"
+            }
+          ]
+        }
+      }
     }
   ]
 }

@@ -75,6 +75,8 @@ def main() -> int:
         runtime["models"],
         "--models-root",
         "/models",
+        "--desired-state",
+        "/configs/desired_state.json",
     ]
     if runtime.get("runtime_port"):
         command.extend(["--runtime-port", runtime["runtime_port"]])

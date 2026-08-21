@@ -1,6 +1,6 @@
 FROM pipeline-ubuntu-python:24.04
 
-ARG IMAGE_VERSION=2026.08.21-v4
+ARG IMAGE_VERSION=2026.08.21-v5
 
 LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/PIPELINE" \
       org.opencontainers.image.title="ApexFabric Traffic Edge Runtime" \
@@ -19,6 +19,9 @@ ENV PYTHONUNBUFFERED=1 \
     APEXFABRIC_STATE_ROOT=/state \
     APEX_API_HOST=0.0.0.0 \
     APEX_API_PORT=8080 \
+    DESIRED_STATE_RELOAD_INTERVAL=2 \
+    DESIRED_STATE_RELOAD_RETRY_INTERVAL=10 \
+    DESIRED_STATE_RELOAD_STARTUP_GRACE=3 \
     HOME=/tmp/apexfabric \
     XDG_CACHE_HOME=/tmp/apexfabric/cache
 

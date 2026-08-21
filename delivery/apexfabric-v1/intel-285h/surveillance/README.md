@@ -3,6 +3,12 @@
 This package targets `linux/amd64` on Intel Core Ultra 9 285H. Jetson Orin is
 not supported by this delivery.
 
+This delivery follows the ApexFabric V1 image, configuration, model, Secret,
+and HTTP contracts. It declares one required extension: a persistent `/state`
+mount. The base V1 draft says persistent volumes are not used, but durable face
+enrollment, ReID rejoin state, history, and evidence cannot satisfy the
+surveillance requirements without one.
+
 ## Image
 
 ```text
@@ -48,9 +54,35 @@ docker run --rm -p 8080:8080 \
 The compiler command required by the contract is available in the same image.
 `GET /metrics` returns documented JSON, and `GET /events` returns normalized
 SSE analytics plus a five-second idle heartbeat. Runtime state and optional
-alert snapshots are persisted under `/state/surveillance`; no copied 8090
-administrative endpoint is exposed. The estimated image size is 2.72 GB before
+alert snapshots are persisted under `/state/surveillance`. Management can use
+`GET /api/face_gallery?detail=1`, `POST /api/enrollment/start`, enrollment
+`save`/`cancel`/`retake`, `POST /api/face_group`, and
+`DELETE /api/face_gallery/<urlencoded-name>` through the public port. Face
+templates live under `/state/surveillance/face_gallery`; persistent ReID state
+lives under `/state/surveillance/reid_gallery`.
+
+For `people_counting`, omit `config.lines.people_counting` to receive current
+occupancy events. Supply one or more normalized counting lines to receive `in`
+and `out` crossing events. Intrusion requires at least one normalized polygon in
+`config.zones.intrusion`. The estimated image size is 2.72 GB before
 `docker save` archive overhead.
+
+## Management Outputs
+
+| Application | Event type | Main payload fields |
+|---|---|---|
+| ReID | `identity_event` | `global_id`, `person_ref`, distance/new/cross-camera status |
+| ReID | `cross_camera_identity_event` | survivor `global_id`, dropped ID, reason |
+| Face recognition | `face_recognized_event` | `employee_id`, `dist`, group, `global_id`, `person_ref` |
+| Face enrollment | `face_enrolled_event` | name, vector count, pose coverage |
+| Face recognition | `unauthorised_event` | employee/group/distance and correlated evidence |
+| Intrusion | `intrusion_event` | zone, local track (`who`), `global_id`, `person_ref`, evidence |
+| People counting | `people_count_event` | occupancy `count`, or line `direction` and `tally` |
+
+Evidence references point into the mounted `/state/surveillance` volume and
+are also retrievable from the container API. A tracked-person alert can include
+`snapshot_assets.frame` and `snapshot_assets.person_crop`; each asset contains
+its `/snapshots/...` URL and media type after SSE normalization.
 
 The metrics payload is defined by `metrics.schema.json`; analytics events are
 defined by `analytics-event.schema.json`.

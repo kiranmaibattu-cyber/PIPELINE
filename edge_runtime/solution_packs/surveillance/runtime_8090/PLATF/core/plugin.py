@@ -49,6 +49,9 @@ class Plugin(ABC):
         """Time-driven checks with no new observation (loiter/absence timers).
         Called once per processed batch with the batch's latest timestamp."""
 
+    def on_idle(self, ctx: PluginContext):
+        """Wall-clock maintenance when the observation queue is idle."""
+
 
 class PluginHost:
     """Runs the observation stream through the store + ordered plugins."""
@@ -121,3 +124,9 @@ class PluginHost:
         for plugin in plugins:
             plugin.on_tick(now, self.ctx)
         self.store.prune(now)
+
+    def idle(self) -> None:
+        with self._lock:
+            plugins = list(self.plugins)
+        for plugin in plugins:
+            plugin.on_idle(self.ctx)

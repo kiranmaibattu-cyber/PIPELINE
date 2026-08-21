@@ -27,6 +27,12 @@ from urllib.request import Request, urlopen
 
 from edge_runtime.model_registry.baked import BakedModelValidator
 from edge_runtime.model_registry.registry import ModelRegistry
+from edge_runtime.runtime.desired_state_reload import (
+    DesiredStateReloadError,
+    DesiredStateSnapshot,
+    DesiredStateWatcher,
+    SubprocessGraphCompiler,
+)
 
 
 @dataclass
@@ -46,6 +52,16 @@ class RuntimeStatus:
     metrics_proxy_url: str | None = None
     runtime_api_url: str | None = None
     models_ready: bool = False
+    desired_state_path: Path | None = None
+    active_desired_hash: str | None = None
+    observed_desired_hash: str | None = None
+    pending_revision: int | None = None
+    reload_state: str = "disabled"
+    reload_attempts: int = 0
+    reload_applied: int = 0
+    reload_rejected: int = 0
+    last_reload_at: float | None = None
+    last_reload_error: str | None = None
 
     def healthy(self) -> bool:
         if self.child_exit_code not in (None, 0):
@@ -74,6 +90,18 @@ class RuntimeStatus:
             "uptime_seconds": round(time.time() - self.started_at, 3),
             "stop_requested": self.stop_requested,
             "last_error": self.last_error,
+            "desired_state": {
+                "path": str(self.desired_state_path) if self.desired_state_path else None,
+                "active_hash": self.active_desired_hash,
+                "observed_hash": self.observed_desired_hash,
+                "pending_revision": self.pending_revision,
+                "reload_state": self.reload_state,
+                "reload_attempts": self.reload_attempts,
+                "reload_applied": self.reload_applied,
+                "reload_rejected": self.reload_rejected,
+                "last_reload_at": self.last_reload_at,
+                "last_reload_error": self.last_reload_error,
+            },
         }
 
 
@@ -122,6 +150,12 @@ class SolutionPackServer:
             def do_POST(self) -> None:  # noqa: N802 - stdlib API
                 if _is_runtime_api_path(status, self.path):
                     self._proxy_runtime("POST")
+                    return
+                self._json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
+
+            def do_DELETE(self) -> None:  # noqa: N802 - stdlib API
+                if _is_runtime_api_path(status, self.path):
+                    self._proxy_runtime("DELETE")
                     return
                 self._json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
 
@@ -400,9 +434,12 @@ def _enrich_event(status: RuntimeStatus, event: dict[str, Any]) -> dict[str, Any
         "camera_id", "camera", "solution_pack", "application", "app_id", "use_case",
         "event_type", "type", "payload",
     }
-    payload = event.get("payload")
-    if not isinstance(payload, dict):
-        payload = {key: value for key, value in event.items() if key not in reserved}
+    top_level_payload = {key: value for key, value in event.items() if key not in reserved}
+    nested = event.get("payload")
+    payload = {**top_level_payload, **nested} if isinstance(nested, dict) else top_level_payload
+    global_id = payload.get("global_id") or payload.get("person_id")
+    if status.solution_pack == "surveillance" and global_id is not None:
+        payload.setdefault("person_ref", f"{status.edge_id or 'unknown-edge'}:{global_id}")
     return {
         "schema_version": "1.0",
         "event_id": str(event.get("event_id") or uuid.uuid4()),
@@ -426,6 +463,7 @@ def _normalize_event_identity(
             "identity": "reid",
             "person_merged": "reid",
             "face_recognized": "face_recognition",
+            "face_enrolled": "face_recognition",
             "unauthorised": "face_recognition",
             "unauthorized": "face_recognition",
             "intrusion_alert": "intrusion",
@@ -448,6 +486,7 @@ def _normalize_event_identity(
             "identity": "identity_event",
             "person_merged": "cross_camera_identity_event",
             "face_recognized": "face_recognized_event",
+            "face_enrolled": "face_enrolled_event",
             "unauthorised": "unauthorised_event",
             "unauthorized": "unauthorised_event",
             "intrusion": "intrusion_event",
@@ -614,6 +653,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--runtime-api-url")
     parser.add_argument("--enable-runtime-api-proxy", action="store_true")
     parser.add_argument("--metrics-proxy-url")
+    parser.add_argument("--desired-state")
+    parser.add_argument(
+        "--reload-interval",
+        type=float,
+        default=float(os.getenv("DESIRED_STATE_RELOAD_INTERVAL", "2")),
+    )
+    parser.add_argument(
+        "--reload-retry-interval",
+        type=float,
+        default=float(os.getenv("DESIRED_STATE_RELOAD_RETRY_INTERVAL", "10")),
+    )
+    parser.add_argument(
+        "--reload-startup-grace",
+        type=float,
+        default=float(os.getenv("DESIRED_STATE_RELOAD_STARTUP_GRACE", "3")),
+    )
+    parser.add_argument(
+        "--reload-compile-timeout",
+        type=float,
+        default=float(os.getenv("DESIRED_STATE_RELOAD_COMPILE_TIMEOUT", "120")),
+    )
     return parser.parse_args()
 
 
@@ -629,6 +689,7 @@ def main() -> int:
             if args.enable_runtime_api_proxy
             else None
         ),
+        desired_state_path=Path(args.desired_state) if args.desired_state else None,
     )
     status.state_dir.mkdir(parents=True, exist_ok=True)
     _load_plan_status(status)
@@ -660,6 +721,11 @@ def main() -> int:
     if status.plan_loaded and status.camera_count > 0:
         status.child = _start_child(args)
 
+    watcher, compiler = _reload_components(args, status)
+    next_reload_check = 0.0
+    next_reload_retry = 0.0
+    last_attempted_hash = None
+
     try:
         while not status.stop_requested:
             if status.child is not None:
@@ -667,21 +733,37 @@ def main() -> int:
                 if exit_code is not None:
                     status.child_exit_code = int(exit_code)
                     return int(exit_code)
+            now = time.monotonic()
+            if watcher is not None and compiler is not None and now >= next_reload_check:
+                next_reload_check = now + max(0.25, args.reload_interval)
+                try:
+                    snapshot = watcher.snapshot()
+                    status.observed_desired_hash = snapshot.digest
+                    status.pending_revision = snapshot.revision
+                    if snapshot.digest == status.active_desired_hash:
+                        status.pending_revision = None
+                        if status.reload_state != "applying":
+                            status.reload_state = "idle"
+                    elif snapshot.digest != last_attempted_hash or now >= next_reload_retry:
+                        last_attempted_hash = snapshot.digest
+                        applied = _apply_desired_state(args, status, snapshot, compiler)
+                        if not applied:
+                            next_reload_retry = time.monotonic() + max(
+                                args.reload_retry_interval, args.reload_interval
+                            )
+                except DesiredStateReloadError as exc:
+                    status.reload_state = "rejected"
+                    status.last_reload_error = str(exc)
             time.sleep(0.5)
         return 0
     finally:
         status.stop_requested = True
-        if status.child and status.child.poll() is None:
-            status.child.terminate()
-            try:
-                status.child.wait(timeout=20)
-            except subprocess.TimeoutExpired:
-                status.child.kill()
-                status.child.wait(timeout=5)
+        _stop_child(status)
         server.stop()
 
 
 def _load_plan_status(status: RuntimeStatus) -> None:
+    status.plan_loaded = False
     try:
         plan = json.loads(status.plan_path.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -694,6 +776,131 @@ def _load_plan_status(status: RuntimeStatus) -> None:
     status.camera_count = len(plan.get("cameras") or [])
     status.revision = plan.get("revision")
     status.edge_id = plan.get("edge_id")
+
+
+def _reload_components(args, status: RuntimeStatus):
+    if status.desired_state_path is None or args.reload_interval <= 0:
+        return None, None
+    watcher = DesiredStateWatcher(status.desired_state_path)
+    compiler = SubprocessGraphCompiler(
+        solution_pack=status.solution_pack,
+        models_root=Path(args.models_root),
+        work_root=Path(args.generated_dir).parent / "reloads",
+        timeout_seconds=args.reload_compile_timeout,
+    )
+    try:
+        snapshot = watcher.snapshot()
+        status.active_desired_hash = snapshot.digest
+        status.observed_desired_hash = snapshot.digest
+        status.reload_state = "idle"
+    except DesiredStateReloadError as exc:
+        status.reload_state = "rejected"
+        status.last_reload_error = str(exc)
+    return watcher, compiler
+
+
+def _apply_desired_state(
+    args,
+    status: RuntimeStatus,
+    snapshot: DesiredStateSnapshot,
+    compiler: SubprocessGraphCompiler,
+) -> bool:
+    """Compile before disruption, then switch the child with rollback protection."""
+    status.reload_attempts += 1
+    status.reload_state = "compiling"
+    status.last_reload_error = None
+    try:
+        candidate = compiler.compile(snapshot)
+        candidate_revision = int(candidate.payload.get("revision"))
+        if status.revision is not None and candidate_revision < status.revision:
+            raise DesiredStateReloadError(
+                f"desired-state revision {candidate_revision} is older than active revision {status.revision}"
+            )
+        if candidate.payload.get("solution_pack") != status.solution_pack:
+            raise DesiredStateReloadError("compiled plan solution pack does not match the running image")
+        previous_plan = status.plan_path.read_bytes()
+    except (DesiredStateReloadError, OSError, TypeError, ValueError) as exc:
+        _reject_reload(status, snapshot, exc)
+        return False
+
+    status.reload_state = "applying"
+    previous_hash = status.active_desired_hash
+    try:
+        _stop_child(status)
+        _write_plan_atomically(status.plan_path, candidate.content)
+        _load_plan_status(status)
+        if not status.plan_loaded:
+            raise DesiredStateReloadError(status.last_error or "candidate plan could not be loaded")
+        status.child_exit_code = None
+        status.child = _start_child(args) if status.camera_count > 0 else None
+        if not _child_survived_startup(status.child, args.reload_startup_grace):
+            raise DesiredStateReloadError("candidate runtime exited during startup grace period")
+    except (DesiredStateReloadError, OSError, subprocess.SubprocessError) as exc:
+        _stop_child(status)
+        try:
+            _write_plan_atomically(status.plan_path, previous_plan)
+            _load_plan_status(status)
+            status.child_exit_code = None
+            status.child = _start_child(args) if status.camera_count > 0 else None
+        except (OSError, subprocess.SubprocessError) as rollback_exc:
+            status.last_error = f"runtime rollback failed: {rollback_exc}"
+        status.active_desired_hash = previous_hash
+        _reject_reload(status, snapshot, exc)
+        return False
+
+    status.active_desired_hash = snapshot.digest
+    status.observed_desired_hash = snapshot.digest
+    status.pending_revision = None
+    status.reload_state = "idle"
+    status.reload_applied += 1
+    status.last_reload_at = time.time()
+    status.last_reload_error = None
+    print(
+        f"desired state revision {status.revision} applied without container restart",
+        flush=True,
+    )
+    return True
+
+
+def _reject_reload(status: RuntimeStatus, snapshot: DesiredStateSnapshot, exc: Exception) -> None:
+    status.observed_desired_hash = snapshot.digest
+    status.pending_revision = snapshot.revision
+    status.reload_state = "rejected"
+    status.reload_rejected += 1
+    status.last_reload_error = str(exc)
+    print(f"desired state revision {snapshot.revision} rejected: {exc}", file=sys.stderr, flush=True)
+
+
+def _write_plan_atomically(path: Path, content: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    candidate = path.with_suffix(path.suffix + ".next")
+    candidate.write_bytes(content)
+    candidate.replace(path)
+
+
+def _child_survived_startup(child, grace_seconds: float) -> bool:
+    if child is None:
+        return True
+    deadline = time.monotonic() + max(0.0, grace_seconds)
+    while time.monotonic() < deadline:
+        if child.poll() is not None:
+            return False
+        time.sleep(0.1)
+    return child.poll() is None
+
+
+def _stop_child(status: RuntimeStatus, timeout_seconds: float = 20.0) -> None:
+    child = status.child
+    if child is None:
+        return
+    if child.poll() is None:
+        child.terminate()
+        try:
+            child.wait(timeout=timeout_seconds)
+        except subprocess.TimeoutExpired:
+            child.kill()
+            child.wait(timeout=5)
+    status.child = None
 
 
 def _start_child(args: argparse.Namespace) -> subprocess.Popen[str]:

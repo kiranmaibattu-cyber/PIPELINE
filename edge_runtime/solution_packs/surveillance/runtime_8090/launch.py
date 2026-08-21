@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import runpy
 import sys
@@ -36,7 +37,9 @@ def main() -> int:
     plan = RuntimePlanLoader().load(Path(args.plan))
     SurveillanceConfigAdapter().write(plan, generated_dir)
     _configure_environment(plan, state_dir, models_dir, args.port)
-    os.environ["PLATF_RUNTIME_CONFIG"] = str(generated_dir / "runtime_usecases.generated.json")
+    runtime_config = _prepare_runtime_config(generated_dir, state_dir)
+    _initialize_face_gallery(state_dir / "face_gallery")
+    os.environ["PLATF_RUNTIME_CONFIG"] = str(runtime_config)
 
     streams_path = generated_dir / "streams.generated.yaml"
     print(f"surveillance 8090 config prepared in {generated_dir.resolve()}", flush=True)
@@ -79,8 +82,9 @@ def _configure_environment(plan, state_dir: Path, models_dir: Path, port: int) -
     os.environ.setdefault("GAIT_MODEL", str(models_dir / "gaitbase_int8.xml"))
     os.environ.setdefault("SEG_MODEL", str(models_dir / "yolov8n_seg_int8.xml"))
 
-    os.environ.setdefault("FACE_GALLERY_DIR", str(state_dir / "face_gallery"))
-    os.environ.setdefault("REID_GALLERY_DIR", str(state_dir / "reid_gallery"))
+    # These are the names consumed by the vendored 8090 runtime.
+    os.environ.setdefault("FACE_GALLERY", str(state_dir / "face_gallery"))
+    os.environ.setdefault("REJOIN_STORE", str(state_dir / "reid_gallery"))
     os.environ.setdefault("HISTORY_DIR", str(state_dir / "history"))
     os.environ.setdefault("PLATF_HISTORY_DIR", str(state_dir / "history"))
     os.environ.setdefault("MANAGEMENT_EVENTS_PATH", str(state_dir / "events.jsonl"))
@@ -98,6 +102,33 @@ def _configure_environment(plan, state_dir: Path, models_dir: Path, port: int) -
     os.environ.setdefault("POOL_FACE_BATCH", "0")
     os.environ.setdefault("POOL_BATCH_MAX", "8")
     os.environ.setdefault("FRAME_SHM_BYTES", str(3840 * 2160 * 3))
+
+
+def _prepare_runtime_config(generated_dir: Path, state_dir: Path) -> Path:
+    """Apply desired state while retaining management-owned face group labels."""
+    generated = json.loads(
+        (generated_dir / "runtime_usecases.generated.json").read_text(encoding="utf-8")
+    )
+    path = state_dir / "runtime" / "runtime_usecases.json"
+    try:
+        current = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        current = {}
+    generated["face_groups"] = dict(current.get("face_groups") or {})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(generated, indent=2, sort_keys=True), encoding="utf-8")
+    tmp.replace(path)
+    return path
+
+
+def _initialize_face_gallery(path: Path) -> None:
+    """Create a valid empty gallery so first enrollment works on a clean volume."""
+    from edge_runtime.solution_packs.surveillance.runtime_8090.PLATF.face_enroll_gallery import Gallery
+
+    gallery = Gallery(path)
+    if not (path / "index.json").exists():
+        gallery.save()
 
 
 def _uses_live_rtsp(plan) -> bool:
