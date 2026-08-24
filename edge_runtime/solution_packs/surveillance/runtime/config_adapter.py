@@ -32,8 +32,10 @@ class SurveillanceConfigAdapter:
             streams.append({
                 "source": camera["source"],
                 "camera": camera_id,
+                "body": bool(flags.get("body")),
                 "face": bool(flags.get("face")),
                 "gait": bool(flags.get("gait")),
+                "reid": bool(flags.get("reid")),
             })
             camera_features[camera_id] = {
                 "body": bool(flags.get("body")),

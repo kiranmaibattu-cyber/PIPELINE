@@ -7,7 +7,8 @@
 # the OpenVINO execution provider insightface's SCRFD detector runs on.
 openvino==2024.6.0
 openvino-dev==2024.6.0
-onnxruntime==1.27.0
+# This package provides the `onnxruntime` module plus OpenVINOExecutionProvider.
+# Do not also install standard onnxruntime: its shared module masks this provider.
 onnxruntime-openvino==1.24.1
 
 # --- vision / numerics --------------------------------------------------------

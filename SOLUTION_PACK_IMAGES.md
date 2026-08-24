@@ -7,14 +7,15 @@ This document describes the current ApexFabric V1 delivery. It targets only
 
 | Image | Applications | Baked models |
 |---|---|---|
-| `surveillance-edge-runtime:intel-285h-2026.08.20-v2` | Re-ID, face recognition, intrusion, people counting | `/models/surveillance` |
+| `surveillance-edge-runtime:intel-285h-2026.08.24-v3` | Re-ID, face recognition, intrusion, people counting | `/models/surveillance` |
 | `traffic-edge-runtime:intel-285h-2026.08.24-v6` | ANPR, wrong way, vehicle count, pedestrian count, illegal parking | `/models/traffic/openvino` |
 
 Both images include the graph compiler, app manifests, copied headless source
 runtime, Python dependencies, FFmpeg/VAAPI support, Intel GPU userspace, Intel
-NPU userspace/compiler, model files, and model checksum metadata. Traffic v6
-inherits its environment from a stable, digest-pinned runtime base; that base is
-not deployed as a separate container. The solution images run as
+NPU userspace/compiler, model files, and model checksum metadata. Surveillance
+v3 and traffic v6 each inherit their environment from a stable, digest-pinned
+runtime base; those bases are not deployed as separate containers. Both base
+families share the same Ubuntu and Intel driver blobs. The solution images run as
 UID/GID `10001`, require `/dev/dri` and `/dev/accel` for configured camera
 workloads, and do not include either historical UI.
 
@@ -109,7 +110,13 @@ For a traffic-only build:
 CONTAINER_ENGINE=podman ./scripts/build_traffic_layered_image.sh
 ```
 
-Routine traffic delivery should push the runtime base and workload to the same
+For a surveillance-only build:
+
+```bash
+CONTAINER_ENGINE=podman ./scripts/build_surveillance_layered_image.sh
+```
+
+Routine solution delivery should push the runtime base and workload to the same
 OCI registry. The edge then reuses already-present base layers. Full archives
 remain intended for offline bootstrap and always include the complete image.
 

@@ -270,9 +270,12 @@ class App:
         for s in streams:
             source = CameraSourceResolver().resolve(str(s["source"]))
             print(f"Camera {s.get('camera')} source loaded from mounted Secret", flush=True)
-            self.add_stream(source, s.get("camera"),
-                            bool(s.get("face", True)), bool(s.get("gait", True)),
-                            warm=0.4, persist=False)
+            self.add_stream(
+                source, s.get("camera"),
+                face=bool(s.get("face", True)), gait=bool(s.get("gait", True)),
+                body=bool(s.get("body", True)), reid=bool(s.get("reid", True)),
+                warm=0.4, persist=False, update_spec=False,
+            )
         self.plat.set_cameras(self.cam_sid.keys())
         threading.Thread(target=self._drain, daemon=True).start()
         threading.Thread(target=self._detect_frame_size, daemon=True).start()
@@ -477,21 +480,23 @@ class App:
 
     def add_stream(self, source: str, camera: str = None, face: bool = True,
                    gait: bool = True, warm: float = 0.0, persist: bool = True,
-                   update_spec: bool = True):
+                   update_spec: bool = True, body: bool = True,
+                   reid: bool = True):
         """Start one more camera at runtime (the tested WorkerHandle)."""
         sid = self._next_sid
         self._next_sid += 1
         camera = camera or f"cam{sid}"
         if camera in self.cam_sid:
             raise ValueError(f"camera already exists: {camera}")
-        w = bb.WorkerHandle(sid, source, camera, face, gait)
+        w = bb.WorkerHandle(sid, source, camera, reid and body, face, gait)
         bb.WORKERS[sid] = w
         w.start()
         self.cam_sid[camera] = sid
         if update_spec:
             self.stream_specs[camera] = {
                 "source": source, "camera": camera,
-                "face": bool(face), "gait": bool(gait),
+                "body": bool(body), "face": bool(face), "gait": bool(gait),
+                "reid": bool(reid),
             }
         self.plat.set_cameras(self.cam_sid.keys())
         # New cameras should not silently miss identity just because runtime_usecases.json
@@ -547,11 +552,13 @@ class App:
         source = snap.get("source") or getattr(w, "source", "")
         face = bool(snap.get("face", True))
         gait = bool(snap.get("gait", True))
+        reid = bool(snap.get("reid", True))
         # Stream restart is operational, not a config edit. Do not let watchdog/API
         # restart races rewrite streams.yaml from a transient worker set.
         self.remove_stream(sid, persist=False, update_spec=False)
         return self.add_stream(source, camera, face, gait, warm=0.4,
-                               persist=False, update_spec=False)
+                               persist=False, update_spec=False,
+                               body=reid, reid=reid)
 
     # --- in-process observation drain -> plugin host ---------------------------
     def _drain(self):

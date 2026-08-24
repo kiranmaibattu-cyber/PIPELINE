@@ -13,7 +13,11 @@ from edge_runtime.runtime.desired_state_reload import (
     DesiredStateSnapshot,
     DesiredStateWatcher,
 )
-from edge_runtime.runtime.solution_pack_entrypoint import RuntimeStatus, _apply_desired_state
+from edge_runtime.runtime.solution_pack_entrypoint import (
+    RuntimeStatus,
+    _apply_desired_state,
+    _start_child,
+)
 
 
 class _Child:
@@ -70,6 +74,14 @@ def _plan(revision: int, cameras: list[dict] | None = None) -> dict:
 
 
 class DesiredStateReloadTest(unittest.TestCase):
+    def test_runtime_child_starts_in_its_own_process_session(self) -> None:
+        with patch(
+            "edge_runtime.runtime.solution_pack_entrypoint.subprocess.Popen"
+        ) as popen:
+            _start_child(_args())
+
+        self.assertTrue(popen.call_args.kwargs["start_new_session"])
+
     def test_watcher_hashes_exact_content_and_reads_revision(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "desired.json"

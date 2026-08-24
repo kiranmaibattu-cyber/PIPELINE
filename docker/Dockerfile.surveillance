@@ -1,14 +1,5 @@
-FROM pipeline-ubuntu-python:24.04
-
-ARG IMAGE_VERSION=2026.08.20-v2
-
-LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/PIPELINE" \
-      org.opencontainers.image.title="ApexFabric Surveillance Edge Runtime" \
-      org.opencontainers.image.description="Intel 285H surveillance solution-pack runtime" \
-      org.opencontainers.image.version="${IMAGE_VERSION}" \
-      io.apexfabric.contract.version="v1" \
-      io.apexfabric.hardware.profile="intel-285h" \
-      io.apexfabric.models.delivery="baked-in"
+ARG INTEL_SURVEILLANCE_RUNTIME_BASE=localhost/apexfabric-intel-surveillance-runtime-base:intel-285h-2026.08.24-v1
+FROM ${INTEL_SURVEILLANCE_RUNTIME_BASE}
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/opt/pipeline \
@@ -19,24 +10,34 @@ ENV PYTHONUNBUFFERED=1 \
     APEXFABRIC_STATE_ROOT=/state \
     APEX_API_HOST=0.0.0.0 \
     APEX_API_PORT=8080 \
+    DESIRED_STATE_RELOAD_INTERVAL=2 \
+    DESIRED_STATE_RELOAD_RETRY_INTERVAL=10 \
+    DESIRED_STATE_RELOAD_STARTUP_GRACE=3 \
     HOME=/tmp/apexfabric \
     XDG_CACHE_HOME=/tmp/apexfabric/cache
 
 WORKDIR /opt/pipeline
 
-COPY requirements.txt /opt/pipeline/requirements.txt
-RUN pip install --no-cache-dir -r /opt/pipeline/requirements.txt
-
-COPY edge_runtime/solution_packs/surveillance/requirements-8090.txt /opt/pipeline/requirements-8090.txt
-RUN pip install --no-cache-dir -r /opt/pipeline/requirements-8090.txt
-
 COPY edge_runtime /opt/pipeline/edge_runtime
 COPY models/surveillance /models/surveillance
 
 RUN python -c "from pathlib import Path; from edge_runtime.model_registry.baked import BakedModelValidator; from edge_runtime.model_registry.registry import ModelRegistry; BakedModelValidator(ModelRegistry.from_file(Path('/opt/pipeline/edge_runtime/model_registry/models.yaml')), Path('/models')).validate('surveillance')" \
-    && useradd --uid 10001 --create-home --shell /usr/sbin/nologin apexruntime \
-    && mkdir -p /plans /tmp/apexfabric /state /run/secrets/apexfabric \
-    && chown -R apexruntime:apexruntime /plans /tmp/apexfabric /state
+    && mkdir -p /opt/pipeline/edge_runtime/solution_packs/surveillance/runtime_8090/models \
+    && ln -s /models/surveillance/face_reid /opt/pipeline/edge_runtime/solution_packs/surveillance/runtime_8090/models/face_reid \
+    && test "$(id -u apexruntime)" = "10001"
+
+ARG IMAGE_VERSION=2026.08.24-v3
+ARG INTEL_SURVEILLANCE_RUNTIME_BASE_DIGEST=unresolved
+
+LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/PIPELINE" \
+      org.opencontainers.image.title="ApexFabric Surveillance Edge Runtime" \
+      org.opencontainers.image.description="Intel 285H surveillance solution-pack runtime" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      io.apexfabric.contract.version="v1" \
+      io.apexfabric.hardware.profile="intel-285h" \
+      io.apexfabric.image.role="solution-runtime" \
+      io.apexfabric.models.delivery="baked-in" \
+      io.apexfabric.runtime-base.digest="${INTEL_SURVEILLANCE_RUNTIME_BASE_DIGEST}"
 
 # The copied 8090 runtime is headless in this image. Its historical dashboard files
 # are intentionally not part of the production UI contract.

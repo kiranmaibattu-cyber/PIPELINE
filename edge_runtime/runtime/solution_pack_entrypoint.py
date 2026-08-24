@@ -440,6 +440,9 @@ def _enrich_event(status: RuntimeStatus, event: dict[str, Any]) -> dict[str, Any
     global_id = payload.get("global_id") or payload.get("person_id")
     if status.solution_pack == "surveillance" and global_id is not None:
         payload.setdefault("person_ref", f"{status.edge_id or 'unknown-edge'}:{global_id}")
+    if status.solution_pack == "surveillance" and event_type == "intrusion_event":
+        payload.setdefault("global_id", global_id)
+        payload.setdefault("person_ref", None)
     return {
         "schema_version": "1.0",
         "event_id": str(event.get("event_id") or uuid.uuid4()),
@@ -893,14 +896,46 @@ def _stop_child(status: RuntimeStatus, timeout_seconds: float = 20.0) -> None:
     child = status.child
     if child is None:
         return
+    process_group = getattr(child, "pid", None)
     if child.poll() is None:
         child.terminate()
         try:
             child.wait(timeout=timeout_seconds)
         except subprocess.TimeoutExpired:
-            child.kill()
+            if process_group is not None:
+                _signal_process_group(process_group, signal.SIGKILL)
+            else:
+                child.kill()
             child.wait(timeout=5)
+    if process_group is not None:
+        # The legacy runtimes can leave decoder/model workers behind after their
+        # own graceful shutdown. They remain in the child's dedicated session.
+        _signal_process_group(process_group, signal.SIGKILL)
+        _reap_adopted_children()
     status.child = None
+
+
+def _signal_process_group(process_group: int, sig: signal.Signals) -> None:
+    try:
+        os.killpg(process_group, sig)
+    except ProcessLookupError:
+        return
+
+
+def _reap_adopted_children(timeout_seconds: float = 2.0) -> None:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        reaped = False
+        while True:
+            try:
+                pid, _status = os.waitpid(-1, os.WNOHANG)
+            except ChildProcessError:
+                return
+            if pid == 0:
+                break
+            reaped = True
+        if not reaped:
+            time.sleep(0.05)
 
 
 def _start_child(args: argparse.Namespace) -> subprocess.Popen[str]:
@@ -920,7 +955,7 @@ def _start_child(args: argparse.Namespace) -> subprocess.Popen[str]:
     if args.runtime_port is not None:
         command.extend(["--port", str(args.runtime_port)])
     print("starting runtime child: " + " ".join(command), flush=True)
-    return subprocess.Popen(command, text=True)
+    return subprocess.Popen(command, text=True, start_new_session=True)
 
 
 def _runtime_api_url(runtime_port: int | None) -> str | None:

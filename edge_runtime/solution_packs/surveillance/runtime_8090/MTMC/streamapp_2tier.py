@@ -246,6 +246,13 @@ NCORES = os.cpu_count() or 16
 # ---------------- shared inference pool ----------------
 # One server process per device role instead of six models inside every stream.
 POOL_KINDS = ("det", "embed", "face", "gait")
+_requested_pool_kinds = {
+    item.strip() for item in os.environ.get("POOL_ACTIVE_KINDS", ",".join(POOL_KINDS)).split(",")
+    if item.strip()
+}
+ACTIVE_POOL_KINDS = tuple(kind for kind in POOL_KINDS
+                          if kind == "det" or kind in _requested_pool_kinds)
+REID_ENABLED = os.environ.get("REID_ENABLED", "1").lower() not in {"0", "false", "no"}
 # Replicas per role. One server per role would SERIALIZE every stream through a
 # single process, which is slower than the old per-stream models. Replicas share
 # one request queue as competing consumers, so work spreads with no scheduler.
@@ -2273,7 +2280,7 @@ def reid_service(req_q, stop_ev, thr):
     _flush_store()
 
 
-def run_stream(sid, source, camera, do_face, do_gait, mdict, crop_q, stop_ev, desired_thr, req_q, resp_q,
+def run_stream(sid, source, camera, do_reid, do_face, do_gait, mdict, crop_q, stop_ev, desired_thr, req_q, resp_q,
                pool_q, pool_resp):
     """PROCESS entry: the heavy per-camera pipeline for one stream (decode, detect,
     track, embed, face, gait — all on NPU/iGPU, no GIL contention). Re-id itself is
@@ -2317,14 +2324,15 @@ def run_stream(sid, source, camera, do_face, do_gait, mdict, crop_q, stop_ev, de
             evface_f = open(os.path.join(EVENT_LOG_DIR, f"face_{sid}.csv"), "w", newline="")
             evface_w = _csv.writer(evface_f)
             evface_w.writerow(["camera", "gid", "face"])
-        emb = infer_pool.EmbedClient(sid, pool_q["embed"], pool_resp["embed"])
+        emb = infer_pool.EmbedClient(sid, pool_q["embed"], pool_resp["embed"]) if do_reid else None
         face = gait = None
         if do_face:
             face = infer_pool.FaceClient(sid, pool_q["face"], pool_resp["face"])
         if do_gait:
             gait = infer_pool.GaitClient(sid, pool_q["gait"], pool_resp["gait"], ftx)
         # cross-cam re-id lives in the central service; register this stream's return channel
-        req_q.put({"t": "reg", "sid": sid, "resp": resp_q})
+        if do_reid:
+            req_q.put({"t": "reg", "sid": sid, "resp": resp_q})
 
         fcache, fqcache, gcache = {}, {}, {}
         fmcache = {}          # lid -> face detection quality (det/w/h/sharp/q)
@@ -2463,7 +2471,7 @@ def run_stream(sid, source, camera, do_face, do_gait, mdict, crop_q, stop_ev, de
                 xs = [p[0] for p in h]; ys = [p[1] for p in h]
                 return ((max(xs) - min(xs)) ** 2 + (max(ys) - min(ys)) ** 2) ** 0.5 > GAIT_MOTION_PX
 
-            crops = crop_boxes(frame, [tr.bbox for tr in tracks])
+            crops = crop_boxes(frame, [tr.bbox for tr in tracks]) if do_reid else []
             t_sec = (clip_t0 + getattr(dec, "n", 0) / src_fps) if use_vclock                 else (time.perf_counter() - wall0)
 
             def _sync_due(lid):
@@ -2473,17 +2481,19 @@ def run_stream(sid, source, camera, do_face, do_gait, mdict, crop_q, stop_ev, de
             # A track keeps its global id between syncs, and the tracker holds its
             # box, so a stable-id track costs ZERO NPU (no embed/face/gait) until it
             # is due again (~every SYNC_EVERY_S). Also skip boxes too short to matter.
-            eidx = [i for i, tr in enumerate(tracks)
-                    if (tr.bbox[3] - tr.bbox[1]) >= MIN_EMBED_H and i < len(crops)
-                    and hits.get(int(tr.local_id), 0) >= TRACK_MIN_HITS
-                    and _sync_due(int(tr.local_id))]
+            sync_idx = [i for i, tr in enumerate(tracks)
+                        if hits.get(int(tr.local_id), 0) >= TRACK_MIN_HITS
+                        and _sync_due(int(tr.local_id))]
+            eidx = [i for i in sync_idx
+                    if do_reid and i < len(crops)
+                    and (tracks[i].bbox[3] - tracks[i].bbox[1]) >= MIN_EMBED_H]
             if MAX_EMBED_PER_FRAME and len(eidx) > MAX_EMBED_PER_FRAME:
                 # over budget: keep the biggest (closest) boxes so one frame fits the fps slot
                 eidx = sorted(eidx, key=lambda i: tracks[i].bbox[3] - tracks[i].bbox[1],
                               reverse=True)[:MAX_EMBED_PER_FRAME]
                 eidx.sort()
             crops_e = [crops[i] for i in eidx]
-            t1 = time.perf_counter(); embs_e = emb.embed(crops_e) if crops_e else None; tmb = (time.perf_counter() - t1) * 1000
+            t1 = time.perf_counter(); embs_e = emb.embed(crops_e) if emb is not None and crops_e else None; tmb = (time.perf_counter() - t1) * 1000
             if crops_e:
                 ew = (1 - a) * ew + a * emb.last_wait; ecp = (1 - a) * ecp + a * emb.last_compute; n_emb += 1
 
@@ -2628,6 +2638,7 @@ def run_stream(sid, source, camera, do_face, do_gait, mdict, crop_q, stop_ev, de
                                                      **body_q_parts}) + "\n")
                         except Exception:
                             pass
+
                     # Retain the latest valid body evidence for this local track.
                     # LOCAL_REASSOC uses it to reject a different person entering a
                     # recently lost box; this state was declared but never populated,
@@ -2771,6 +2782,34 @@ def run_stream(sid, source, camera, do_face, do_gait, mdict, crop_q, stop_ev, de
                                     obs_f.flush()
                         except Exception:
                             pass
+
+            # Counting and intrusion consume tracked geometry, not identity features.
+            # Emit mature tracks directly when this camera's graph has no Re-ID branch.
+            if not do_reid and (OBS_Q is not None or obs_f is not None):
+                for i in sync_idx:
+                    try:
+                        lid = int(tracks[i].local_id)
+                        sidv = int(stable_id.get(lid, lid))
+                        obs = {
+                            "camera": str(camera), "local_id": lid, "stable_id": sidv,
+                            "gid": None, "frame": int(frames), "t": float(t_sec),
+                            "bbox": [float(c) for c in tracks[i].bbox],
+                            "frame_wh": [int(frame.shape[1]), int(frame.shape[0])],
+                            "display_wh": [OUTPUT_W, OUTPUT_H],
+                            "quality": 1.0, "app_emb": None, "body_ok": False,
+                            "face_emb": None, "gait_emb": None, "color": None,
+                            "face_meta": None, "crop": None,
+                        }
+                        if OBS_Q is not None:
+                            try:
+                                OBS_Q.put_nowait(obs)
+                            except Exception:
+                                pass
+                        elif obs_f is not None:
+                            obs_f.write(json.dumps(obs) + "\n")
+                        last_sync[lid] = t_sec
+                    except Exception:
+                        pass
 
             # 3) prune per-track state to live tracks; display id comes from the map,
             #    showing the local track id ("T<n>") until the first global reply
@@ -3139,7 +3178,8 @@ def run_stream(sid, source, camera, do_face, do_gait, mdict, crop_q, stop_ev, de
                     if not dec.read()[0]:
                         break
         try:
-            req_q.put({"t": "unreg", "sid": sid})
+            if do_reid:
+                req_q.put({"t": "unreg", "sid": sid})
         except Exception:
             pass
         try:
@@ -3170,19 +3210,20 @@ def run_stream(sid, source, camera, do_face, do_gait, mdict, crop_q, stop_ev, de
 class WorkerHandle:
     """Manager-side handle for one stream PROCESS (metrics via shared dict)."""
 
-    def __init__(self, sid, source, camera, do_face, do_gait):
+    def __init__(self, sid, source, camera, do_reid, do_face, do_gait):
         self.id = sid
         self.source = source
         self.mdict = MGR.dict(dict(
             id=sid, source=source, running=True, err=None, fps=0.0, frames=0, det_per_frame=0.0,
             ms_decode=0.0, ms_detect=0.0, ms_track=0.0, ms_embed=0.0, ms_face=0.0, ms_gait=0.0,
-            face=do_face, gait=do_gait, decode="starting…", reid_ids=0, reid_hit_rate=0.0))
+            reid=do_reid, face=do_face, gait=do_gait, decode="starting…",
+            reid_ids=0, reid_hit_rate=0.0))
         self.stop_ev = MGR.Event()
         self.resp_q = MGR.Queue()   # central re-id service -> this stream (global ids)
         self.pool_resp = {k: MGR.Queue() for k in POOL_KINDS}   # device servers -> this stream
         self.proc = multiprocessing.Process(
             target=run_stream, daemon=True,
-            args=(sid, source, camera, do_face, do_gait, self.mdict, CROP_Q, self.stop_ev,
+            args=(sid, source, camera, do_reid, do_face, do_gait, self.mdict, CROP_Q, self.stop_ev,
                   DESIRED_THR, REID_REQ_Q, self.resp_q, POOL_Q, self.pool_resp))
 
     def start(self):
@@ -3460,7 +3501,7 @@ class Handler(BaseHTTPRequestHandler):
             if not src:
                 return self._send(400, '{"error":"no source"}')
             sid = next(_ids)
-            w = WorkerHandle(sid, src, cam, df, dg)
+            w = WorkerHandle(sid, src, cam, True, df, dg)
             with WLOCK:
                 WORKERS[sid] = w
             w.start()
@@ -3483,7 +3524,7 @@ class Handler(BaseHTTPRequestHandler):
             ids = []
             for _ in range(k):
                 sid = next(_ids)
-                w = WorkerHandle(sid, src, cam, df, dg)
+                w = WorkerHandle(sid, src, cam, True, df, dg)
                 with WLOCK:
                     WORKERS[sid] = w
                 w.start(); ids.append(sid); time.sleep(0.4)
@@ -3551,10 +3592,14 @@ def setup_engine():
     REID_STAT = MGR.dict(persons=0, live=0, matches=0, queries=0, hit_rate=0.0)
     ALERT_TRACKS = MGR.dict()
     REID_STOP = MGR.Event()
-    multiprocessing.Process(target=reid_service, args=(REID_REQ_Q, REID_STOP, DESIRED_THR),
-                            daemon=True).start()
+    if REID_ENABLED:
+        multiprocessing.Process(target=reid_service,
+                                args=(REID_REQ_Q, REID_STOP, DESIRED_THR),
+                                daemon=True).start()
     for kind in POOL_KINDS:
         POOL_Q[kind] = MGR.Queue()
+        if kind not in ACTIVE_POOL_KINDS:
+            continue
         for ri in range(POOL_REPLICAS[kind]):
             cfg = POOL_CFG[kind]
             if kind == "det" and DET_DEVICES:   # split det replicas across devices
@@ -3566,9 +3611,11 @@ def setup_engine():
         print(f"[POOL] det replicas split across devices: {DET_DEVICES}", flush=True)
     SAMPLER.start()
     threading.Thread(target=_crop_drain, daemon=True).start()
-    print(f"[POOL] shared device servers: det={DET_MODEL}@{DET_DEV} embed={EMB_MODEL}@{EMB_DEV} "
-          f"face={FACE_MODEL}@{FACE_DEV} gait={GAIT_MODEL}@{GAIT_DEV}+seg@{SEG_DEV}", flush=True)
-    print(f"[POOL] replicas: {POOL_REPLICAS} -- constant model memory, streams decode/track only", flush=True)
+    active = ", ".join(ACTIVE_POOL_KINDS)
+    print(f"[POOL] active shared device servers: {active}; reid_service={REID_ENABLED}", flush=True)
+    print(f"[POOL] active replicas: "
+          f"{{{', '.join(f'{kind}: {POOL_REPLICAS[kind]}' for kind in ACTIVE_POOL_KINDS)}}} "
+          "-- constant model memory, streams decode/track only", flush=True)
 
 
 def main():

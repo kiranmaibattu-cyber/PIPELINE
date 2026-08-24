@@ -13,6 +13,7 @@ PACK_RUNTIME = {
         "models": "/models/surveillance",
         "runtime_port": "8090",
         "metrics_proxy": "http://127.0.0.1:8090/api/metrics",
+        "api_proxy": True,
     },
     "traffic": {
         "module": "edge_runtime.solution_packs.traffic.runtime_pilot.launch",
@@ -82,6 +83,8 @@ def main() -> int:
         command.extend(["--runtime-port", runtime["runtime_port"]])
     if runtime.get("metrics_proxy"):
         command.extend(["--metrics-proxy-url", runtime["metrics_proxy"]])
+    if runtime.get("api_proxy"):
+        command.append("--enable-runtime-api-proxy")
     os.execv(sys.executable, command)
     return 2
 

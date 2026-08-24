@@ -175,6 +175,23 @@ class SolutionPackEntrypointTest(unittest.TestCase):
         self.assertEqual("restricted", event["payload"]["zone"])
         self.assertEqual("edge-01:42", event["payload"]["person_ref"])
 
+    def test_intrusion_without_global_identity_has_stable_contract_fields(self) -> None:
+        status = RuntimeStatus(
+            solution_pack="surveillance",
+            plan_path=Path("/plans/surveillance.runtime_plan.json"),
+            state_dir=Path("/state/surveillance"),
+            edge_id="edge-01",
+        )
+        event = _enrich_event(status, {
+            "camera_id": "cam1",
+            "type": "intrusion",
+            "zone": "restricted",
+            "payload": {"who": "cam1:7"},
+        })
+
+        self.assertIsNone(event["payload"]["global_id"])
+        self.assertIsNone(event["payload"]["person_ref"])
+
     def test_snapshot_path_is_resolved_inside_state_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp) / "state" / "surveillance"

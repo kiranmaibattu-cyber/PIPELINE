@@ -79,6 +79,9 @@ def _configure_environment(plan, state_dir: Path, models_dir: Path, port: int) -
     os.environ.setdefault("DET_MODEL", str(models_dir / "yolo11s_int8.xml"))
     os.environ.setdefault("EMB_MODEL", str(models_dir / "transreid_ssl_int8.xml"))
     os.environ.setdefault("FACE_MODEL", str(models_dir / "adaface_ir101_int8.xml"))
+    os.environ.setdefault("ADAFACE_INT8_XML", str(models_dir / "adaface_ir101_int8.xml"))
+    os.environ.setdefault("ENROLL_PACK", "buffalo_s")
+    os.environ.setdefault("ENROLL_FACE_DEV", "GPU")
     os.environ.setdefault("GAIT_MODEL", str(models_dir / "gaitbase_int8.xml"))
     os.environ.setdefault("SEG_MODEL", str(models_dir / "yolov8n_seg_int8.xml"))
 
@@ -102,6 +105,19 @@ def _configure_environment(plan, state_dir: Path, models_dir: Path, port: int) -
     os.environ.setdefault("POOL_FACE_BATCH", "0")
     os.environ.setdefault("POOL_BATCH_MAX", "8")
     os.environ.setdefault("FRAME_SHM_BYTES", str(3840 * 2160 * 3))
+    active_pools, reid_enabled = _active_runtime_services(plan)
+    os.environ["POOL_ACTIVE_KINDS"] = ",".join(active_pools)
+    os.environ["REID_ENABLED"] = "1" if reid_enabled else "0"
+
+
+def _active_runtime_services(plan) -> tuple[tuple[str, ...], bool]:
+    """Select box-wide shared services from the compiled per-camera graph."""
+    flags = [camera.get("feature_flags") or {} for camera in plan.get("cameras") or []]
+    active = ["det"]
+    for pool, feature in (("embed", "body"), ("face", "face"), ("gait", "gait")):
+        if any(bool(item.get(feature)) for item in flags):
+            active.append(pool)
+    return tuple(active), any(bool(item.get("reid")) for item in flags)
 
 
 def _prepare_runtime_config(generated_dir: Path, state_dir: Path) -> Path:

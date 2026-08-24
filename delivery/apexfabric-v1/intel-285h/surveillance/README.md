@@ -12,12 +12,43 @@ surveillance requirements without one.
 ## Image
 
 ```text
-surveillance-edge-runtime:intel-285h-2026.08.20-v2
+surveillance-edge-runtime:intel-285h-2026.08.24-v3
 ```
 
 The image runs as UID/GID `10001`, listens on `0.0.0.0:8080`, contains its
 models, and has no management-server dependency. Mount persistent storage at
 `/state` for event, gallery, history, crop, and snapshot state.
+
+## Layered Runtime Base
+
+The workload is built from this immutable Intel surveillance runtime base:
+
+```text
+apexfabric-intel-surveillance-runtime-base:intel-285h-2026.08.24-v1
+sha256:ff3bc61535f4b4289298db44915ba18e2412c2bfa2c66065597dd1af3ea96f5d
+```
+
+The base contains Ubuntu, Intel GPU/NPU userspace, VAAPI/FFmpeg, Python,
+OpenVINO 2024.6, and the pinned surveillance dependency set. It is a build
+parent, not a second workload container. Build the base and v3 workload with:
+
+```bash
+CONTAINER_ENGINE=podman ./scripts/build_surveillance_layered_image.sh
+```
+
+The base is approximately 2.444 GB. The final workload adds approximately
+280 MB, almost entirely the baked surveillance model set.
+
+## Desired-State Hot Reload
+
+The container watches `/configs/desired_state.json` every two seconds.
+Management must increment `revision` when cameras, applications, FPS, zones, or
+counting lines change. A valid candidate graph replaces only the internal 8090
+worker; the container, public API, persistent gallery, events, and snapshots
+remain available. Invalid or older revisions leave the active graph running.
+
+Mount `/configs` as a directory. Kubernetes `subPath` ConfigMap mounts do not
+receive atomic ConfigMap updates and therefore are not supported for hot reload.
 
 ## Baked Models
 
@@ -48,7 +79,7 @@ docker run --rm -p 8080:8080 \
   -v "$PWD/desired-state.example.json:/configs/desired_state.json:ro" \
   -v "$PWD/secrets:/run/secrets/apexfabric:ro" \
   -v "$PWD/state:/state" \
-  surveillance-edge-runtime:intel-285h-2026.08.20-v2
+  surveillance-edge-runtime:intel-285h-2026.08.24-v3
 ```
 
 The compiler command required by the contract is available in the same image.
@@ -64,8 +95,8 @@ lives under `/state/surveillance/reid_gallery`.
 For `people_counting`, omit `config.lines.people_counting` to receive current
 occupancy events. Supply one or more normalized counting lines to receive `in`
 and `out` crossing events. Intrusion requires at least one normalized polygon in
-`config.zones.intrusion`. The estimated image size is 2.72 GB before
-`docker save` archive overhead.
+`config.zones.intrusion`. The image remains approximately 2.72 GB, but routine
+releases reuse the stable 2.444 GB base layers.
 
 ## Management Outputs
 
@@ -89,22 +120,22 @@ defined by `analytics-event.schema.json`.
 
 ## GitHub Archive Parts
 
-The complete local `image-2026.08.20-v2.tar` is `2.72 GB`, above GitHub
+The complete local `image-2026.08.24-v3.tar` is approximately `2.71 GB`, above GitHub
 Free/Pro's per-file
-Git LFS limit. The repository therefore carries the exact archive as these
-current-build parts:
+Git LFS limit. The repository therefore carries the exact current image as these
+versioned parts:
 
 ```text
-image-2026.08.20-v2.tar.part-aa
-image-2026.08.20-v2.tar.part-ab
-image-2026.08.20-v2.parts.sha256
+image-2026.08.24-v3.tar.part-aa
+image-2026.08.24-v3.tar.part-ab
+image-2026.08.24-v3.parts.sha256
 ```
 
 Reconstruct and verify it inside this directory:
 
 ```bash
-sha256sum -c image-2026.08.20-v2.parts.sha256
-cat image-2026.08.20-v2.tar.part-* > image-2026.08.20-v2.tar
-sha256sum -c image-2026.08.20-v2.sha256
-docker load -i image-2026.08.20-v2.tar
+sha256sum -c image-2026.08.24-v3.parts.sha256
+cat image-2026.08.24-v3.tar.part-* > image-2026.08.24-v3.tar
+sha256sum -c image-2026.08.24-v3.sha256
+docker load -i image-2026.08.24-v3.tar
 ```

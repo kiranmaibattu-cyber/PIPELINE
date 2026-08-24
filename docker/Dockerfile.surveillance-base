@@ -1,0 +1,64 @@
+FROM docker.io/library/ubuntu@sha256:561618e2c15bf2397621dd04f96926663a3b5616c189cf7e38db7e82f5c538ea
+
+ARG INTEL_NPU_DRIVER_VERSION=1.33.0.20260529-26625960453
+ARG TARGETARCH=amd64
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_BREAK_SYSTEM_PACKAGES=1 \
+    PYTHONUNBUFFERED=1
+
+RUN test "$TARGETARCH" = "amd64" \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gnupg \
+        wget \
+    && wget -qO- https://repositories.intel.com/gpu/intel-graphics.key \
+        | gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu noble unified" \
+        > /etc/apt/sources.list.d/intel-gpu-noble.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ffmpeg \
+        intel-igc-cm \
+        intel-media-va-driver-non-free \
+        intel-ocloc \
+        intel-opencl-icd \
+        libtbb12 \
+        libva2 \
+        libva-drm2 \
+        libglib2.0-0 \
+        libgl1 \
+        libgomp1 \
+        libigdgmm12 \
+        libze-intel-gpu1 \
+        libze1 \
+        python3 \
+        python3-pip \
+        python3-venv \
+        vainfo \
+    && wget -q "https://github.com/intel/linux-npu-driver/releases/download/v1.33.0/linux-npu-driver-v${INTEL_NPU_DRIVER_VERSION}-ubuntu2404.tar.gz" \
+        -O /tmp/intel-npu-driver.tar.gz \
+    && mkdir -p /tmp/intel-npu-driver \
+    && tar -xzf /tmp/intel-npu-driver.tar.gz -C /tmp/intel-npu-driver \
+    && apt-get install -y --no-install-recommends /tmp/intel-npu-driver/intel-level-zero-npu_${INTEL_NPU_DRIVER_VERSION}~ubuntu24.04_amd64.deb \
+        /tmp/intel-npu-driver/intel-driver-compiler-npu_${INTEL_NPU_DRIVER_VERSION}~ubuntu24.04_amd64.deb \
+    && rm -rf /var/lib/apt/lists/* \
+        /tmp/intel-npu-driver \
+        /tmp/intel-npu-driver.tar.gz \
+    && ln -sf /usr/bin/python3 /usr/local/bin/python \
+    && ln -sf /usr/bin/pip3 /usr/local/bin/pip
+
+COPY docker/requirements.surveillance-base.lock /opt/apexfabric/requirements.surveillance-base.lock
+RUN pip install --no-cache-dir -r /opt/apexfabric/requirements.surveillance-base.lock \
+    && pip install --no-cache-dir --no-deps insightface==1.0.1 \
+    && useradd --uid 10001 --create-home --shell /usr/sbin/nologin apexruntime \
+    && mkdir -p /plans /tmp/apexfabric /state /run/secrets/apexfabric \
+    && chown -R apexruntime:apexruntime /plans /tmp/apexfabric /state
+
+LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/PIPELINE" \
+      org.opencontainers.image.title="ApexFabric Intel Surveillance Runtime Base" \
+      org.opencontainers.image.description="Pinned Intel GPU/NPU, VAAPI, OpenVINO, and Python surveillance runtime" \
+      org.opencontainers.image.version="intel-285h-2026.08.24-v1" \
+      io.apexfabric.image.role="runtime-base" \
+      io.apexfabric.hardware.profile="intel-285h"

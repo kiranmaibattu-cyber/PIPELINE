@@ -1,5 +1,5 @@
 name: surveillance-edge-runtime
-version: 2026.08.20-v2
+version: 2026.08.24-v3
 contractVersion: v1
 contractExtensions:
   persistentSurveillanceState:
@@ -8,12 +8,23 @@ contractExtensions:
     reason: durable face gallery, ReID rejoin state, history, and event evidence
 architectures: [amd64]
 hardwareProfile: intel-285h
+runtimeBase:
+  image: apexfabric-intel-surveillance-runtime-base:intel-285h-2026.08.24-v1
+  digest: sha256:ff3bc61535f4b4289298db44915ba18e2412c2bfa2c66065597dd1af3ea96f5d
+  deployment: build-parent-only
 models:
   delivery: baked-in
   root: /models/surveillance
   metadata: /opt/pipeline/edge_runtime/model_registry/models.yaml
 configuration:
   desiredStatePath: /configs/desired_state.json
+  hotReload:
+    enabled: true
+    pollSeconds: 2
+    strategy: transactional-child-restart
+    revisionPolicy: nondecreasing
+    mountPath: /configs
+    kubernetesSubPathSupported: false
 secrets:
   root: /run/secrets/apexfabric
   referenceFormat: file:/run/secrets/apexfabric/<camera-id>.rtsp

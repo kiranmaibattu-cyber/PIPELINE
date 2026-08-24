@@ -10,7 +10,7 @@ The active ApexFabric delivery targets `linux/amd64` on Intel Core Ultra 9
 285H:
 
 ```text
-surveillance-edge-runtime:intel-285h-2026.08.20-v2
+surveillance-edge-runtime:intel-285h-2026.08.24-v3
 traffic-edge-runtime:intel-285h-2026.08.24-v6
 ```
 
@@ -132,10 +132,11 @@ Build the current Intel images:
 ./scripts/build_apexfabric_v1_intel_images.sh
 ```
 
-The traffic build uses a stable Intel/OpenVINO parent image and produces one
-deployable workload image. To build only the layered traffic image:
+Each solution build uses a stable Intel/OpenVINO parent image and produces one
+deployable workload image. To build one layered solution image:
 
 ```bash
+CONTAINER_ENGINE=podman ./scripts/build_surveillance_layered_image.sh
 CONTAINER_ENGINE=podman ./scripts/build_traffic_layered_image.sh
 ```
 

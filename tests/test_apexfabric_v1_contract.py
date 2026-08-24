@@ -208,6 +208,30 @@ class ApexFabricV1ContractTest(unittest.TestCase):
         self.assertIn("pip install --no-cache-dir", runtime_base)
         self.assertIn("requirements.traffic-base.lock", runtime_base)
 
+    def test_surveillance_workload_uses_layered_runtime_base(self) -> None:
+        workload = (ROOT / "docker" / "Dockerfile.surveillance").read_text(
+            encoding="utf-8"
+        )
+        runtime_base = (
+            ROOT / "docker" / "Dockerfile.surveillance-base"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("FROM ${INTEL_SURVEILLANCE_RUNTIME_BASE}", workload)
+        self.assertNotIn("pip install", workload)
+        self.assertIn('io.apexfabric.image.role="solution-runtime"', workload)
+        self.assertIn("pip install --no-cache-dir", runtime_base)
+        self.assertIn("requirements.surveillance-base.lock", runtime_base)
+        lock = (ROOT / "docker" / "requirements.surveillance-base.lock").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("\nonnxruntime==", "\n" + lock)
+        self.assertIn("onnxruntime-openvino==1.24.1", lock)
+        self.assertNotIn("insightface==", lock)
+        self.assertIn(
+            "pip install --no-cache-dir --no-deps insightface==1.0.1",
+            runtime_base,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

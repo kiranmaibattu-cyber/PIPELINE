@@ -46,17 +46,22 @@ class Stream:
             raise RuntimeError(f"cannot open {src}")
         self.live = "://" in src
         self.frame, self.ok, self.stop = None, True, False
+        self._pump_thread = None
         if self.live:
-            threading.Thread(target=self._pump, daemon=True).start()
+            self._pump_thread = threading.Thread(target=self._pump, daemon=True)
+            self._pump_thread.start()
 
     def _pump(self) -> None:
-        while not self.stop:
-            ok, f = self.cap.read()
-            if not ok:
-                self.ok = False
-                time.sleep(0.2)
-                continue
-            self.frame = f
+        try:
+            while not self.stop:
+                ok, f = self.cap.read()
+                if not ok:
+                    self.ok = False
+                    time.sleep(0.2)
+                    continue
+                self.frame = f
+        finally:
+            self.cap.release()
 
     def read(self):
         if not self.live:
@@ -71,7 +76,9 @@ class Stream:
 
     def release(self) -> None:
         self.stop = True
-        time.sleep(0.05)
+        if self._pump_thread is not None:
+            self._pump_thread.join(timeout=3.0)
+            return
         try:
             self.cap.release()
         except Exception:

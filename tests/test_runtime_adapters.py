@@ -6,6 +6,7 @@ import unittest
 import os
 from pathlib import Path
 
+from edge_runtime.runtime.solution_image_entrypoint import PACK_RUNTIME
 from edge_runtime.solution_packs.surveillance.runtime.config_adapter import SurveillanceConfigAdapter
 from edge_runtime.solution_packs.surveillance.runtime_8090 import launch as surveillance_launch
 from edge_runtime.solution_packs.traffic.runtime.config_adapter import TrafficConfigAdapter
@@ -25,6 +26,24 @@ class RuntimeAdapterTest(unittest.TestCase):
         self.assertEqual(usecases["counting"], ["cam3"])
         self.assertTrue(rendered["camera_features"]["cam1"]["gait"])
         self.assertFalse(rendered["camera_features"]["cam3"]["body"])
+        streams = {item["camera"]: item for item in rendered["streams"]["streams"]}
+        self.assertFalse(streams["cam3"]["body"])
+        self.assertFalse(streams["cam3"]["reid"])
+
+    def test_surveillance_runtime_services_follow_aggregate_graph(self) -> None:
+        counting_only = {"cameras": [{"feature_flags": {
+            "body": False, "face": False, "gait": False, "reid": False,
+        }}]}
+        mixed = {"cameras": [{"feature_flags": {
+            "body": False, "face": False, "gait": False, "reid": False,
+        }}, {"feature_flags": {
+            "body": True, "face": True, "gait": True, "reid": True,
+        }}]}
+
+        self.assertEqual((("det",), False),
+                         surveillance_launch._active_runtime_services(counting_only))
+        self.assertEqual((("det", "embed", "face", "gait"), True),
+                         surveillance_launch._active_runtime_services(mixed))
 
     def test_traffic_config_maps_apps_to_traffic_usecases(self) -> None:
         plan = json.loads((ROOT / "run" / "plans" / "traffic.runtime_plan.json").read_text())
@@ -100,19 +119,37 @@ class RuntimeAdapterTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp) / "state"
             models = Path(tmp) / "models"
-            old = {key: os.environ.get(key) for key in ("FACE_GALLERY", "REJOIN_STORE")}
+            keys = (
+                "ADAFACE_INT8_XML",
+                "ENROLL_FACE_DEV",
+                "ENROLL_PACK",
+                "FACE_GALLERY",
+                "POOL_ACTIVE_KINDS",
+                "REID_ENABLED",
+                "REJOIN_STORE",
+            )
+            old = {key: os.environ.get(key) for key in keys}
             try:
-                os.environ.pop("FACE_GALLERY", None)
-                os.environ.pop("REJOIN_STORE", None)
+                for key in keys:
+                    os.environ.pop(key, None)
                 surveillance_launch._configure_environment({"cameras": []}, state, models, 8090)
                 self.assertEqual(str(state / "face_gallery"), os.environ["FACE_GALLERY"])
                 self.assertEqual(str(state / "reid_gallery"), os.environ["REJOIN_STORE"])
+                self.assertEqual(str(models / "adaface_ir101_int8.xml"), os.environ["ADAFACE_INT8_XML"])
+                self.assertEqual("buffalo_s", os.environ["ENROLL_PACK"])
+                self.assertEqual("GPU", os.environ["ENROLL_FACE_DEV"])
+                self.assertEqual("det", os.environ["POOL_ACTIVE_KINDS"])
+                self.assertEqual("0", os.environ["REID_ENABLED"])
             finally:
                 for key, value in old.items():
                     if value is None:
                         os.environ.pop(key, None)
                     else:
                         os.environ[key] = value
+
+    def test_surveillance_solution_image_enables_management_api_proxy(self) -> None:
+        self.assertTrue(PACK_RUNTIME["surveillance"]["api_proxy"])
+        self.assertNotIn("api_proxy", PACK_RUNTIME["traffic"])
 
     def test_traffic_launcher_writes_openvino_worker_config(self) -> None:
         plan = json.loads((ROOT / "run" / "plans" / "traffic.runtime_plan.json").read_text())
