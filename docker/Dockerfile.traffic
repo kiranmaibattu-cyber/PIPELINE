@@ -1,14 +1,5 @@
-FROM pipeline-ubuntu-python:24.04
-
-ARG IMAGE_VERSION=2026.08.21-v5
-
-LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/PIPELINE" \
-      org.opencontainers.image.title="ApexFabric Traffic Edge Runtime" \
-      org.opencontainers.image.description="Intel 285H traffic solution-pack runtime" \
-      org.opencontainers.image.version="${IMAGE_VERSION}" \
-      io.apexfabric.contract.version="v1" \
-      io.apexfabric.hardware.profile="intel-285h" \
-      io.apexfabric.models.delivery="baked-in"
+ARG INTEL_TRAFFIC_RUNTIME_BASE=localhost/apexfabric-intel-traffic-runtime-base:intel-285h-2026.08.24-v1
+FROM ${INTEL_TRAFFIC_RUNTIME_BASE}
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/opt/pipeline \
@@ -27,19 +18,24 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /opt/pipeline
 
-COPY requirements.txt /opt/pipeline/requirements.txt
-RUN pip install --no-cache-dir -r /opt/pipeline/requirements.txt
-
-COPY edge_runtime/solution_packs/traffic/runtime_pilot/requirements-openvino.txt /opt/pipeline/requirements-traffic-openvino.txt
-RUN pip install --no-cache-dir -r /opt/pipeline/requirements-traffic-openvino.txt
-
 COPY edge_runtime /opt/pipeline/edge_runtime
 COPY models/traffic /models/traffic
 
 RUN python -c "from pathlib import Path; from edge_runtime.model_registry.baked import BakedModelValidator; from edge_runtime.model_registry.registry import ModelRegistry; BakedModelValidator(ModelRegistry.from_file(Path('/opt/pipeline/edge_runtime/model_registry/models.yaml')), Path('/models')).validate('traffic')" \
-    && useradd --uid 10001 --create-home --shell /usr/sbin/nologin apexruntime \
-    && mkdir -p /plans /tmp/apexfabric /state /run/secrets/apexfabric \
-    && chown -R apexruntime:apexruntime /plans /tmp/apexfabric /state
+    && test "$(id -u apexruntime)" = "10001"
+
+ARG IMAGE_VERSION=2026.08.24-v6
+ARG INTEL_TRAFFIC_RUNTIME_BASE_DIGEST=unresolved
+
+LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/PIPELINE" \
+      org.opencontainers.image.title="ApexFabric Traffic Edge Runtime" \
+      org.opencontainers.image.description="Intel 285H traffic solution-pack runtime" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      io.apexfabric.contract.version="v1" \
+      io.apexfabric.hardware.profile="intel-285h" \
+      io.apexfabric.image.role="solution-runtime" \
+      io.apexfabric.models.delivery="baked-in" \
+      io.apexfabric.runtime-base.digest="${INTEL_TRAFFIC_RUNTIME_BASE_DIGEST}"
 
 # ApexFabric V1 compiles /configs/desired_state.json into /plans, keeps
 # persistent event/snapshot state under /state, and uses baked models under /models.

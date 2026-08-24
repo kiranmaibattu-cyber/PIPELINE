@@ -1,8 +1,12 @@
 name: traffic-edge-runtime
-version: 2026.08.21-v5
+version: 2026.08.24-v6
 contractVersion: v1
 architectures: [amd64]
 hardwareProfile: intel-285h
+runtimeBase:
+  image: apexfabric-intel-traffic-runtime-base:intel-285h-2026.08.24-v1
+  digest: sha256:a6030445a8a3436dbe4b08e360adeea3d7d6f4200d40b3773a4305b0ae69fc8a
+  deployment: build-parent-only
 models:
   delivery: baked-in
   root: /models/traffic/openvino

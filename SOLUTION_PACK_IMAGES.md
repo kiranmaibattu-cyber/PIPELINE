@@ -8,11 +8,13 @@ This document describes the current ApexFabric V1 delivery. It targets only
 | Image | Applications | Baked models |
 |---|---|---|
 | `surveillance-edge-runtime:intel-285h-2026.08.20-v2` | Re-ID, face recognition, intrusion, people counting | `/models/surveillance` |
-| `traffic-edge-runtime:intel-285h-2026.08.20-v2` | ANPR, wrong way, vehicle count, pedestrian count, illegal parking | `/models/traffic/openvino` |
+| `traffic-edge-runtime:intel-285h-2026.08.24-v6` | ANPR, wrong way, vehicle count, pedestrian count, illegal parking | `/models/traffic/openvino` |
 
 Both images include the graph compiler, app manifests, copied headless source
 runtime, Python dependencies, FFmpeg/VAAPI support, Intel GPU userspace, Intel
-NPU userspace/compiler, model files, and model checksum metadata. They run as
+NPU userspace/compiler, model files, and model checksum metadata. Traffic v6
+inherits its environment from a stable, digest-pinned runtime base; that base is
+not deployed as a separate container. The solution images run as
 UID/GID `10001`, require `/dev/dri` and `/dev/accel` for configured camera
 workloads, and do not include either historical UI.
 
@@ -100,6 +102,16 @@ does not need to mount the PVC directly.
 ./scripts/build_apexfabric_v1_intel_images.sh
 ./scripts/package_apexfabric_v1_intel_images.sh
 ```
+
+For a traffic-only build:
+
+```bash
+CONTAINER_ENGINE=podman ./scripts/build_traffic_layered_image.sh
+```
+
+Routine traffic delivery should push the runtime base and workload to the same
+OCI registry. The edge then reuses already-present base layers. Full archives
+remain intended for offline bootstrap and always include the complete image.
 
 Each directory under `delivery/apexfabric-v1/intel-285h/` contains the required
 versioned image archive (or Git-safe parts), archive SHA-256, desired-state

@@ -194,6 +194,20 @@ class ApexFabricV1ContractTest(unittest.TestCase):
         validator.validate("surveillance")
         validator.validate("traffic")
 
+    def test_traffic_workload_uses_layered_runtime_base(self) -> None:
+        workload = (ROOT / "docker" / "Dockerfile.traffic").read_text(
+            encoding="utf-8"
+        )
+        runtime_base = (ROOT / "docker" / "Dockerfile.traffic-base").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("FROM ${INTEL_TRAFFIC_RUNTIME_BASE}", workload)
+        self.assertNotIn("pip install", workload)
+        self.assertIn('io.apexfabric.image.role="solution-runtime"', workload)
+        self.assertIn("pip install --no-cache-dir", runtime_base)
+        self.assertIn("requirements.traffic-base.lock", runtime_base)
+
 
 if __name__ == "__main__":
     unittest.main()

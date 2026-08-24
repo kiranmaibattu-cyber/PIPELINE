@@ -15,11 +15,14 @@ fi
 
 REGISTRY_NAMESPACE="${REGISTRY_NAMESPACE:-ghcr.io/kiranmaibattu-cyber}"
 SOURCE_REPOSITORY="https://github.com/kiranmaibattu-cyber/PIPELINE"
-VERSION="${APEXFABRIC_IMAGE_VERSION:-2026.08.20-v2}"
+SURVEILLANCE_VERSION="${SURVEILLANCE_IMAGE_VERSION:-2026.08.20-v2}"
+TRAFFIC_BASE_VERSION="${INTEL_TRAFFIC_BASE_VERSION:-2026.08.24-v1}"
+TRAFFIC_VERSION="${TRAFFIC_IMAGE_VERSION:-2026.08.24-v6}"
 
 IMAGES=(
-  "surveillance-edge-runtime:intel-285h-${VERSION}"
-  "traffic-edge-runtime:intel-285h-${VERSION}"
+  "surveillance-edge-runtime:intel-285h-${SURVEILLANCE_VERSION}"
+  "apexfabric-intel-traffic-runtime-base:intel-285h-${TRAFFIC_BASE_VERSION}"
+  "traffic-edge-runtime:intel-285h-${TRAFFIC_VERSION}"
 )
 
 for image in "${IMAGES[@]}"; do

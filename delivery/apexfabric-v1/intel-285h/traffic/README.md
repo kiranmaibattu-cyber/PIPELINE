@@ -6,13 +6,35 @@ not supported by this delivery.
 ## Image
 
 ```text
-traffic-edge-runtime:intel-285h-2026.08.21-v5
+traffic-edge-runtime:intel-285h-2026.08.24-v6
 ```
 
 The image runs as UID/GID `10001`, listens on `0.0.0.0:8080`, contains its
 models, and has no Redis or management-server dependency. Mount persistent
 storage at `/state` so event JSONL files and alert snapshots survive Pod
 replacement and can be served through `/events` and `/snapshots/...`.
+
+## Layered Runtime Base
+
+The workload is built from this immutable Intel runtime base:
+
+```text
+apexfabric-intel-traffic-runtime-base:intel-285h-2026.08.24-v1
+sha256:a6030445a8a3436dbe4b08e360adeea3d7d6f4200d40b3773a4305b0ae69fc8a
+```
+
+The base contains Ubuntu, Intel GPU/NPU userspace, VAAPI/FFmpeg, Python,
+OpenVINO, and the pinned traffic Python dependency set. It is a build parent,
+not a second workload container. The final image shares all four base filesystem
+layers and adds only the traffic code and baked models. Build both with:
+
+```bash
+CONTAINER_ENGINE=podman ./scripts/build_traffic_layered_image.sh
+```
+
+Publish the base and workload to the same registry. After the first pull, an
+edge node keeps the shared layers in its OCI content store and downloads only
+changed application/model layers for later workload versions.
 
 ## Baked Models
 
@@ -68,7 +90,7 @@ docker run --rm -p 8080:8080 \
   -v "$PWD/configs:/configs:ro" \
   -v "$PWD/secrets:/run/secrets/apexfabric:ro" \
   -v "$PWD/state:/state" \
-  traffic-edge-runtime:intel-285h-2026.08.21-v5
+  traffic-edge-runtime:intel-285h-2026.08.24-v6
 ```
 
 The compiler command required by the contract is available in the same image.
@@ -81,17 +103,14 @@ save a license-plate crop and the parent vehicle crop. Vehicle events expose a
 management uses to join ANPR, wrong-way, and illegal-parking events. Wrong-way
 events save the vehicle crop and include plate text and a plate crop whenever
 OCR evidence is available for that track. The separate plate crop is a zoomed
-view in the same vehicle evidence bundle. The estimated image size is 1.93 GB
-before `docker save` archive overhead.
+view in the same vehicle evidence bundle. The final image is approximately
+1.93 GB, of which approximately 1.913 GB is the reusable runtime base and only
+approximately 16.4 MB is solution-specific filesystem data.
 
 The metrics payload is defined by `metrics.schema.json`; analytics events are
 defined by `analytics-event.schema.json` and demonstrated by
 `analytics-event.example.json`.
 
-The local/Git LFS delivery archive is `image-2026.08.21-v5.tar`. Verify and
-load it from this directory with:
-
-```bash
-sha256sum -c image-2026.08.21-v5.sha256
-docker load -i image-2026.08.21-v5.tar
-```
+Use registry delivery for routine releases so the edge downloads only missing
+layers. A complete `docker save` archive remains an optional air-gapped
+bootstrap artifact and includes the full layer chain.
