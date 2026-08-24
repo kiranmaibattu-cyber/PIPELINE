@@ -113,4 +113,10 @@ defined by `analytics-event.schema.json` and demonstrated by
 
 Use registry delivery for routine releases so the edge downloads only missing
 layers. A complete `docker save` archive remains an optional air-gapped
-bootstrap artifact and includes the full layer chain.
+bootstrap artifact and includes the full layer chain. The v6 archive is stored
+in this delivery directory as `image-2026.08.24-v6.tar`. Verify and load it with:
+
+```bash
+sha256sum -c image-2026.08.24-v6.sha256
+docker load -i image-2026.08.24-v6.tar
+```
