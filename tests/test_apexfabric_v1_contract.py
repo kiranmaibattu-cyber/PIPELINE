@@ -194,6 +194,24 @@ class ApexFabricV1ContractTest(unittest.TestCase):
         validator.validate("surveillance")
         validator.validate("traffic")
 
+    def test_surveillance_polygon_counting_contract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            secret = root / "cam1.rtsp"
+            secret.write_text("rtsp://camera.test/stream\n")
+            zone = {"name": "lobby", "poly": [[0, 0], [1, 0], [1, 1], [0, 1]]}
+            camera = {"camera_id": "cam1", "source": f"file:{secret}",
+                      "solution_pack": "surveillance", "apps": ["people_counting"],
+                      "config": {"zones": {"people_counting": [zone]}}}
+            validator = ApexFabricV1DesiredStateValidator("surveillance", self.manifests, root)
+            validator.validate(self._write_desired(root, f"file:{secret}", cameras=[camera]))
+            camera["config"]["zones"]["people_counting"] = [zone, zone]
+            with self.assertRaisesRegex(ValueError, "duplicate zone names"):
+                validator.validate(self._write_desired(root, f"file:{secret}", cameras=[camera]))
+            camera["config"]["zones"]["people_counting"] = []
+            with self.assertRaisesRegex(ValueError, "non-empty array"):
+                validator.validate(self._write_desired(root, f"file:{secret}", cameras=[camera]))
+
     def test_traffic_workload_uses_layered_runtime_base(self) -> None:
         workload = (ROOT / "docker" / "Dockerfile.traffic").read_text(
             encoding="utf-8"

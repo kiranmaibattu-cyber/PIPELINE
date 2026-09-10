@@ -1,0 +1,18 @@
+services:
+  surveillance:
+    image: ghcr.io/kiranmaibattu-cyber/surveillance-edge-runtime@sha256:30aac3bad8d953ef7391b6de2f1bcb6487534345b1f189db003d5871ba225680
+    ports:
+      - "18090:8080"
+    environment:
+      MANAGEMENT_SYNC_CONFIG: /configs/management.json
+    volumes:
+      - ../run/configs/surveillance:/configs:ro
+      - ../run/secrets/surveillance:/run/secrets/apexfabric:ro
+      - ../state/surveillance-v5:/state
+    tmpfs:
+      - /plans:uid=10001,gid=10001,mode=0750
+      - /tmp/apexfabric:uid=10001,gid=10001,mode=0750
+    shm_size: 512m
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/accel:/dev/accel

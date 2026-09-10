@@ -33,6 +33,12 @@
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
+                  "people_counting": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {"$ref": "#/$defs/zone"},
+                    "description": "Independent occupancy per uniquely named polygon, using tracked foot points. Can coexist with counting lines."
+                  },
                   "intrusion": {
                     "type": "array",
                     "minItems": 1,

@@ -10,8 +10,8 @@ The active ApexFabric delivery targets `linux/amd64` on Intel Core Ultra 9
 285H:
 
 ```text
-surveillance-edge-runtime:intel-285h-2026.08.24-v3
-traffic-edge-runtime:intel-285h-2026.08.24-v6
+ghcr.io/kiranmaibattu-cyber/surveillance-edge-runtime:intel-285h-2026.09.10-v5
+ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime:intel-285h-2026.09.10-v2
 ```
 
 Each solution image is self-contained and includes:
@@ -22,6 +22,10 @@ Each solution image is self-contained and includes:
 - Intel GPU/NPU userspace libraries
 - model metadata and model files
 - health, readiness, metrics, events, snapshot, and management APIs
+
+See [Surveillance V5 Deployment](SURVEILLANCE_V5_DEPLOYMENT.md) for the current
+image digest, mounts, management commands, receiver APIs, tests and known limits.
+Use `docker/docker-compose.surveillance-v5.yml` for this surveillance release.
 
 Models are baked into the images at `/models/surveillance` and
 `/models/traffic`. There are no runtime model downloads or model volume mounts.
@@ -39,12 +43,10 @@ Kubernetes objects:
 | `/run/secrets/apexfabric/<camera-id>.rtsp` | Kubernetes Secret | Replaced by management |
 | `/plans` | `emptyDir` or writable temporary filesystem | Recreated with the Pod |
 | `/tmp/apexfabric` | `emptyDir` or writable temporary filesystem | Recreated with the Pod |
-| `/state/surveillance` | PersistentVolumeClaim | Survives restarts/upgrades |
-| `/state/traffic` | PersistentVolumeClaim | Survives restarts/upgrades |
+| `/state` | Per-workload PersistentVolumeClaim | Contains `/state/<solution-pack>`; survives restarts/upgrades |
 
 The desired state contains only `file:` references to camera Secret files.
-Resolved RTSP URLs are kept in memory and are not written into plans, events, or
-logs.
+Protect Secret files, runtime metrics and logs from unauthorized access.
 
 At startup, the same solution image:
 
@@ -65,7 +67,7 @@ CPU detector/decode fallback.
 
 ## Surveillance State
 
-The surveillance PVC is mounted at `/state/surveillance`:
+The current surveillance PVC mounts at `/state`; runtime data lives below it:
 
 ```text
 /state/surveillance/

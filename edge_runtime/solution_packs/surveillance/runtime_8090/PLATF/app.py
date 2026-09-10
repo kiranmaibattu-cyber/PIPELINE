@@ -1065,11 +1065,32 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         n = int(self.headers.get("Content-Length", 0))
+        if self.path == "/api/management/commands" and (n < 0 or n > 16 * 1024 * 1024):
+            return self._send(413, json.dumps({"error": "command too large"}))
         try:
             body = json.loads(self.rfile.read(n) or "{}")
         except Exception:
             body = {}
         plat = APP.plat if APP else None
+        if self.path == "/api/management/commands" and plat is not None:
+            import hmac
+            token_path = os.getenv("MANAGEMENT_API_TOKEN_FILE")
+            expected = ("Bearer " + Path(token_path).read_text().strip()) if token_path else None
+            if not expected or not hmac.compare_digest(self.headers.get("Authorization", ""), expected):
+                return self._send(401, json.dumps({"error": "unauthorized"}))
+            try:
+                from PLATF.management import ManagementIdentityService
+                # HTTP server may execute concurrent requests; creation is serialized.
+                with plat._enroll_lock:
+                    if not hasattr(plat, "management_identity"):
+                        plat.management_identity = ManagementIdentityService(plat)
+                out = plat.management_identity.execute(body)
+                return self._send(200, json.dumps(out))
+            except (ValueError, KeyError) as exc:
+                return self._send(400, json.dumps({"error": str(exc)}))
+        if os.getenv("MANAGEMENT_SYNC_ROOT") and self.path.startswith((
+            "/api/enrollment", "/api/face_gallery", "/api/face_group")):
+            return self._send(409, json.dumps({"error": "use versioned management commands"}))
         if self.path == "/api/usecase" and plat is not None:
             name = str(body.get("name", "")).strip()
             on = bool(body.get("on", True))
@@ -1168,6 +1189,8 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(404, "{}")
 
     def do_DELETE(self):
+        if os.getenv("MANAGEMENT_SYNC_ROOT") and self.path.startswith("/api/face_gallery/"):
+            return self._send(409, json.dumps({"error": "use versioned gallery replacement"}))
         parsed = urllib.parse.urlparse(self.path)
         prefix = "/api/face_gallery/"
         if parsed.path.startswith(prefix) and APP is not None:

@@ -18,6 +18,7 @@ from PLATF.face_enroll_gallery import Gallery, Vec  # noqa: E402
 from PLATF.plugins.analytics import CountingPlugin  # noqa: E402
 from PLATF.plugins.enroll_gallery import EnrollmentGalleryAdapter  # noqa: E402
 from PLATF.plugins.zones import zones_from_dict  # noqa: E402
+from edge_runtime.solution_packs.surveillance.runtime.config_adapter import SurveillanceConfigAdapter
 
 import numpy as np  # noqa: E402
 
@@ -42,6 +43,63 @@ def _observation(x: float, y: float, t: float, local_id: int = 1):
 
 
 class SurveillanceRuntimeTest(unittest.TestCase):
+    def _roi_plugin(self, lines=None):
+        block = SurveillanceConfigAdapter._zone_block({
+            "zones": {
+                "people_counting": [{"name": "left", "poly": [[0, 0], [.5, 0], [.5, 1], [0, 1]]},
+                                    {"name": "all", "poly": [[0, 0], [1, 0], [1, 1], [0, 1]]}],
+                "intrusion": [{"name": "restricted", "poly": [[0, 0], [1, 0], [1, 1], [0, 1]]}],
+            },
+            "lines": {"people_counting": lines or []},
+        })
+        return CountingPlugin(zones_from_dict({"cameras": {"cam1": block}}))
+
+    def test_polygon_counts_inside_once_and_excludes_intrusion_zone(self):
+        plugin, ctx = self._roi_plugin(), _Context()
+        plugin.process(_observation(20, 80, 1), None, ctx)
+        plugin.process(_observation(20, 80, 1), None, ctx)
+        plugin.process(_observation(80, 80, 1, local_id=2), None, ctx)
+        plugin.on_tick(1, ctx)
+        self.assertEqual({"left": 1, "all": 2}, {e.zone: e.payload["count"] for e in ctx.events})
+        self.assertTrue(all(e.payload["mode"] == "roi_occupancy" for e in ctx.events))
+        plugin.on_tick(1, ctx)
+        self.assertEqual(2, len(ctx.events))
+        plugin.process(_observation(80, 80, 2), None, ctx)
+        plugin.on_tick(2, ctx)
+        self.assertEqual({"mode": "roi_occupancy", "zone": "left", "count": 0}, ctx.events[-1].payload)
+
+    def test_polygon_timeout_has_no_stale_snapshot(self):
+        plugin, ctx = self._roi_plugin(), _Context()
+        obs = _observation(20, 80, 1)
+        obs.meta["evidence"] = {"captured_at": 1, "frame_id": 7}
+        plugin.process(obs, None, ctx)
+        plugin.on_tick(1, ctx)
+        self.assertEqual(7, ctx.events[0].evidence["frame_id"])
+        plugin._active_ttl_s = -1
+        plugin.on_idle(ctx)
+        self.assertEqual(0, ctx.events[-1].payload["count"])
+        self.assertIsNone(ctx.events[-1].evidence)
+
+    def test_polygon_and_line_emit_independent_events(self):
+        plugin = self._roi_plugin([{"name": "door", "a": [.1, .5], "b": [.9, .5]}])
+        ctx = _Context()
+        plugin.process(_observation(20, 60, 1), None, ctx)
+        plugin.process(_observation(20, 40, 2), None, ctx)
+        plugin.on_tick(2, ctx)
+        self.assertEqual({"line_crossing", "roi_occupancy"}, {e.payload["mode"] for e in ctx.events})
+
+    def test_polygon_uses_source_dimensions_and_is_camera_local(self):
+        plugin, ctx = self._roi_plugin(), _Context()
+        obs = _observation(400, 800, 1)
+        obs.meta["frame_wh"] = [1000, 1000]
+        plugin.process(obs, None, ctx)
+        other = _observation(80, 80, 1)
+        other.camera = "cam2"
+        plugin.process(other, None, ctx)
+        plugin.on_tick(1, ctx)
+        self.assertEqual(1, next(e.payload["count"] for e in ctx.events if e.zone == "left"))
+        self.assertEqual("occupancy", next(e.payload["mode"] for e in ctx.events if e.camera == "cam2"))
+
     def test_empty_face_gallery_loads_and_person_can_be_deleted(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

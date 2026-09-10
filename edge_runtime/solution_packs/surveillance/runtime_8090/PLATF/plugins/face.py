@@ -121,6 +121,11 @@ class FacePlugin(Plugin):
             self._active[key]["last_emit"] = now
             group = str(self.groups.get(str(emp), "") or "").strip().lower()
             payload = {"employee_id": str(emp), "dist": round(float(dist), 3)}
+            managed = getattr(self.gallery, "managed_document", None)
+            if managed:
+                entry = next((p for p in managed["people"] if p["person_id"] == emp), {})
+                payload.update(central_person_id=str(emp), display_name=entry.get("display_name", ""),
+                               gallery_revision=managed["revision"])
             if group:
                 # Tag the recognition with the group so a reader can tell that this
                 # arrival is also covered by an alert event, without having to join the

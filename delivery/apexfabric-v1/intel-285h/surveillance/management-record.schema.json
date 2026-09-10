@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Surveillance Edge Upload V1",
+  "type": "object",
+  "required": ["schema_version", "edge_id", "record_id", "kind", "payload"],
+  "properties": {
+    "schema_version": {"const": "1.0"}, "edge_id": {"type": "string"}, "record_id": {"type": "string"},
+    "kind": {"enum": ["event", "reid_observation", "enrollment_candidate"]},
+    "payload": {"type": "object"},
+    "source_runtime_session_id": {"type": ["string", "null"]},
+    "missing_artifact_kinds": {"type": "array", "items": {"type": "string"}}
+  },
+  "allOf": [{
+    "if": {"properties": {"kind": {"const": "reid_observation"}}},
+    "then": {"properties": {"payload": {
+      "required": ["observation_id", "camera_id", "stream_session_id", "track_id", "local_identity_id", "captured_at", "embeddings"],
+      "properties": {
+        "central_person_id": {"type": ["string", "null"]},
+        "embeddings": {"type": "array", "minItems": 1, "items": {
+          "type": "object", "required": ["modality", "embedding_space", "dimension", "vector"],
+          "properties": {"modality": {"enum": ["body", "face", "gait"]}, "embedding_space": {"type": "string"},
+            "dimension": {"type": "integer", "minimum": 1}, "vector": {"type": "array", "items": {"type": "number"}}}
+        }}
+      }
+    }}}
+  }, {
+    "if": {"properties": {"kind": {"const": "enrollment_candidate"}}},
+    "then": {"properties": {"payload": {
+      "required": ["session_id", "person_id", "camera_id", "embedding_space", "templates", "samples", "artifacts"],
+      "properties": {
+        "session_id": {"type": "string"}, "person_id": {"type": "string"},
+        "camera_id": {"type": "string"}, "embedding_space": {"type": "string"},
+        "templates": {"type": "array", "minItems": 1, "maxItems": 20,
+          "items": {"type": "array", "minItems": 512, "maxItems": 512, "items": {"type": "number"}}},
+        "samples": {"type": "array", "items": {
+          "type": "object", "required": ["template_index", "pose", "quality", "artifact_key"],
+          "properties": {
+            "template_index": {"type": "integer", "minimum": 0}, "pose": {"type": "string"},
+            "quality": {"type": "number"}, "artifact_key": {"type": ["string", "null"]},
+            "missing_reason": {"type": "string"}
+          }
+        }},
+        "artifacts": {"type": "object", "additionalProperties": {
+          "type": "object", "required": ["ref", "content_type"],
+          "properties": {"ref": {"type": "string"}, "content_type": {"const": "image/jpeg"},
+            "artifact_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+        }}
+      }
+    }}}
+  }]
+}

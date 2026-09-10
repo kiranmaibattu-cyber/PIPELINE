@@ -31,6 +31,15 @@
         "uptime_seconds": {"type": "number", "minimum": 0},
         "stop_requested": {"type": "boolean"},
         "last_error": {"type": ["string", "null"]},
+        "management_sync": {
+          "type": "object",
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "pending_records": {"type": "integer", "minimum": 0},
+            "delivered": {"type": "integer", "minimum": 0},
+            "last_error": {"type": ["string", "null"]}
+          }
+        },
         "desired_state": {"$ref": "#/$defs/desiredStateReload"}
       }
     },

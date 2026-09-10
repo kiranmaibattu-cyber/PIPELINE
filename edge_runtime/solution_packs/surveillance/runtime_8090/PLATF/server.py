@@ -73,6 +73,10 @@ class _ManagementOutbox:
         row.setdefault("timestamp_utc", datetime.now(timezone.utc).isoformat())
         row.setdefault("event_id", str(uuid.uuid4()))
         row.setdefault("runtime_session_id", os.getenv("EDGE_RUNTIME_SESSION_ID", "unknown"))
+        if os.getenv("MANAGEMENT_SYNC_ROOT"):
+            from edge_runtime.runtime.sync_store import SyncStore
+            SyncStore(os.environ["MANAGEMENT_SYNC_ROOT"]).enqueue(
+                "event:" + row["event_id"], "event", row)
         with self._lock:
             with self.path.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(row, sort_keys=True) + "\n")
@@ -185,6 +189,10 @@ class LivePlatform:
         self.zones_raw: dict = {}                 # normalised zones (as the UI drew them)
         self.zones_cfg = zones_from_dict({"frame": list(self.frame_wh)})
         self.face_gallery = None                  # optional EnrollmentFaceGallery
+        self.observation_exporter = None
+        if os.getenv("MANAGEMENT_SYNC_ROOT"):
+            from PLATF.observation_export import ObservationExporter
+            self.observation_exporter = ObservationExporter(os.environ["MANAGEMENT_SYNC_ROOT"])
         self._enroll_lock = threading.RLock()
         self.session = None                       # live EnrollmentSession, if any
         # Watchlist: enrolled name -> group ("unauthorised" | "authorised" | custom).
@@ -207,6 +215,9 @@ class LivePlatform:
             g = EnrollmentGalleryAdapter.load(os.environ.get("FACE_GALLERY", "FACE/gallery"))
             if g is not None:
                 self.face_gallery = g
+                if g.managed_document:
+                    self.face_groups.update({p["person_id"]: p.get("group", "")
+                                             for p in g.managed_document["people"]})
                 self.uc_cams["face"] = None
         except Exception:
             pass
@@ -636,6 +647,11 @@ class LivePlatform:
                 if crop:
                     self.gid_cam_crop[gid][o.camera] = crop
                 self._record_history(o, gid, crop)
+                if self.observation_exporter:
+                    person = self.store.get(gid)
+                    link = self.store.identity.get(person.person_uuid) if person else None
+                    managed = self.face_gallery and self.face_gallery.managed_document is not None
+                    self.observation_exporter.observe(o, gid, link.employee_id if link and managed else None)
                 self._emit_watchlist_for_fresh_identity(o, gid)
                 self._update_track_name(o, gid)
                 # latest-frame boxes per camera, for the live video overlay

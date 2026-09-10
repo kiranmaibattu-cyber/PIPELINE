@@ -104,6 +104,12 @@ class SurveillanceConfigAdapter:
                 "b": item.get("b") or [1.0, 0.0],
                 "in_side": item.get("in_side") or "right",
             })
+        for item in ((config.get("zones") or {}).get("people_counting") or []):
+            zones.append({
+                "name": str(item["name"]),
+                "kind": "people_counting",
+                "poly": item["poly"],
+            })
         return {"zones": zones, "lines": lines}
 
 

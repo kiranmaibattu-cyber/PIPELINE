@@ -96,6 +96,9 @@ class CountingPlugin(Plugin):
         self._occupancy = {}   # last emitted current count per camera
         self._evidence = {}
         self._active_ttl_s = 2.0
+        self._roi_seen = {}
+        self._roi_counts = {}
+        self._roi_observation = {}
 
     def _tally(self, camera, line):
         return self.tallies.setdefault(camera, {}).setdefault(line, {"in": 0, "out": 0})
@@ -105,8 +108,18 @@ class CountingPlugin(Plugin):
         if foot is None:
             return
         who = _who(obs)
-        lines = zones_for(self.cfg, obs.camera)["lines"]
-        if not lines:
+        geometry = zones_for(self.cfg, obs.camera)
+        lines = geometry["lines"]
+        regions = [z for z in geometry["zones"] if z["kind"] == "people_counting"]
+        for region in regions:
+            key = (obs.camera, region["name"])
+            seen = self._roi_seen.setdefault(key, {})
+            if observation_in_zone(obs, region, self.cfg):
+                seen[who] = time.monotonic()
+            else:
+                seen.pop(who, None)
+            self._roi_observation[key] = (obs.t, time.monotonic(), obs.meta.get("evidence"))
+        if not lines and not regions:
             self._evidence[obs.camera] = obs.meta.get("evidence")
             self._last_seen.setdefault(obs.camera, {})[who] = (obs.t, time.monotonic())
             return
@@ -137,6 +150,7 @@ class CountingPlugin(Plugin):
         self._publish_occupancy(time.monotonic(), ctx)
 
     def _publish_occupancy(self, now_mono, ctx):
+        self._publish_roi_occupancy(now_mono, ctx)
         for camera, seen in list(self._last_seen.items()):
             active = {
                 who: last_seen for who, last_seen in seen.items()
@@ -153,5 +167,26 @@ class CountingPlugin(Plugin):
             ctx.emit(Event(
                 "count", evidence["captured_at"] if evidence else event_t, camera, None,
                 payload={"mode": "occupancy", "count": count},
+                evidence=evidence,
+            ))
+
+    def _publish_roi_occupancy(self, now_mono, ctx):
+        for key, seen in self._roi_seen.items():
+            active = {who: seen_at for who, seen_at in seen.items()
+                      if now_mono - seen_at <= self._active_ttl_s}
+            self._roi_seen[key] = active
+            count = len(active)
+            if self._roi_counts.get(key) == count:
+                continue
+            self._roi_counts[key] = count
+            timestamp, observed_mono, evidence = self._roi_observation[key]
+            # A timeout is not a new captured frame: do not attach old evidence.
+            if len(active) != len(seen):
+                evidence = None
+            camera, zone = key
+            ctx.emit(Event(
+                "count", evidence["captured_at"] if evidence else
+                timestamp + max(0.0, now_mono - observed_mono), camera, None,
+                zone=zone, payload={"mode": "roi_occupancy", "zone": zone, "count": count},
                 evidence=evidence,
             ))

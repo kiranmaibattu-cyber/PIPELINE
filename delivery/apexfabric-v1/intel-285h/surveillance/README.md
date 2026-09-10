@@ -11,11 +11,12 @@ surveillance requirements without one.
 
 ## Image
 
-Registry delivery: `ghcr.io/kiranmaibattu-cyber/surveillance-edge-runtime:intel-285h-2026.09.10-v2`.
-See `../RELEASE-2026.09.10-v2.md` for immutable digests and local archive details.
+Registry delivery: `ghcr.io/kiranmaibattu-cyber/surveillance-edge-runtime:intel-285h-2026.09.10-v5`.
+See the root `SURVEILLANCE_V5_DEPLOYMENT.md` for its immutable digest, mounts and APIs.
+`../RELEASE-2026.09.10-v2.md` describes the previous release and its archives.
 
 ```text
-surveillance-edge-runtime:intel-285h-2026.09.10-v2
+surveillance-edge-runtime:intel-285h-2026.09.10-v5
 ```
 
 The image runs as UID/GID `10001`, listens on `0.0.0.0:8080`, contains its
@@ -74,15 +75,17 @@ OpenVINO 2024.6, Intel GPU Level Zero/OpenCL, and Intel NPU Level Zero userspace
 
 ## Acceptance
 
-Create `secrets/cam-surveillance-01.rtsp` containing a fake/test RTSP URL, then:
+Prepare `configs/desired_state.json` from `desired-state.example.json` and
+`secrets/cam-surveillance-01.rtsp` containing the test RTSP URL. Ensure the state
+directory is writable by UID/GID 10001, then:
 
 ```bash
 docker run --rm -p 8080:8080 \
   --device /dev/dri:/dev/dri --device /dev/accel:/dev/accel \
-  -v "$PWD/desired-state.example.json:/configs/desired_state.json:ro" \
+  -v "$PWD/configs:/configs:ro" \
   -v "$PWD/secrets:/run/secrets/apexfabric:ro" \
   -v "$PWD/state:/state" \
-  surveillance-edge-runtime:intel-285h-2026.09.10-v2
+  ghcr.io/kiranmaibattu-cyber/surveillance-edge-runtime:intel-285h-2026.09.10-v5
 ```
 
 The compiler command required by the contract is available in the same image.
@@ -95,6 +98,10 @@ alert snapshots are persisted under `/state/surveillance`. Management can use
 templates live under `/state/surveillance/face_gallery`; persistent ReID state
 lives under `/state/surveillance/reid_gallery`.
 
+These legacy mutation endpoints apply only when management sync is disabled.
+With sync enabled, use authenticated `/api/management/commands` for enrollment,
+gallery replacement and status, as described in `SURVEILLANCE_V5_DEPLOYMENT.md`.
+
 For `people_counting`, omit `config.lines.people_counting` to receive current
 occupancy events. Supply one or more normalized counting lines to receive `in`
 and `out` crossing events. Intrusion requires at least one normalized polygon in
@@ -102,6 +109,39 @@ and `out` crossing events. Intrusion requires at least one normalized polygon in
 releases reuse the stable 2.444 GB base layers.
 
 ## Management Outputs
+
+Release `2026.09.10-v5` adds saved enrollment chip uploads
+and explicit chip-to-template links. It is now published to GHCR.
+Management still approves candidates through `gallery.replace`; enrollment save
+does not activate recognition. Live previews are not part of candidate uploads.
+
+An opt-in management synchronization implementation is included in v5,
+including the polygon counting addition. It uses a
+mounted `management-sync.example.json` and Secrets, while desired-state JSON
+continues to select cameras and apps. See the root `MANAGEMENT_IDENTITY_SYNC.md`
+for command/record schemas, receiver APIs, staged enrollment, versioned galleries,
+durable uploads, and remaining production limitations. The v2 tag remains unchanged.
+
+### Polygon Counting (Source Update)
+
+The ROI counting addition is built and live-tested locally in
+`surveillance-edge-runtime:intel-285h-2026.09.10-v3`; it is not in the published
+`2026.09.10-v2` image. See `desired-state.roi-counting.example.json`.
+Set `config.zones.people_counting` to polygons with unique names and normalized
+coordinates. Each ROI emits `people_count_event` with
+`payload: {"mode": "roi_occupancy", "zone": "lobby", "count": 3}` when its
+tracked occupancy changes. A person is inside when their bounding-box
+bottom-centre is inside the polygon. Overlapping ROIs count independently.
+An observed exit removes the person immediately; missing tracks expire after
+two seconds. Zero is emitted after an ROI empties, and the initial count is
+emitted after the camera first supplies a tracked observation.
+
+With both ROIs and lines, polygon occupancy and line-crossing events coexist.
+With neither, full-frame occupancy remains unchanged. Intrusion polygons do
+not restrict counting. Snapshot evidence uses the latest contributing source
+observation; timeout-only changes have no snapshot, rather than stale evidence.
+Occupancy is track-based across the short retention window, not an instantaneous
+per-frame detector total. Change the desired-state revision to apply new ROIs.
 
 | Application | Event type | Main payload fields |
 |---|---|---|

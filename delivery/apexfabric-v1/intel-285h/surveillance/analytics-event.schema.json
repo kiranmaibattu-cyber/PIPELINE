@@ -68,6 +68,14 @@
           "payload": {
             "oneOf": [
               {
+                "required": ["mode", "zone", "count"],
+                "properties": {
+                  "mode": {"const": "roi_occupancy"},
+                  "zone": {"type": "string", "minLength": 1},
+                  "count": {"type": "integer", "minimum": 0}
+                }
+              },
+              {
                 "required": ["mode", "count"],
                 "properties": {
                   "mode": {"const": "occupancy"},

@@ -1,5 +1,5 @@
 name: surveillance-edge-runtime
-version: 2026.09.10-v2
+version: 2026.09.10-v5
 contractVersion: v1
 contractExtensions:
   persistentSurveillanceState:
@@ -43,6 +43,13 @@ endpoints:
   faceGallery: /api/face_gallery
   faceEnrollment: /api/enrollment
   faceGroup: /api/face_group
+  managementCommands: /api/management/commands
+managementSync:
+  optInEnvironment: MANAGEMENT_SYNC_CONFIG
+  configPath: /configs/management.json
+  transport: authenticated-https
+  statePath: /state/surveillance/management
+  receiverContract: ../../../../SURVEILLANCE_V5_DEPLOYMENT.md
 metricsFormat: application/json
 eventProtocol: sse
 process:

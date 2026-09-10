@@ -23,6 +23,10 @@ class ManagementEventWriter:
         row.setdefault("timestamp_utc", datetime.now(timezone.utc).isoformat())
         row.setdefault("event_id", str(uuid.uuid4()))
         row.setdefault("runtime_session_id", os.getenv("EDGE_RUNTIME_SESSION_ID", "unknown"))
+        if os.getenv("MANAGEMENT_SYNC_ROOT"):
+            from edge_runtime.runtime.sync_store import SyncStore
+            SyncStore(os.environ["MANAGEMENT_SYNC_ROOT"]).enqueue(
+                "event:" + row["event_id"], "event", row)
         with self._lock:
             with self._path.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(row, sort_keys=True) + "\n")

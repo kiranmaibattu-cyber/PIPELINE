@@ -63,6 +63,7 @@ class RuntimeStatus:
     last_reload_at: float | None = None
     last_reload_error: str | None = None
     runtime_session_id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    management_sync: dict = field(default_factory=dict)
 
     def healthy(self) -> bool:
         if self.child_exit_code not in (None, 0):
@@ -83,6 +84,7 @@ class RuntimeStatus:
             "edge_id": self.edge_id,
             "revision": self.revision,
             "runtime_session_id": self.runtime_session_id,
+            "management_sync": self.management_sync,
             "plan_loaded": self.plan_loaded,
             "models_ready": self.models_ready,
             "camera_count": self.camera_count,
@@ -283,6 +285,7 @@ def _runtime_api_prefixes(solution_pack: str) -> tuple[str, ...]:
         "/api/history_crop",
         "/api/live",
         "/api/mapper",
+        "/api/management",
         "/api/metrics",
         "/api/person",
         "/api/person_audit",
@@ -306,6 +309,8 @@ def _proxy_runtime_request(status: RuntimeStatus, method: str, path: str, header
     target = status.runtime_api_url.rstrip("/") + path
     body = None
     request_headers = {"Accept": headers.get("Accept", "*/*")}
+    if urlsplit(path).path.startswith("/api/management/") and headers.get("Authorization"):
+        request_headers["Authorization"] = headers["Authorization"]
     content_type = headers.get("Content-Type")
     if content_type:
         request_headers["Content-Type"] = content_type
@@ -744,6 +749,8 @@ def main() -> int:
         print(f"runtime startup failed: {exc}", file=sys.stderr, flush=True)
         return 2
 
+    from edge_runtime.runtime.management_sync import configure_sync
+    sync = configure_sync(status)
     server = SolutionPackServer(status, args.api_host, args.api_port)
     server.start()
     print(f"{args.solution_pack} ApexFabric API on http://{args.api_host}:{args.api_port}", flush=True)
@@ -758,6 +765,8 @@ def main() -> int:
 
     if status.plan_loaded and status.camera_count > 0:
         status.child = _start_child(args)
+    if sync:
+        sync.start()
 
     watcher, compiler = _reload_components(args, status)
     next_reload_check = 0.0
@@ -796,6 +805,8 @@ def main() -> int:
         return 0
     finally:
         status.stop_requested = True
+        if sync:
+            sync.stop()
         _stop_child(status)
         server.stop()
 
@@ -856,6 +867,8 @@ def _apply_desired_state(
             )
         if candidate.payload.get("solution_pack") != status.solution_pack:
             raise DesiredStateReloadError("compiled plan solution pack does not match the running image")
+        if os.getenv("MANAGEMENT_SYNC_ROOT") and candidate.payload.get("edge_id") != status.edge_id:
+            raise DesiredStateReloadError("cannot change edge_id while management synchronization is enabled")
         previous_plan = status.plan_path.read_bytes()
     except (DesiredStateReloadError, OSError, TypeError, ValueError) as exc:
         _reject_reload(status, snapshot, exc)

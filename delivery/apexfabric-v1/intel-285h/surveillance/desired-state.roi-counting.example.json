@@ -1,0 +1,15 @@
+{
+  "edge_id": "intel-box-example",
+  "revision": 2,
+  "cameras": [{
+    "camera_id": "cam-surveillance-01",
+    "source": "file:/run/secrets/apexfabric/cam-surveillance-01.rtsp",
+    "solution_pack": "surveillance",
+    "fps": 8,
+    "apps": ["people_counting"],
+    "config": {"zones": {"people_counting": [{
+      "name": "lobby",
+      "poly": [[0.1, 0.2], [0.9, 0.2], [0.9, 0.95], [0.1, 0.95]]
+    }]}}
+  }]
+}

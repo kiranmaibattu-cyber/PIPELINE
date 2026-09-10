@@ -17,7 +17,7 @@ class ApexFabricV1DesiredStateValidator:
     _TRAFFIC_ZONE_APPS = {"illegal_parking"}
     _TRAFFIC_ALLOWED_ZONE_APPS = {"anpr", "illegal_parking"}
     _SURVEILLANCE_LINE_APPS = {"people_counting"}
-    _SURVEILLANCE_ZONE_APPS = {"intrusion"}
+    _SURVEILLANCE_ZONE_APPS = {"intrusion", "people_counting"}
 
     def __init__(
         self,
@@ -113,7 +113,7 @@ class ApexFabricV1DesiredStateValidator:
         if set(lines) - self._SURVEILLANCE_LINE_APPS:
             raise ValueError(f"camera {camera_id} config.lines only supports people_counting")
         if set(zones) - self._SURVEILLANCE_ZONE_APPS:
-            raise ValueError(f"camera {camera_id} config.zones only supports intrusion")
+            raise ValueError(f"camera {camera_id} config.zones only supports intrusion and people_counting")
 
         if "people_counting" in lines and not lines["people_counting"]:
             raise ValueError(
@@ -123,8 +123,15 @@ class ApexFabricV1DesiredStateValidator:
             raise ValueError(f"camera {camera_id} config.zones.intrusion must be a non-empty array")
         for index, line in enumerate(lines.get("people_counting") or []):
             self._validate_surveillance_counting_line(camera_id, index, line)
-        for index, zone in enumerate(zones.get("intrusion") or []):
-            self._validate_zone(camera_id, "intrusion", index, zone)
+        for app, items in zones.items():
+            if not isinstance(items, list) or not items:
+                raise ValueError(f"camera {camera_id} config.zones.{app} must be a non-empty array")
+            names = set()
+            for index, zone in enumerate(items):
+                self._validate_zone(camera_id, app, index, zone)
+                if zone["name"] in names:
+                    raise ValueError(f"camera {camera_id} config.zones.{app} has duplicate zone names")
+                names.add(zone["name"])
         if "intrusion" in apps and not zones.get("intrusion"):
             raise ValueError(f"camera {camera_id} app intrusion requires config.zones.intrusion")
 

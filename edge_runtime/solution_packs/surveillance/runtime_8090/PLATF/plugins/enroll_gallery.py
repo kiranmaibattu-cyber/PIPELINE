@@ -13,6 +13,13 @@ class EnrollmentGalleryAdapter:
         self.root = Path(root or gallery.root)
         self._lock = threading.RLock()
         self._signature = self._disk_signature()
+        self.managed_document = None
+        managed = self.root / "managed.json"
+        if managed.exists():
+            import json
+            from PLATF.management import gallery_from_document, embedding_space
+            self.managed_document = json.loads(managed.read_text())
+            self.gallery = gallery_from_document(self.root, self.managed_document, embedding_space())
 
     def _disk_signature(self):
         """A cheap fingerprint of the atomic index/vector pair."""
@@ -31,6 +38,8 @@ class EnrollmentGalleryAdapter:
         complete replacement before publishing it, so a transient/invalid gallery can
         never take recognition down or replace the last known-good in-memory copy.
         """
+        if self.managed_document is not None:
+            return False
         sig = self._disk_signature()
         if sig is None or (not force and sig == self._signature):
             return False
@@ -59,7 +68,8 @@ class EnrollmentGalleryAdapter:
         with self._lock:
             people = self.gallery.people()
             return {"loaded": True, "path": str(self.root), "people": people,
-                    "person_count": len(people), "vectors": len(self.gallery.vecs)}
+                    "person_count": len(people), "vectors": len(self.gallery.vecs),
+                    "managed_revision": (self.managed_document or {}).get("revision")}
 
     def consider(self, person: str, obs, source: str = "camera") -> dict:
         """Offer one measured FaceObs to the gallery's own storage decision.
