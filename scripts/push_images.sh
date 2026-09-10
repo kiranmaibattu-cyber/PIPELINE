@@ -16,16 +16,21 @@ fi
 REGISTRY_NAMESPACE="${REGISTRY_NAMESPACE:-ghcr.io/kiranmaibattu-cyber}"
 SOURCE_REPOSITORY="https://github.com/kiranmaibattu-cyber/PIPELINE"
 SURVEILLANCE_BASE_VERSION="${INTEL_SURVEILLANCE_BASE_VERSION:-2026.08.24-v1}"
-SURVEILLANCE_VERSION="${SURVEILLANCE_IMAGE_VERSION:-2026.08.24-v3}"
+SURVEILLANCE_VERSION="${SURVEILLANCE_IMAGE_VERSION:-2026.09.10-v2}"
 TRAFFIC_BASE_VERSION="${INTEL_TRAFFIC_BASE_VERSION:-2026.08.24-v1}"
-TRAFFIC_VERSION="${TRAFFIC_IMAGE_VERSION:-2026.08.24-v6}"
+TRAFFIC_VERSION="${TRAFFIC_IMAGE_VERSION:-2026.09.10-v2}"
 
 IMAGES=(
-  "apexfabric-intel-surveillance-runtime-base:intel-285h-${SURVEILLANCE_BASE_VERSION}"
   "surveillance-edge-runtime:intel-285h-${SURVEILLANCE_VERSION}"
-  "apexfabric-intel-traffic-runtime-base:intel-285h-${TRAFFIC_BASE_VERSION}"
   "traffic-edge-runtime:intel-285h-${TRAFFIC_VERSION}"
 )
+
+if [[ "${PUSH_RUNTIME_BASES:-0}" == "1" ]]; then
+  IMAGES+=(
+    "apexfabric-intel-surveillance-runtime-base:intel-285h-${SURVEILLANCE_BASE_VERSION}"
+    "apexfabric-intel-traffic-runtime-base:intel-285h-${TRAFFIC_BASE_VERSION}"
+  )
+fi
 
 for image in "${IMAGES[@]}"; do
   source_label="$($ENGINE image inspect "$image" \

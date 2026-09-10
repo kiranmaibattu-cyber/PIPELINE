@@ -2288,6 +2288,8 @@ def run_stream(sid, source, camera, do_reid, do_face, do_gait, mdict, crop_q, st
     (cross-camera). Writes metrics to `mdict`, annotated frame to /dev/shm, crops to
     `crop_q`."""
     shm, shm_tmp = _shm_path(sid), _shm_path(sid) + ".tmp"
+    from edge_runtime.runtime.frame_evidence import FrameEvidenceCache
+    evidence_cache = FrameEvidenceCache()
     _ppid0 = os.getppid()
     try:
         from MTMC.adapters import make_tracker, crop_boxes
@@ -2406,7 +2408,6 @@ def run_stream(sid, source, camera, do_reid, do_face, do_gait, mdict, crop_q, st
         clip_t0 = _clip_start_epoch(source) if VIDEO_CLOCK else None
         use_vclock = bool(src_fps and clip_t0)
         last = 0.0
-        wall0 = time.perf_counter()   # real elapsed video time (frames are dropped for pacing)
         while not stop_ev.is_set():
             if os.getppid() != _ppid0:   # manager died (re-parented) -> self-exit
                 break
@@ -2414,6 +2415,14 @@ def run_stream(sid, source, camera, do_reid, do_face, do_gait, mdict, crop_q, st
             ok, frame = dec.read()
             if not ok:
                 break
+            captured_at = time.time()
+            frame_evidence = None
+            if OBS_Q is not None:
+                encoded_ok, encoded = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                if encoded_ok:
+                    frame_evidence = evidence_cache.put(
+                        encoded.tobytes(), str(camera), int(frames), captured_at,
+                        [int(frame.shape[1]), int(frame.shape[0])])
             for _ in range(PROC_EVERY - 1):
                 dec.read()
             td = (time.perf_counter() - t0) * 1000
@@ -2472,7 +2481,8 @@ def run_stream(sid, source, camera, do_reid, do_face, do_gait, mdict, crop_q, st
                 return ((max(xs) - min(xs)) ** 2 + (max(ys) - min(ys)) ** 2) ** 0.5 > GAIT_MOTION_PX
 
             crops = crop_boxes(frame, [tr.bbox for tr in tracks]) if do_reid else []
-            t_sec = (clip_t0 + getattr(dec, "n", 0) / src_fps) if use_vclock                 else (time.perf_counter() - wall0)
+            t_sec = ((clip_t0 + getattr(dec, "n", 0) / src_fps)
+                     if use_vclock else captured_at)
 
             def _sync_due(lid):
                 return (lid not in last_sync) or (t_sec - last_sync.get(lid, -1e9) >= SYNC_EVERY_S)
@@ -2766,6 +2776,7 @@ def run_stream(sid, source, camera, do_reid, do_face, do_gait, mdict, crop_q, st
                                 "face_meta": fmcache.get(lid),
                                 "crop": crop_rel}
                             if OBS_Q is not None:
+                                obs["evidence"] = frame_evidence
                                 # in-process bus: drop if full (never block the worker)
                                 try:
                                     OBS_Q.put_nowait(obs)
@@ -2801,6 +2812,7 @@ def run_stream(sid, source, camera, do_reid, do_face, do_gait, mdict, crop_q, st
                             "face_meta": None, "crop": None,
                         }
                         if OBS_Q is not None:
+                            obs["evidence"] = frame_evidence
                             try:
                                 OBS_Q.put_nowait(obs)
                             except Exception:

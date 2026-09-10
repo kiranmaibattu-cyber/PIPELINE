@@ -24,7 +24,7 @@ COPY models/traffic /models/traffic
 RUN python -c "from pathlib import Path; from edge_runtime.model_registry.baked import BakedModelValidator; from edge_runtime.model_registry.registry import ModelRegistry; BakedModelValidator(ModelRegistry.from_file(Path('/opt/pipeline/edge_runtime/model_registry/models.yaml')), Path('/models')).validate('traffic')" \
     && test "$(id -u apexruntime)" = "10001"
 
-ARG IMAGE_VERSION=2026.08.24-v6
+ARG IMAGE_VERSION=2026.09.10-v2
 ARG INTEL_TRAFFIC_RUNTIME_BASE_DIGEST=unresolved
 
 LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/PIPELINE" \

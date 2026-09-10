@@ -17,7 +17,7 @@ if [[ -z "$ENGINE" ]]; then
 fi
 
 BASE_VERSION="${INTEL_TRAFFIC_BASE_VERSION:-2026.08.24-v1}"
-IMAGE_VERSION="${APEXFABRIC_IMAGE_VERSION:-2026.08.24-v6}"
+IMAGE_VERSION="${APEXFABRIC_IMAGE_VERSION:-2026.09.10-v2}"
 BASE_TAG="localhost/apexfabric-intel-traffic-runtime-base:intel-285h-${BASE_VERSION}"
 IMAGE_TAG="localhost/traffic-edge-runtime:intel-285h-${IMAGE_VERSION}"
 platform_args=(--platform linux/amd64)

@@ -94,6 +94,7 @@ class CountingPlugin(Plugin):
         self.tallies = {}      # camera -> line -> {"in": n, "out": n}
         self._last_seen = {}   # camera -> who -> (event timestamp, monotonic timestamp)
         self._occupancy = {}   # last emitted current count per camera
+        self._evidence = {}
         self._active_ttl_s = 2.0
 
     def _tally(self, camera, line):
@@ -106,6 +107,7 @@ class CountingPlugin(Plugin):
         who = _who(obs)
         lines = zones_for(self.cfg, obs.camera)["lines"]
         if not lines:
+            self._evidence[obs.camera] = obs.meta.get("evidence")
             self._last_seen.setdefault(obs.camera, {})[who] = (obs.t, time.monotonic())
             return
         for ln in lines:
@@ -147,7 +149,9 @@ class CountingPlugin(Plugin):
             self._occupancy[camera] = count
             newest = max(seen.values(), default=(0.0, now_mono))
             event_t = newest[0] + max(0.0, now_mono - newest[1])
+            evidence = self._evidence.get(camera) if count else None
             ctx.emit(Event(
-                "count", event_t, camera, None,
+                "count", evidence["captured_at"] if evidence else event_t, camera, None,
                 payload={"mode": "occupancy", "count": count},
+                evidence=evidence,
             ))

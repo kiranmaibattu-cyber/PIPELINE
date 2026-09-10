@@ -62,6 +62,7 @@ class RuntimeStatus:
     reload_rejected: int = 0
     last_reload_at: float | None = None
     last_reload_error: str | None = None
+    runtime_session_id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
     def healthy(self) -> bool:
         if self.child_exit_code not in (None, 0):
@@ -81,6 +82,7 @@ class RuntimeStatus:
             "solution_pack": self.solution_pack,
             "edge_id": self.edge_id,
             "revision": self.revision,
+            "runtime_session_id": self.runtime_session_id,
             "plan_loaded": self.plan_loaded,
             "models_ready": self.models_ready,
             "camera_count": self.camera_count,
@@ -182,7 +184,11 @@ class SolutionPackServer:
                         if event is None:
                             payload = ": heartbeat\n\n"
                         else:
-                            payload = "event: analytics\n" + f"data: {json.dumps(event, sort_keys=True)}\n\n"
+                            payload = (
+                                f"id: {event['event_id']}\n"
+                                "event: analytics\n"
+                                f"data: {json.dumps(event, sort_keys=True)}\n\n"
+                            )
                         self.wfile.write(payload.encode("utf-8"))
                         self.wfile.flush()
                     except (BrokenPipeError, ConnectionResetError, OSError):
@@ -362,8 +368,11 @@ def _tail_events(status: RuntimeStatus):
             with path.open("r", encoding="utf-8") as fh:
                 fh.seek(positions[path])
                 for line in fh:
+                    event = _parse_event(line)
+                    if event.get("runtime_session_id") != status.runtime_session_id:
+                        continue
                     emitted = True
-                    yield _enrich_event(status, _parse_event(line))
+                    yield _enrich_event(status, event)
                 positions[path] = fh.tell()
         if not emitted:
             yield None
@@ -379,28 +388,7 @@ def _parse_event(line: str) -> dict[str, Any]:
 
 
 def _enrich_event(status: RuntimeStatus, event: dict[str, Any]) -> dict[str, Any]:
-    snapshot_ref = _event_snapshot_ref(event)
-    snapshot_assets = _event_snapshot_assets(event)
-    if (snapshot_ref and "snapshot_url" not in event) or snapshot_assets:
-        enriched = dict(event)
-        if snapshot_ref:
-            enriched["snapshot_ref"] = snapshot_ref
-            enriched["snapshot_url"] = _snapshot_url(snapshot_ref)
-            enriched["snapshot_content_type"] = _snapshot_content_type(snapshot_ref)
-        if snapshot_assets:
-            enriched["snapshot_assets"] = snapshot_assets
-        if isinstance(enriched.get("payload"), dict):
-            payload_updates = {}
-            if snapshot_ref:
-                payload_updates.update({
-                    "snapshot_ref": snapshot_ref,
-                    "snapshot_url": enriched["snapshot_url"],
-                    "snapshot_content_type": enriched["snapshot_content_type"],
-                })
-            if snapshot_assets:
-                payload_updates["snapshot_assets"] = snapshot_assets
-            enriched["payload"] = {**enriched["payload"], **payload_updates}
-        event = enriched
+    snapshot_ref, snapshot_assets = _validated_snapshot_evidence(status, event)
     timestamp = (
         event.get("timestamp")
         or event.get("timestamp_utc")
@@ -433,10 +421,27 @@ def _enrich_event(status: RuntimeStatus, event: dict[str, Any]) -> dict[str, Any
         "schema_version", "event_id", "timestamp", "timestamp_utc", "observed_at",
         "camera_id", "camera", "solution_pack", "application", "app_id", "use_case",
         "event_type", "type", "payload",
+        "runtime_session_id", "snapshot_ref", "snapshot_refs", "snapshot_path",
+        "snapshot_url", "snapshot_assets", "snapshot_content_type", "image_path",
+        "image_ref", "crop_path", "crop_ref",
     }
     top_level_payload = {key: value for key, value in event.items() if key not in reserved}
     nested = event.get("payload")
     payload = {**top_level_payload, **nested} if isinstance(nested, dict) else top_level_payload
+    for key in (
+        "snapshot_ref", "snapshot_refs", "snapshot_path", "snapshot_url",
+        "snapshot_assets", "snapshot_content_type", "image_path", "image_ref",
+        "crop_path", "crop_ref",
+    ):
+        payload.pop(key, None)
+    if snapshot_ref:
+        payload.update({
+            "snapshot_ref": snapshot_ref,
+            "snapshot_url": _snapshot_url(snapshot_ref),
+            "snapshot_content_type": _snapshot_content_type(snapshot_ref),
+        })
+    if snapshot_assets:
+        payload["snapshot_assets"] = snapshot_assets
     global_id = payload.get("global_id") or payload.get("person_id")
     if status.solution_pack == "surveillance" and global_id is not None:
         payload.setdefault("person_ref", f"{status.edge_id or 'unknown-edge'}:{global_id}")
@@ -529,6 +534,11 @@ def _utc_now() -> str:
 
 def _rfc3339_utc(value: Any) -> str:
     from datetime import datetime, timezone
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        try:
+            return datetime.fromtimestamp(float(value), timezone.utc).isoformat().replace("+00:00", "Z")
+        except (OverflowError, OSError, ValueError):
+            return _utc_now()
     text = str(value)
     try:
         parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
@@ -565,24 +575,46 @@ def _event_snapshot_ref(event: dict[str, Any]) -> str | None:
     return None
 
 
-def _event_snapshot_assets(event: dict[str, Any]) -> dict[str, dict[str, str]]:
+def _event_snapshot_assets(event: dict[str, Any]) -> dict[str, str]:
     refs = event.get("snapshot_refs")
     if not isinstance(refs, dict):
         payload = event.get("payload")
         refs = payload.get("snapshot_refs") if isinstance(payload, dict) else None
     if not isinstance(refs, dict):
         return {}
-    assets = {}
+    assets: dict[str, str] = {}
     for name, ref in refs.items():
         if not isinstance(ref, str) or not ref.strip():
             continue
         clean_ref = ref.strip()
-        assets[str(name)] = {
-            "ref": clean_ref,
-            "url": _snapshot_url(clean_ref),
-            "content_type": _snapshot_content_type(clean_ref),
-        }
+        assets[str(name)] = clean_ref
     return assets
+
+
+def _validated_snapshot_evidence(
+    status: RuntimeStatus,
+    event: dict[str, Any],
+) -> tuple[str | None, dict[str, dict[str, str]]]:
+    requested_ref = _event_snapshot_ref(event)
+    requested_assets = _event_snapshot_assets(event)
+    valid_refs = {
+        name: ref
+        for name, ref in requested_assets.items()
+        if _resolve_snapshot_path(status, ref) is not None
+    }
+    snapshot_ref = (
+        requested_ref if requested_ref and _resolve_snapshot_path(status, requested_ref) is not None
+        else next(iter(valid_refs.values()), None)
+    )
+    assets = {
+        name: {
+            "ref": ref,
+            "url": _snapshot_url(ref),
+            "content_type": _snapshot_content_type(ref),
+        }
+        for name, ref in valid_refs.items()
+    }
+    return snapshot_ref, assets
 
 
 def _snapshot_url(snapshot_ref: str) -> str:
@@ -682,6 +714,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    runtime_session_id = uuid.uuid4().hex
+    os.environ["EDGE_RUNTIME_SESSION_ID"] = runtime_session_id
     status = RuntimeStatus(
         solution_pack=args.solution_pack,
         plan_path=Path(args.plan),
@@ -693,6 +727,7 @@ def main() -> int:
             else None
         ),
         desired_state_path=Path(args.desired_state) if args.desired_state else None,
+        runtime_session_id=runtime_session_id,
     )
     status.state_dir.mkdir(parents=True, exist_ok=True)
     _load_plan_status(status)

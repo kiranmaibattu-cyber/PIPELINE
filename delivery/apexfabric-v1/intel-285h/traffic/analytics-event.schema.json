@@ -20,6 +20,18 @@
         "vehicle_track_id": {"type": ["integer", "string"]},
         "vehicle": {"$ref": "#/$defs/vehicle"},
         "plate": {"$ref": "#/$defs/plate"},
+        "plate_status": {"enum": ["recognized", "detected_unreadable", "not_visible"]},
+        "plate_evidence": {
+          "type": "object",
+          "description": "Parking plate snapshot provenance; earlier crops belong to the same vehicle track, not necessarily the event frame.",
+          "required": ["basis", "observed_at", "frame_id", "vehicle_ref"],
+          "properties": {
+            "basis": {"enum": ["event_frame", "earlier_track_frame"]},
+            "observed_at": {"type": "string", "format": "date-time"},
+            "frame_id": {"type": "integer"},
+            "vehicle_ref": {"type": "string", "minLength": 1}
+          }
+        },
         "snapshot_ref": {"type": "string", "minLength": 1},
         "snapshot_url": {"type": "string", "pattern": "^/snapshots/"},
         "snapshot_content_type": {"type": "string", "minLength": 1},

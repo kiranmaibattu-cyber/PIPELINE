@@ -5,8 +5,11 @@ not supported by this delivery.
 
 ## Image
 
+Registry delivery: `ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime:intel-285h-2026.09.10-v2`.
+See `../RELEASE-2026.09.10-v2.md` for immutable digests and local archive details.
+
 ```text
-traffic-edge-runtime:intel-285h-2026.08.24-v6
+traffic-edge-runtime:intel-285h-2026.09.10-v2
 ```
 
 The image runs as UID/GID `10001`, listens on `0.0.0.0:8080`, contains its
@@ -20,7 +23,7 @@ The workload is built from this immutable Intel runtime base:
 
 ```text
 apexfabric-intel-traffic-runtime-base:intel-285h-2026.08.24-v1
-sha256:a6030445a8a3436dbe4b08e360adeea3d7d6f4200d40b3773a4305b0ae69fc8a
+sha256:9b285a691f09e6d9a0a2bce762bee72e8e340dca167b21416907e0f170d0adc2
 ```
 
 The base contains Ubuntu, Intel GPU/NPU userspace, VAAPI/FFmpeg, Python,
@@ -90,7 +93,7 @@ docker run --rm -p 8080:8080 \
   -v "$PWD/configs:/configs:ro" \
   -v "$PWD/secrets:/run/secrets/apexfabric:ro" \
   -v "$PWD/state:/state" \
-  traffic-edge-runtime:intel-285h-2026.08.24-v6
+  traffic-edge-runtime:intel-285h-2026.09.10-v2
 ```
 
 The compiler command required by the contract is available in the same image.
@@ -113,10 +116,19 @@ defined by `analytics-event.schema.json` and demonstrated by
 
 Use registry delivery for routine releases so the edge downloads only missing
 layers. A complete `docker save` archive remains an optional air-gapped
-bootstrap artifact and includes the full layer chain. The v6 archive is stored
-in this delivery directory as `image-2026.08.24-v6.tar`. Verify and load it with:
+bootstrap artifact and includes the full layer chain. The current archive is stored
+locally in this delivery directory as `image-2026.09.10-v2.tar`, excluded from
+Git. Verify and load the local archive with:
 
 ```bash
-sha256sum -c image-2026.08.24-v6.sha256
-docker load -i image-2026.08.24-v6.tar
+sha256sum -c image-2026.09.10-v2.sha256
+docker load -i image-2026.09.10-v2.tar
 ```
+
+`desired-state.parking.example.json` demonstrates parking alone, parking with
+ANPR, and whole-frame counting without ROI. Parking alone still runs plate
+detection/OCR for evidence but does not emit standalone ANPR events. Parking
+plate snapshots use `payload.plate_evidence` for current/earlier-frame provenance
+and `payload.plate_status` for recognized, unreadable, or unseen plates.
+All available crops belong to the same event; `vehicle_ref` joins separate
+parking and ANPR events. Increment desired-state revision when changing apps.

@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import runpy
+import shutil
 import sys
 from pathlib import Path
 
@@ -46,6 +47,13 @@ def main() -> int:
     if args.prepare_only:
         return 0
 
+    # The supervisor has stopped the previous process group before launching us.
+    # Remove only its disposable frame cache; persisted event evidence is separate.
+    evidence_root = generated_dir / "frame_evidence"
+    if evidence_root.exists():
+        shutil.rmtree(evidence_root)
+    evidence_root.mkdir(parents=True)
+    os.environ["FRAME_EVIDENCE_ROOT"] = str(evidence_root.resolve())
     sys.path.insert(0, str(RUNTIME_ROOT))
     os.chdir(RUNTIME_ROOT)
     sys.argv = [

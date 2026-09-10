@@ -11,8 +11,11 @@ surveillance requirements without one.
 
 ## Image
 
+Registry delivery: `ghcr.io/kiranmaibattu-cyber/surveillance-edge-runtime:intel-285h-2026.09.10-v2`.
+See `../RELEASE-2026.09.10-v2.md` for immutable digests and local archive details.
+
 ```text
-surveillance-edge-runtime:intel-285h-2026.08.24-v3
+surveillance-edge-runtime:intel-285h-2026.09.10-v2
 ```
 
 The image runs as UID/GID `10001`, listens on `0.0.0.0:8080`, contains its
@@ -30,7 +33,7 @@ sha256:ff3bc61535f4b4289298db44915ba18e2412c2bfa2c66065597dd1af3ea96f5d
 
 The base contains Ubuntu, Intel GPU/NPU userspace, VAAPI/FFmpeg, Python,
 OpenVINO 2024.6, and the pinned surveillance dependency set. It is a build
-parent, not a second workload container. Build the base and v3 workload with:
+parent, not a second workload container. Build the base and current workload with:
 
 ```bash
 CONTAINER_ENGINE=podman ./scripts/build_surveillance_layered_image.sh
@@ -79,7 +82,7 @@ docker run --rm -p 8080:8080 \
   -v "$PWD/desired-state.example.json:/configs/desired_state.json:ro" \
   -v "$PWD/secrets:/run/secrets/apexfabric:ro" \
   -v "$PWD/state:/state" \
-  surveillance-edge-runtime:intel-285h-2026.08.24-v3
+  surveillance-edge-runtime:intel-285h-2026.09.10-v2
 ```
 
 The compiler command required by the contract is available in the same image.
@@ -118,24 +121,32 @@ its `/snapshots/...` URL and media type after SSE normalization.
 The metrics payload is defined by `metrics.schema.json`; analytics events are
 defined by `analytics-event.schema.json`.
 
-## GitHub Archive Parts
+## Local Offline Archive Parts
 
-The complete local `image-2026.08.24-v3.tar` is approximately `2.71 GB`, above GitHub
+The complete local `image-2026.09.10-v2.tar` is approximately `2.71 GB`, above GitHub
 Free/Pro's per-file
-Git LFS limit. The repository therefore carries the exact current image as these
-versioned parts:
+Git LFS limit. The exact current image is saved locally as these versioned parts,
+but the new binaries are excluded from Git. Pull this release through GHCR or
+transfer the local archives separately:
 
 ```text
-image-2026.08.24-v3.tar.part-aa
-image-2026.08.24-v3.tar.part-ab
-image-2026.08.24-v3.parts.sha256
+image-2026.09.10-v2.tar.part-aa
+image-2026.09.10-v2.tar.part-ab
+image-2026.09.10-v2.parts.sha256
 ```
 
 Reconstruct and verify it inside this directory:
 
 ```bash
-sha256sum -c image-2026.08.24-v3.parts.sha256
-cat image-2026.08.24-v3.tar.part-* > image-2026.08.24-v3.tar
-sha256sum -c image-2026.08.24-v3.sha256
-docker load -i image-2026.08.24-v3.tar
+sha256sum -c image-2026.09.10-v2.parts.sha256
+cat image-2026.09.10-v2.tar.part-* > image-2026.09.10-v2.tar
+sha256sum -c image-2026.09.10-v2.sha256
+docker load -i image-2026.09.10-v2.tar
 ```
+
+Tracked observations propagate exact frame evidence to the event callback.
+`payload.evidence` identifies the source camera, stream session, frame number,
+capture time (Unix seconds), dimensions, and source JPEG checksum.
+`payload.evidence_status` reports whether a snapshot was attached. Expired
+evidence is not replaced with an unrelated latest frame. See the root
+`SURVEILLANCE_FRAME_EVIDENCE.md` for cache limits and aggregate-count semantics.

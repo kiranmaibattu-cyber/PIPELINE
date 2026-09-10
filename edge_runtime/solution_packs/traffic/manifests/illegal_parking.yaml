@@ -6,14 +6,20 @@ requires:
   data:
     - vehicle_tracks
     - parking_zone_geometry
+    - plate_detections
+    - plate_ocr
 models:
   - vehicle_detector
+  - plate_detector
+  - plate_ocr
 produces:
   events:
     - illegal_parking_event
 hardware:
   preferred:
     vehicle_detector: GPU
+    plate_detector: NPU
+    plate_ocr: GPU
     illegal_parking_app: CPU
 policy:
   default_dwell_seconds: 150

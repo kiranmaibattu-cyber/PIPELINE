@@ -625,43 +625,48 @@ class App:
 
     def _save_management_snapshot(self, camera: str, event_type: str, event=None):
         """Persist event evidence and return state-relative correlated assets."""
-        frame = self.frame(camera)
+        event = event or {}
+        try:
+            event_time = float(event.get("t"))
+        except (TypeError, ValueError):
+            event_time = time.time()
+        from edge_runtime.runtime.frame_evidence import read_evidence
+        evidence = event.get("evidence") or {}
+        if evidence.get("camera_id") != camera:
+            return None
+        frame = read_evidence(evidence)
         if not frame:
             return None
         root = Path(os.environ.get("MANAGEMENT_SNAPSHOT_DIR", "/state/surveillance/snapshots"))
         root.mkdir(parents=True, exist_ok=True)
         safe_cam = _safe_name(camera)
         safe_type = _safe_name(event_type)
-        stamp = _safe_name(datetime.now(timezone.utc).isoformat())[:40]
-        filename = f"{safe_cam}_{safe_type}_{stamp}.jpg"
+        observed = datetime.fromtimestamp(event_time, timezone.utc).isoformat()
+        stamp = _safe_name(observed)[:40]
+        event_id = _safe_name(event.get("event_id") or f"{camera}_{event_type}_{event_time}")[:48]
+        filename = f"{safe_cam}_{safe_type}_{stamp}_{event_id}.jpg"
         path = root / filename
-        path.write_bytes(frame)
+        temporary = path.with_suffix(".tmp.jpg")
+        temporary.write_bytes(frame)
+        temporary.replace(path)
         assets = {"frame": f"snapshots/{filename}"}
         person_crop = self._event_person_crop(frame, camera, event or {})
         if person_crop:
-            crop_name = f"{safe_cam}_{safe_type}_{stamp}_person.jpg"
-            (root / crop_name).write_bytes(person_crop)
+            crop_name = f"{safe_cam}_{safe_type}_{stamp}_{event_id}_person.jpg"
+            crop_path = root / crop_name
+            crop_temporary = crop_path.with_suffix(".tmp.jpg")
+            crop_temporary.write_bytes(person_crop)
+            crop_temporary.replace(crop_path)
             assets["person_crop"] = f"snapshots/{crop_name}"
         return assets
 
     def _event_person_crop(self, frame: bytes, camera: str, event: dict) -> bytes | None:
-        """Find the alert track/global id in live boxes and encode its person crop."""
+        """Crop the triggering observation's coordinates from its immutable frame."""
         try:
             import cv2
             import numpy as np
 
-            payload = event.get("payload") or {}
-            who = str(payload.get("who") or "")
-            track = None
-            if who.startswith(f"{camera}:"):
-                track = int(who.rsplit(":", 1)[1])
-            gid = event.get("person_id")
-            live = self.plat.live_view().get("cameras", {}).get(camera, {})
-            candidates = live.get("boxes") or []
-            box = next((b for b in candidates if track is not None and b.get("track") == track), None)
-            if box is None and gid is not None:
-                box = next((b for b in candidates if b.get("gid") == gid), None)
-            coords = list((box or {}).get("bbox") or [])
+            coords = list((event.get("evidence") or {}).get("bbox") or [])
             image = cv2.imdecode(np.frombuffer(frame, dtype=np.uint8), cv2.IMREAD_COLOR)
             if image is None or len(coords) != 4:
                 return None

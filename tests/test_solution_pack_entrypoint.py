@@ -4,6 +4,7 @@ import json
 import tempfile
 import threading
 import unittest
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from edge_runtime.runtime.solution_pack_entrypoint import (
     _is_runtime_api_path,
     _proxy_runtime_request,
     _resolve_snapshot_path,
+    _tail_events,
 )
 
 
@@ -28,16 +30,21 @@ class _HeaderDict(dict):
 
 class SolutionPackEntrypointTest(unittest.TestCase):
     def test_event_snapshot_ref_gets_url(self) -> None:
-        status = RuntimeStatus(
-            solution_pack="surveillance",
-            plan_path=Path("/plans/surveillance.runtime_plan.json"),
-            state_dir=Path("/state/surveillance"),
-        )
-        event = _enrich_event(status, {
-            "camera_id": "cam1",
-            "event_type": "intrusion_alert",
-            "snapshot_ref": "snapshots/cam1_event_1.jpg",
-        })
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            image = state / "snapshots" / "cam1_event_1.jpg"
+            image.parent.mkdir(parents=True)
+            image.write_bytes(b"jpeg")
+            status = RuntimeStatus(
+                solution_pack="surveillance",
+                plan_path=Path("/plans/surveillance.runtime_plan.json"),
+                state_dir=state,
+            )
+            event = _enrich_event(status, {
+                "camera_id": "cam1",
+                "event_type": "intrusion_alert",
+                "snapshot_ref": "snapshots/cam1_event_1.jpg",
+            })
 
         self.assertEqual("1.0", event["schema_version"])
         self.assertEqual("cam1", event["camera_id"])
@@ -47,35 +54,46 @@ class SolutionPackEntrypointTest(unittest.TestCase):
         self.assertEqual("image/jpeg", event["payload"]["snapshot_content_type"])
 
     def test_nested_payload_snapshot_ref_gets_url(self) -> None:
-        status = RuntimeStatus(
-            solution_pack="traffic",
-            plan_path=Path("/plans/traffic.runtime_plan.json"),
-            state_dir=Path("/state/traffic"),
-        )
-        event = _enrich_event(status, {
-            "payload": {
-                "event_type": "anpr",
-                "crop_path": "crops/plate_1.jpg",
-            }
-        })
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            image = state / "crops" / "plate_1.jpg"
+            image.parent.mkdir(parents=True)
+            image.write_bytes(b"jpeg")
+            status = RuntimeStatus(
+                solution_pack="traffic",
+                plan_path=Path("/plans/traffic.runtime_plan.json"),
+                state_dir=state,
+            )
+            event = _enrich_event(status, {
+                "payload": {
+                    "event_type": "anpr",
+                    "crop_path": "crops/plate_1.jpg",
+                }
+            })
 
         self.assertEqual("crops/plate_1.jpg", event["payload"]["snapshot_ref"])
         self.assertEqual("/snapshots/crops/plate_1.jpg", event["payload"]["snapshot_url"])
 
     def test_snapshot_refs_get_asset_urls(self) -> None:
-        status = RuntimeStatus(
-            solution_pack="traffic",
-            plan_path=Path("/plans/traffic.runtime_plan.json"),
-            state_dir=Path("/state/traffic"),
-        )
-        event = _enrich_event(status, {
-            "camera_id": "cam4",
-            "event_type": "plate_read",
-            "snapshot_refs": {
-                "vehicle_crop": "snapshots/plate_read/cam4_vehicle.jpg",
-                "plate_crop": "snapshots/plate_read/cam4_plate.jpg",
-            },
-        })
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            folder = state / "snapshots" / "plate_read"
+            folder.mkdir(parents=True)
+            (folder / "cam4_vehicle.jpg").write_bytes(b"vehicle")
+            (folder / "cam4_plate.jpg").write_bytes(b"plate")
+            status = RuntimeStatus(
+                solution_pack="traffic",
+                plan_path=Path("/plans/traffic.runtime_plan.json"),
+                state_dir=state,
+            )
+            event = _enrich_event(status, {
+                "camera_id": "cam4",
+                "event_type": "plate_read",
+                "snapshot_refs": {
+                    "vehicle_crop": "snapshots/plate_read/cam4_vehicle.jpg",
+                    "plate_crop": "snapshots/plate_read/cam4_plate.jpg",
+                },
+            })
 
         assets = event["payload"]["snapshot_assets"]
         self.assertEqual(
@@ -85,32 +103,96 @@ class SolutionPackEntrypointTest(unittest.TestCase):
         self.assertEqual("image/jpeg", assets["plate_crop"]["content_type"])
 
     def test_vehicle_correlation_is_exposed_to_management(self) -> None:
-        status = RuntimeStatus(
-            solution_pack="traffic",
-            plan_path=Path("/plans/traffic.runtime_plan.json"),
-            state_dir=Path("/state/traffic"),
-        )
-        event = _enrich_event(status, {
-            "camera_id": "cam4",
-            "event_type": "wrong_way",
-            "use_case": "wrong_way",
-            "vehicle_ref": "cam4:run-42:7",
-            "vehicle_track_id": 7,
-            "vehicle": {
-                "ref": "cam4:run-42:7",
-                "track_id": 7,
-                "plate": {"text": "KA52P1295"},
-            },
-            "snapshot_refs": {
-                "vehicle_crop": "snapshots/wrong_way/cam4_vehicle.jpg",
-                "plate_crop": "snapshots/wrong_way/cam4_plate.jpg",
-            },
-        })
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            folder = state / "snapshots" / "wrong_way"
+            folder.mkdir(parents=True)
+            (folder / "cam4_vehicle.jpg").write_bytes(b"vehicle")
+            (folder / "cam4_plate.jpg").write_bytes(b"plate")
+            status = RuntimeStatus(
+                solution_pack="traffic",
+                plan_path=Path("/plans/traffic.runtime_plan.json"),
+                state_dir=state,
+            )
+            event = _enrich_event(status, {
+                "camera_id": "cam4",
+                "event_type": "wrong_way",
+                "use_case": "wrong_way",
+                "vehicle_ref": "cam4:run-42:7",
+                "vehicle_track_id": 7,
+                "vehicle": {
+                    "ref": "cam4:run-42:7",
+                    "track_id": 7,
+                    "plate": {"text": "KA52P1295"},
+                },
+                "snapshot_refs": {
+                    "vehicle_crop": "snapshots/wrong_way/cam4_vehicle.jpg",
+                    "plate_crop": "snapshots/wrong_way/cam4_plate.jpg",
+                },
+            })
 
         self.assertEqual("cam4:run-42:7", event["payload"]["vehicle_ref"])
         self.assertEqual("KA52P1295", event["payload"]["vehicle"]["plate"]["text"])
         self.assertIn("vehicle_crop", event["payload"]["snapshot_assets"])
         self.assertIn("plate_crop", event["payload"]["snapshot_assets"])
+
+    def test_missing_snapshot_is_not_advertised(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            status = RuntimeStatus(
+                solution_pack="traffic",
+                plan_path=Path("/plans/traffic.runtime_plan.json"),
+                state_dir=Path(tmp),
+            )
+            event = _enrich_event(status, {
+                "camera_id": "cam4",
+                "event_type": "plate_read",
+                "snapshot_ref": "snapshots/missing.jpg",
+                "snapshot_refs": {"plate_crop": "snapshots/missing.jpg"},
+            })
+
+        self.assertNotIn("snapshot_ref", event["payload"])
+        self.assertNotIn("snapshot_url", event["payload"])
+        self.assertNotIn("snapshot_assets", event["payload"])
+
+    def test_numeric_epoch_timestamp_is_preserved(self) -> None:
+        epoch = 1787390286.25
+        status = RuntimeStatus(
+            solution_pack="surveillance",
+            plan_path=Path("/plans/surveillance.runtime_plan.json"),
+            state_dir=Path("/state/surveillance"),
+        )
+        event = _enrich_event(status, {
+            "camera_id": "cam1", "type": "intrusion", "timestamp": epoch,
+        })
+
+        expected = datetime.fromtimestamp(epoch, timezone.utc).isoformat().replace("+00:00", "Z")
+        self.assertEqual(expected, event["timestamp"])
+
+    def test_event_tail_ignores_previous_runtime_session(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            events = state / "events.jsonl"
+            events.write_text(
+                json.dumps({
+                    "event_id": "old-event", "runtime_session_id": "old-session",
+                    "camera_id": "cam1", "event_type": "vehicle_count",
+                }) + "\n" + json.dumps({
+                    "event_id": "new-event", "runtime_session_id": "new-session",
+                    "camera_id": "cam1", "event_type": "vehicle_count",
+                }) + "\n",
+                encoding="utf-8",
+            )
+            status = RuntimeStatus(
+                solution_pack="traffic",
+                plan_path=Path("/plans/traffic.runtime_plan.json"),
+                state_dir=state,
+                runtime_session_id="new-session",
+            )
+            stream = _tail_events(status)
+            event = next(stream)
+            status.stop_requested = True
+
+        self.assertEqual("new-event", event["event_id"])
 
     def test_event_contract_redacts_camera_source(self) -> None:
         status = RuntimeStatus(

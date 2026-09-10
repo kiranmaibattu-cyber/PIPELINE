@@ -4,6 +4,8 @@ import json
 import os
 import threading
 import uuid
+import time
+from collections import OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -24,6 +26,7 @@ class LocalManagementEventSink:
         self._lock = threading.Lock()
         self.session_id = os.getenv("EDGE_RUNTIME_SESSION_ID") or uuid.uuid4().hex
         self._vehicle_evidence: dict[str, dict[str, Any]] = {}
+        self._parking_plates = OrderedDict()
 
     @classmethod
     def from_env(cls) -> "LocalManagementEventSink | None":
@@ -32,16 +35,23 @@ class LocalManagementEventSink:
             return None
         return cls(state_dir)
 
-    def publish_packet(self, packet, events: list[dict[str, Any]]) -> None:
+    def publish_packet(self, packet, events: list[dict[str, Any]], *, retain_parking_plates=True) -> None:
+        if retain_parking_plates:
+            self._observe_plates(packet)
         if not events:
             return
         for index, event in enumerate(events):
             row = dict(event)
+            row.setdefault("event_id", str(uuid.uuid4()))
+            row.setdefault("runtime_session_id", self.session_id)
             row.setdefault("solution_pack", self.solution_pack)
             row.setdefault("camera_id", (row.get("camera") or {}).get("id") or packet.name)
             row.setdefault("app_id", row.get("use_case"))
             row["event_type"] = row.get("event_type") or row.get("type")
-            row.setdefault("timestamp_utc", datetime.now(timezone.utc).isoformat())
+            row.setdefault(
+                "timestamp_utc",
+                row.get("observed_at") or row.get("timestamp") or datetime.now(timezone.utc).isoformat(),
+            )
             vehicle_track_id = _vehicle_track_id(row)
             vehicle_ref = self._vehicle_ref(row["camera_id"], vehicle_track_id)
             if vehicle_ref:
@@ -49,10 +59,35 @@ class LocalManagementEventSink:
                 row["vehicle_track_id"] = vehicle_track_id
             snapshot_refs = self._save_snapshots(packet, row, index, vehicle_track_id)
             plate = _plate_evidence(packet, vehicle_track_id)
+            if row["event_type"] in {"parking_violation", "illegal_parking", "illegal_parking_event"}:
+                cached = self._parking_plates.get(vehicle_ref)
+                if "plate_crop" in snapshot_refs:
+                    row["plate_evidence"] = {
+                        "basis": "event_frame", "observed_at": row["timestamp_utc"],
+                        "frame_id": packet.index, "vehicle_ref": vehicle_ref,
+                    }
+                elif cached:
+                    image = cv2.imdecode(cached["jpeg"], cv2.IMREAD_COLOR)
+                    ref = self._save_image(image, packet, row, index, "earlier_plate")
+                    if ref:
+                        snapshot_refs["plate_crop"] = ref
+                        row["plate_evidence"] = {
+                            "basis": "earlier_track_frame", "observed_at": cached["observed_at"],
+                            "frame_id": cached["frame_id"], "vehicle_ref": vehicle_ref,
+                        }
+                if plate is None and cached and cached.get("plate"):
+                    plate = cached["plate"]
+                row["plate_status"] = (
+                    "recognized" if plate else "detected_unreadable"
+                    if "plate_crop" in snapshot_refs else "not_visible"
+                )
             if isinstance(row.get("plate"), dict):
                 plate = {**(plate or {}), **row["plate"]}
             if vehicle_ref:
                 evidence = self._remember_vehicle_evidence(vehicle_ref, plate, snapshot_refs)
+                if row["event_type"] in {"parking_violation", "illegal_parking", "illegal_parking_event"}:
+                    # Parking may reuse only the bounded, timestamped evidence above.
+                    evidence = {"plate": plate} if plate else {}
                 if evidence.get("plate"):
                     row["plate"] = evidence["plate"]
                 if evidence.get("plate_crop") and "plate_crop" not in snapshot_refs:
@@ -71,6 +106,38 @@ class LocalManagementEventSink:
                     or snapshot_refs.get("event_frame")
                 )
             self._write(row)
+
+    def _observe_plates(self, packet) -> None:
+        """Retain bounded evidence while waiting for a parking dwell alert."""
+        now = time.monotonic()
+        for key, value in list(self._parking_plates.items()):
+            if now - value["last_seen"] > 300:
+                del self._parking_plates[key]
+        if packet.frame is None:
+            return
+        for detection in getattr(packet, "detections", []) or []:
+            if detection.model_name != "license_plate" or detection.parent_id is None:
+                continue
+            ref = self._vehicle_ref(packet.name, detection.parent_id)
+            previous = self._parking_plates.get(ref)
+            plate = _plate_evidence(packet, detection.parent_id)
+            if previous:
+                previous["last_seen"] = now
+                self._parking_plates.move_to_end(ref)
+                if not plate or previous.get("plate") == plate:
+                    continue
+            crop = _crop(packet.frame, detection.bbox)
+            if crop is None:
+                continue
+            ok, jpeg = cv2.imencode(".jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            if not ok or jpeg.nbytes > 256 * 1024:
+                continue
+            self._parking_plates[ref] = dict(
+                jpeg=jpeg, plate=plate, frame_id=packet.index, last_seen=now,
+                observed_at=datetime.now(timezone.utc).isoformat(),
+            )
+            while len(self._parking_plates) > 128:
+                self._parking_plates.popitem(last=False)
 
     def _save_snapshots(
         self,
@@ -142,15 +209,26 @@ class LocalManagementEventSink:
         return evidence
 
     def _save_image(self, image, packet, event: dict[str, Any], index: int, kind: str) -> str | None:
-        observed = str(event.get("observed_at") or event.get("timestamp") or datetime.now(timezone.utc).isoformat())
+        observed = str(
+            event.get("observed_at")
+            or event.get("timestamp_utc")
+            or event.get("timestamp")
+            or datetime.now(timezone.utc).isoformat()
+        )
         safe_ts = "".join(ch if ch.isalnum() else "_" for ch in observed)[:40]
         safe_type = "".join(ch if ch.isalnum() else "_" for ch in str(event.get("event_type") or "event"))[:40]
-        filename = f"{packet.name}_{packet.index}_{safe_type}_{kind}_{index}_{safe_ts}.jpg"
+        safe_event_id = "".join(ch if ch.isalnum() else "_" for ch in str(event["event_id"]))[:40]
+        filename = f"{packet.name}_{packet.index}_{safe_type}_{kind}_{index}_{safe_ts}_{safe_event_id}.jpg"
         rel = Path("snapshots") / str(event.get("event_type") or "event") / filename
         path = self.state_dir / rel
         path.parent.mkdir(parents=True, exist_ok=True)
-        ok = cv2.imwrite(str(path), image, [cv2.IMWRITE_JPEG_QUALITY, 85])
-        return str(rel) if ok else None
+        temporary = path.with_name(path.stem + ".tmp" + path.suffix)
+        ok = cv2.imwrite(str(temporary), image, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        if not ok:
+            temporary.unlink(missing_ok=True)
+            return None
+        temporary.replace(path)
+        return str(rel)
 
     def _write(self, row: dict[str, Any]) -> None:
         with self._lock:

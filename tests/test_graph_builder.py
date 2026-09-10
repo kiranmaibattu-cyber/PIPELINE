@@ -48,6 +48,13 @@ class GraphBuilderTest(unittest.TestCase):
         self.assertIn("plate_detector", cam4.nodes)
         self.assertIn("ocr_service", cam4.nodes)
 
+    def test_parking_without_anpr_gets_plate_and_ocr(self):
+        graphs = {g.camera_id: g for g in self.builder.build_camera_graphs(self.desired)}
+        parking = graphs["cam5"]
+        self.assertTrue(parking.feature_flags["plate"])
+        self.assertTrue(parking.feature_flags["ocr"])
+        self.assertNotIn("anpr", parking.nodes)
+
 
 if __name__ == "__main__":
     unittest.main()

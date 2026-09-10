@@ -443,7 +443,10 @@ class AsyncAnalyticsDispatcher:
         if self.local_sink is not None:
             for packet in packets:
                 events = simple_events(packet.analytics_events)
-                self.local_sink.publish_packet(packet, events)
+                camera = self.camera_configs.get(packet.name) or {}
+                parking = (camera.get("analytics") or {}).get("parking_violation_detection") or {}
+                self.local_sink.publish_packet(
+                    packet, events, retain_parking_plates=bool(parking.get("enabled")))
         if self.sink is None:
             return
         for packet in packets:

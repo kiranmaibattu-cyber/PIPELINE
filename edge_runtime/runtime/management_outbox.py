@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -19,6 +21,8 @@ class ManagementEventWriter:
         row = dict(event)
         row.setdefault("solution_pack", self._solution_pack)
         row.setdefault("timestamp_utc", datetime.now(timezone.utc).isoformat())
+        row.setdefault("event_id", str(uuid.uuid4()))
+        row.setdefault("runtime_session_id", os.getenv("EDGE_RUNTIME_SESSION_ID", "unknown"))
         with self._lock:
             with self._path.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(row, sort_keys=True) + "\n")

@@ -21,11 +21,13 @@ class Event:
     zone: Optional[str] = None
     payload: dict = field(default_factory=dict)
     snapshot_ref: Optional[str] = None   # path/key into PLATF/cache snapshots
+    evidence: Optional[dict] = None
 
     def as_dict(self) -> dict:
         return {"type": self.type, "t": self.t, "camera": self.camera,
                 "person_id": self.person_id, "zone": self.zone,
-                "payload": self.payload, "snapshot_ref": self.snapshot_ref}
+                "payload": self.payload, "snapshot_ref": self.snapshot_ref,
+                "evidence": self.evidence}
 
 
 class EventBus:

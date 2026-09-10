@@ -20,6 +20,43 @@ from edge_runtime.solution_packs.traffic.runtime_pilot.worker.pipeline.types imp
 
 
 class RuntimeEventWiringTest(unittest.TestCase):
+    def test_parking_recovers_plate_seen_before_dwell_trigger(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sink = LocalManagementEventSink(tmp)
+            packet = SimpleNamespace(name="parking", index=1,
+                frame=np.ones((32, 32, 3), dtype=np.uint8) * 140,
+                detections=[Detection(bbox=[10, 20, 22, 26], class_id=0,
+                    class_name="plate", confidence=0.9, model_name="license_plate",
+                    parent_id=7, metadata={"ocr_text": "TEST123"})])
+            sink.publish_packet(packet, [])
+            packet.index = 150
+            packet.detections = []
+            sink.publish_packet(packet, [{"event_type": "parking_violation",
+                "use_case": "parking_violation_detection", "object_id": 7,
+                "subject": {"track_id": 7, "bbox": {"x1": 2, "y1": 2, "x2": 30, "y2": 30}}}])
+            row = json.loads((Path(tmp) / "events.jsonl").read_text())
+            self.assertEqual("TEST123", row["plate"]["text"])
+            self.assertEqual("earlier_track_frame", row["plate_evidence"]["basis"])
+            self.assertEqual(1, row["plate_evidence"]["frame_id"])
+            self.assertEqual("recognized", row["plate_status"])
+            for ref in row["snapshot_refs"].values():
+                self.assertTrue((Path(tmp) / ref).is_file())
+            self.assertIn("vehicle_crop", row["snapshot_refs"])
+            self.assertIn("plate_crop", row["snapshot_refs"])
+
+    def test_parking_without_visible_plate_still_alerts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sink = LocalManagementEventSink(tmp)
+            packet = SimpleNamespace(name="parking", index=1,
+                frame=np.zeros((32, 32, 3), dtype=np.uint8), detections=[])
+            sink.publish_packet(packet, [{"event_type": "parking_violation",
+                "object_id": 7, "subject": {"track_id": 7,
+                "bbox": {"x1": 2, "y1": 2, "x2": 30, "y2": 30}}}])
+            row = json.loads((Path(tmp) / "events.jsonl").read_text())
+            self.assertEqual("not_visible", row["plate_status"])
+            self.assertNotIn("plate_crop", row["snapshot_refs"])
+            self.assertIn("vehicle_crop", row["snapshot_refs"])
+
     def test_management_event_writer_writes_jsonl(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             writer = ManagementEventWriter(Path(tmp), "surveillance")
@@ -29,6 +66,8 @@ class RuntimeEventWiringTest(unittest.TestCase):
         self.assertEqual("surveillance", row["solution_pack"])
         self.assertEqual("intrusion", row["event_type"])
         self.assertIn("timestamp_utc", row)
+        self.assertIn("event_id", row)
+        self.assertIn("runtime_session_id", row)
 
     def test_traffic_local_sink_writes_event_and_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

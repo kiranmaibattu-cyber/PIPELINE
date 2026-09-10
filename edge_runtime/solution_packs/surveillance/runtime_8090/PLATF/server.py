@@ -30,6 +30,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -70,6 +71,8 @@ class _ManagementOutbox:
         row = dict(event)
         row.setdefault("solution_pack", "surveillance")
         row.setdefault("timestamp_utc", datetime.now(timezone.utc).isoformat())
+        row.setdefault("event_id", str(uuid.uuid4()))
+        row.setdefault("runtime_session_id", os.getenv("EDGE_RUNTIME_SESSION_ID", "unknown"))
         with self._lock:
             with self.path.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(row, sort_keys=True) + "\n")
@@ -92,6 +95,7 @@ def _app_id_for_event(event_type: str | None) -> str:
 
 def _event_needs_snapshot(event_type: str | None) -> bool:
     return str(event_type or "") in {
+        "identity",
         "intrusion",
         "loitering",
         "count",
@@ -248,6 +252,7 @@ class LivePlatform:
             self._management_outbox.write(self._management_row(row))
 
     def _management_row(self, row: dict) -> dict:
+        row.setdefault("event_id", str(uuid.uuid4()))
         payload = dict(row.get("payload") or {})
         event_type = row.get("type")
         camera = row.get("camera")
@@ -258,7 +263,7 @@ class LivePlatform:
             except Exception:
                 camera = None
         snapshot_assets = {}
-        snapshot_ref = row.get("snapshot_ref") or payload.get("snapshot_ref") or payload.get("crop")
+        snapshot_ref = None
         if (not snapshot_ref and camera and self.management_snapshot is not None
                 and _event_needs_snapshot(event_type)):
             try:
@@ -274,6 +279,7 @@ class LivePlatform:
                 snapshot_ref = None
                 snapshot_assets = {}
         out = {
+            "event_id": row["event_id"],
             "event_type": event_type,
             "type": event_type,
             "app_id": _app_id_for_event(event_type),
@@ -284,6 +290,9 @@ class LivePlatform:
             "timestamp": row.get("t"),
             "payload": payload,
         }
+        evidence = row.get("evidence") or {}
+        out["evidence"] = {k: v for k, v in evidence.items() if k != "path"}
+        out["evidence_status"] = "available" if snapshot_ref else "evidence_unavailable"
         if snapshot_ref:
             out["snapshot_ref"] = str(snapshot_ref)
         if snapshot_assets:
@@ -460,7 +469,10 @@ class LivePlatform:
                                    if float(v) >= keep_after}
         self.bus.publish(Event("unauthorised", float(o.t), o.camera, canon,
                                payload={"employee_id": str(name), "group": group,
-                                        "dist": round(float(dist), 3)}))
+                                        "dist": round(float(dist), 3)},
+                               evidence=({**o.meta["evidence"], "bbox": list(o.bbox),
+                                          "track_id": o.local_id}
+                                         if o.meta.get("evidence") else None)))
 
     def _fresh_identity_for_observation(self, o, gid: int):
         """Return (name, distance) only if this observation just verified the face.
@@ -1351,7 +1363,7 @@ def _obs_from_dict(d):
         app_emb=emb(d.get("app_emb")), face_emb=emb(d.get("face_emb")),
         gait_emb=emb(d.get("gait_emb")), color=emb(d.get("color")),
         meta={"raw_lid": raw, "crop": d.get("crop"), "frame_wh": d.get("frame_wh"),
-              "display_wh": d.get("display_wh"),
+              "display_wh": d.get("display_wh"), "evidence": d.get("evidence"),
               # face DETECTION quality behind face_emb: {det, w, h, sharp, q}
               "face_meta": d.get("face_meta")})
 

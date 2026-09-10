@@ -13,7 +13,36 @@
     "solution_pack": {"const": "surveillance"},
     "application": {"enum": ["reid", "face_recognition", "intrusion", "people_counting"]},
     "event_type": {"enum": ["identity_event", "cross_camera_identity_event", "face_recognized_event", "face_enrolled_event", "unauthorised_event", "intrusion_event", "people_count_event"]},
-    "payload": {"type": "object"}
+    "payload": {
+      "type": "object",
+      "properties": {
+        "evidence_status": {"enum": ["available", "evidence_unavailable"]},
+        "evidence": {
+          "type": "object",
+          "description": "Exact source-frame metadata. Internal cache paths are not exposed. Empty when no frame evidence is available.",
+          "properties": {
+            "stream_session_id": {"type": "string"},
+            "camera_id": {"type": "string"},
+            "frame_id": {"type": "integer"},
+            "captured_at": {"type": "number", "description": "Edge capture time in Unix seconds."},
+            "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "frame_wh": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}
+          }
+        },
+        "snapshot_assets": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["ref", "url", "content_type"],
+            "properties": {
+              "ref": {"type": "string", "minLength": 1},
+              "url": {"type": "string", "pattern": "^/snapshots/"},
+              "content_type": {"type": "string"}
+            }
+          }
+        }
+      }
+    }
   },
   "allOf": [
     {

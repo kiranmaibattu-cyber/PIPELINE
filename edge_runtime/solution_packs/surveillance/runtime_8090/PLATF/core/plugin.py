@@ -26,8 +26,14 @@ class PluginContext:
         self.store = store
         self.bus = bus
         self.config = config or {}
+        self.observation = None
 
     def emit(self, event: Event):
+        obs = self.observation
+        if obs is not None and event.camera == obs.camera:
+            source = obs.meta.get("evidence")
+            if source:
+                event.evidence = {**source, "bbox": list(obs.bbox), "track_id": obs.local_id}
         self.bus.publish(event)
 
 
@@ -113,7 +119,11 @@ class PluginHost:
                 gid = self.store.resolve_local(obs.camera, obs.local_id)
                 obs.person_id = gid
                 person = self.store.get(gid) if gid is not None else None
-                plugin.process(obs, person, self.ctx)
+                self.ctx.observation = obs
+                try:
+                    plugin.process(obs, person, self.ctx)
+                finally:
+                    self.ctx.observation = None
             # record the observation into its Person ONCE, after identity is resolved
             # (a first-sight frame binds mid-loop; touching per-plugin would double-log).
             gid = self.store.resolve_local(obs.camera, obs.local_id)

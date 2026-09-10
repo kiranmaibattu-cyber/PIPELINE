@@ -203,6 +203,8 @@ class CameraGraphBuilder:
                     edges.extend([("ocr_service", "anpr"), ("anpr", "event_sink")])
                 elif app in {"wrong_way", "vehicle_counting", "pedestrian_counting", "illegal_parking"}:
                     edges.extend([("vehicle_tracker", app), (app, "event_sink")])
+                    if app == "illegal_parking":
+                        edges.append(("ocr_service", app))
             return _dedupe_edges(edges)
 
         raise ValueError(f"unsupported solution_pack: {camera.solution_pack}")
