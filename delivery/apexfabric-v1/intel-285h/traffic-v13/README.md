@@ -16,7 +16,7 @@ The image implements ANPR, vehicle counting, pedestrian counting, smoke/fire det
 
 ```text
 ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime:intel-285h-2026.09.18-v13
-ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime@sha256:8ecf7f80f99156a95f8f47f96b95cf68f453d9be1f8042937fb0b825a0aca2d7
+ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime@sha256:aa8d3aad4c1c74bf41a2fc3bdd824ce9803cbce0b334293293dbb35de4a54fc7
 ```
 
 The complete offline archive remains local at
