@@ -9,6 +9,10 @@ from typing import Any
 
 STREAM_SCHEMES = ("rtsp://", "rtsps://", "rtmp://", "http://", "https://")
 SOLUTION_PACK = "sporada-secure"
+MAX_CAMERAS = 8
+MAX_FPS = 60.0
+FACE_MODEL_ID = "face-embedding-model-v1"
+FACE_EMBEDDING_DIMENSIONS = 512
 SUPPORTED_APPS = {
     "vehicle_counting",
     "pedestrian_counting",
@@ -105,8 +109,10 @@ class DesiredStateValidator:
         if not isinstance(data.get("revision"), int) or data["revision"] < 1:
             raise ValueError("revision must be an integer greater than zero")
         cameras = data.get("cameras")
-        if not isinstance(cameras, list):
-            raise ValueError("cameras must be an array")
+        if not isinstance(cameras, list) or not cameras:
+            raise ValueError("cameras must be a non-empty array")
+        if len(cameras) > MAX_CAMERAS:
+            raise ValueError(f"cameras must contain at most {MAX_CAMERAS} entries")
         seen: set[str] = set()
         for index, camera in enumerate(cameras):
             self._validate_camera(index, camera, seen)
@@ -117,7 +123,7 @@ class DesiredStateValidator:
         unknown = set(camera) - {"camera_id", "source", "fps", "apps", "config", "solution_pack"}
         if unknown:
             raise ValueError(f"camera at index {index} has unknown fields: {sorted(unknown)}")
-        missing = {"camera_id", "source", "solution_pack", "apps"} - set(camera)
+        missing = {"camera_id", "source", "solution_pack", "apps", "config"} - set(camera)
         if missing:
             raise ValueError(f"camera at index {index} is missing fields: {sorted(missing)}")
         if camera.get("solution_pack") != SOLUTION_PACK:
@@ -131,8 +137,8 @@ class DesiredStateValidator:
             raise ValueError(f"duplicate camera_id: {camera_id}")
         seen.add(camera_id)
         fps = camera.get("fps", 10.0)
-        if not isinstance(fps, (int, float)) or isinstance(fps, bool) or fps <= 0:
-            raise ValueError(f"camera {camera_id} fps must be greater than zero")
+        if not isinstance(fps, (int, float)) or isinstance(fps, bool) or not 0 < fps <= MAX_FPS:
+            raise ValueError(f"camera {camera_id} fps must be greater than zero and at most {MAX_FPS:g}")
         apps = camera["apps"]
         if not isinstance(apps, list) or not apps or any(not isinstance(app, str) for app in apps):
             raise ValueError(f"camera {camera_id} apps must be a non-empty string array")
@@ -177,9 +183,14 @@ class DesiredStateValidator:
             raise ValueError(f"camera {camera_id} Secret must contain a stream URL or absolute file path")
 
     def _validate_geometry_config(self, camera_id: str, apps: set[str], config: dict[str, Any]) -> None:
-        unknown = set(config) - {"zones"}
+        unknown = set(config) - {"embedding", "emission", "zones"}
         if unknown:
             raise ValueError(f"camera {camera_id} config has unknown fields: {sorted(unknown)}")
+        missing = {"embedding", "emission", "zones"} - set(config)
+        if missing:
+            raise ValueError(f"camera {camera_id} config is missing fields: {sorted(missing)}")
+        self._validate_embedding(camera_id, config["embedding"])
+        self._validate_emission(camera_id, config["emission"])
         zones = config.get("zones") or {}
         if not isinstance(zones, dict):
             raise ValueError(f"camera {camera_id} zones must be an object")
@@ -191,6 +202,34 @@ class DesiredStateValidator:
                 raise ValueError(f"camera {camera_id} zones.{app_key} must be a non-empty array")
             for index, item in enumerate(items):
                 self._validate_zone(camera_id, f"zones.{app_key}[{index}]", item)
+
+    @staticmethod
+    def _validate_embedding(camera_id: str, embedding: Any) -> None:
+        if not isinstance(embedding, dict) or set(embedding) != {"model_id", "dimensions"}:
+            raise ValueError(f"camera {camera_id} embedding must contain only model_id and dimensions")
+        if embedding["model_id"] != FACE_MODEL_ID:
+            raise ValueError(f"camera {camera_id} embedding model_id must be {FACE_MODEL_ID}")
+        if embedding["dimensions"] != FACE_EMBEDDING_DIMENSIONS:
+            raise ValueError(
+                f"camera {camera_id} embedding dimensions must be {FACE_EMBEDDING_DIMENSIONS}"
+            )
+
+    @staticmethod
+    def _validate_emission(camera_id: str, emission: Any) -> None:
+        fields = {"minimum_quality", "cooldown_seconds", "material_change_threshold"}
+        if not isinstance(emission, dict) or set(emission) != fields:
+            raise ValueError(f"camera {camera_id} emission must contain exactly {sorted(fields)}")
+        limits = {
+            "minimum_quality": (0.0, 1.0),
+            "cooldown_seconds": (0.0, 3600.0),
+            "material_change_threshold": (0.0, 1.0),
+        }
+        for field, (minimum, maximum) in limits.items():
+            value = emission[field]
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not minimum <= value <= maximum:
+                raise ValueError(
+                    f"camera {camera_id} emission.{field} must be between {minimum:g} and {maximum:g}"
+                )
 
     def _validate_zone(self, camera_id: str, field: str, zone: Any) -> None:
         if not isinstance(zone, dict):

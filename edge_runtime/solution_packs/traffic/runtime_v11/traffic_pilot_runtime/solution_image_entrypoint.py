@@ -17,6 +17,7 @@ from urllib.parse import unquote, urlsplit
 from .adapter import write_worker_config
 from .desired_state import SOLUTION_PACK, DesiredState, DesiredStateValidator, file_hash
 from .graph import RuntimePlan, compile_runtime_plan
+from .retention import SnapshotRetention
 
 CONTRACT_EVENT_TYPES = frozenset({
     "plate_read",
@@ -133,6 +134,8 @@ class WorkerSupervisor:
 
     def start_or_replace(self, desired: DesiredState, plan: RuntimePlan, cameras_file: Path) -> None:
         env = os.environ.copy()
+        ready_dir = self.generated_dir / f"ready-{desired.revision}-{time.time_ns()}"
+        ready_dir.mkdir(parents=True, exist_ok=False)
         env.update({
             "VIDEO_DIR": str(self.generated_dir),
             "OPENVINO_MODELS_DIR": env.get("OPENVINO_MODELS_DIR", str(self.repo_root / "models" / "openvino")),
@@ -142,12 +145,23 @@ class WorkerSupervisor:
             "INFER_FPS": str(max(1, int(min(camera.fps for camera in desired.cameras) if desired.cameras else 1))),
             "ANALYTICS_EVENT_LOG_PATH": env.get("ANALYTICS_EVENT_LOG_PATH", "/state/events/analytics.jsonl"),
             "EDGE_ID": desired.edge_id,
+            "APEXFABRIC_CAMERA_READY_DIR": str(ready_dir),
         })
         command = [sys.executable, "-u", str(self.repo_root / "services" / "worker" / "stream_fleet_openvino.py")]
         new_process = subprocess.Popen(command, cwd=str(self.repo_root), env=env)
-        time.sleep(float(os.getenv("WORKER_SWAP_GRACE_SECONDS", "2")))
-        if new_process.poll() is not None:
-            raise RuntimeError(f"new worker exited during startup with code {new_process.returncode}")
+        expected = {f"{camera.name or camera.camera_id}.ready" for camera in desired.cameras}
+        deadline = time.monotonic() + float(os.getenv("WORKER_READY_TIMEOUT_SECONDS", "180"))
+        while time.monotonic() < deadline:
+            if new_process.poll() is not None:
+                raise RuntimeError(f"new worker exited during startup with code {new_process.returncode}")
+            present = {path.name for path in ready_dir.glob("*.ready")}
+            if expected <= present:
+                break
+            time.sleep(0.25)
+        else:
+            self._stop_process(new_process)
+            missing = sorted(expected - {path.name for path in ready_dir.glob("*.ready")})
+            raise RuntimeError(f"worker readiness timed out; cameras not initialized: {missing}")
         old_process = self.process
         self.process = new_process
         self._stop_process(old_process)
@@ -221,9 +235,9 @@ class DesiredStateReloader(threading.Thread):
                 self.state.pending_revision = desired.revision
                 self.state.reload_state = "compiling"
                 self.state.reload_attempts += 1
-                if desired.revision < self.state.active_revision:
+                if desired.revision <= self.state.active_revision:
                     raise ValueError(
-                        f"revision {desired.revision} is older than active revision {self.state.active_revision}"
+                        f"revision {desired.revision} must be greater than active revision {self.state.active_revision}"
                     )
             plan = compile_runtime_plan(desired)
             plan_path = Path(self.args.plan_dir) / "traffic.runtime_plan.json"
@@ -289,7 +303,7 @@ class RuntimeHandler(BaseHTTPRequestHandler):
             snap = self.runtime_state.snapshot()
             self._json({"ready": bool(snap["ready"]), "worker_running": bool(snap["worker_running"])}, 200 if snap["ready"] else 503)
         elif parsed_path == "/metrics":
-            self._json(_metrics(self.runtime_state))
+            self._text(_metrics(self.runtime_state), "text/plain; version=0.0.4; charset=utf-8")
         elif parsed_path == "/events":
             self._events()
         elif parsed_path.startswith("/snapshots/"):
@@ -304,6 +318,15 @@ class RuntimeHandler(BaseHTTPRequestHandler):
         body = json.dumps(payload, indent=2).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _text(self, payload: str, content_type: str, status: int = 200) -> None:
+        body = payload.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
@@ -325,7 +348,8 @@ class RuntimeHandler(BaseHTTPRequestHandler):
                         self.wfile.write(b": heartbeat\n\n")
                     else:
                         self.wfile.write((f"id: {event['event_id']}\n").encode("utf-8"))
-                        self.wfile.write(b"event: analytics\n")
+                        sse_event = "face_seen" if event.get("event_type") == "face_seen" else "analytics"
+                        self.wfile.write((f"event: {sse_event}\n").encode("utf-8"))
                         self.wfile.write(("data: " + json.dumps(event, sort_keys=True) + "\n\n").encode("utf-8"))
                     self.wfile.flush()
                 except (BrokenPipeError, ConnectionResetError, OSError):
@@ -372,24 +396,46 @@ def _tail_jsonl(path: Path, limit: int) -> list[dict[str, Any]]:
     return payloads
 
 
-def _metrics(state: RuntimeState) -> dict[str, Any]:
-    return {
-        "format": "application/json",
-        "runtime": state.metrics(),
-        "events": {
-            "protocol": "server-sent-events",
-            "path": "/events",
-            "delivery": "at-most-once",
-            "start_position": "eof",
-            "historical_replay": False,
-            "heartbeat_seconds": 15.0,
-        },
-        "snapshots": {
-            "path_prefix": "/snapshots/",
-            "content_types": ["image/jpeg", "image/png"],
-            "source": "persistent_state",
-        },
-    }
+def _metrics(state: RuntimeState) -> str:
+    runtime = state.metrics()
+    lines = [
+        "# TYPE apexfabric_runtime_ready gauge",
+        f"apexfabric_runtime_ready {1 if runtime['models_ready'] else 0}",
+        "# TYPE apexfabric_runtime_cameras gauge",
+        f"apexfabric_runtime_cameras {runtime['camera_count']}",
+        "# TYPE apexfabric_runtime_revision gauge",
+        f"apexfabric_runtime_revision {runtime['revision'] or 0}",
+    ]
+    metrics_root = Path(os.getenv("APEXFABRIC_STATE_ROOT", "/state")) / "metrics"
+    for path in sorted(metrics_root.glob("face-*.json")) if metrics_root.exists() else ():
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            camera = _prometheus_label(str(payload["camera_id"]))
+        except (OSError, ValueError, KeyError, json.JSONDecodeError):
+            continue
+        lines.append(f'face_tracks_active{{camera_id="{camera}"}} {int(payload.get("tracks_active", 0))}')
+        lines.append(f'face_samples_emitted_total{{camera_id="{camera}"}} {int(payload.get("samples_emitted", 0))}')
+        for reason, value in sorted((payload.get("samples_suppressed") or {}).items()):
+            lines.append(
+                f'face_samples_suppressed_total{{camera_id="{camera}",reason="{_prometheus_label(str(reason))}"}} {int(value)}'
+            )
+        for outcome, value in sorted((payload.get("submissions") or {}).items()):
+            lines.append(
+                f'face_sample_submissions_total{{camera_id="{camera}",outcome="{_prometheus_label(str(outcome))}"}} {int(value)}'
+            )
+        lines.append(
+            f'face_sample_submission_latency_seconds{{camera_id="{camera}"}} '
+            f'{float(payload.get("submission_latency_seconds", 0.0))}'
+        )
+        for asset, value in sorted((payload.get("snapshot_write_failures") or {}).items()):
+            lines.append(
+                f'face_snapshot_write_failures_total{{camera_id="{camera}",asset="{_prometheus_label(str(asset))}"}} {int(value)}'
+            )
+    return "\n".join(lines) + "\n"
+
+
+def _prometheus_label(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')
 
 
 def _hot_reload_signature(desired: DesiredState) -> tuple[Any, ...]:
@@ -530,6 +576,9 @@ def _normalize_worker_event(envelope: dict[str, Any], event: dict[str, Any]) -> 
         payload.pop("subject", None)
     _normalize_contract_bboxes(payload)
     _strip_none(payload)
+    if normalized_type == "face_seen":
+        payload["person_id"] = None
+        payload["match_confidence"] = None
     return {
         "schema_version": "1.0",
         "event_id": str(event.get("id") or envelope.get("message_id") or f"{camera_id}:{application}:{observed_at}"),
@@ -673,15 +722,24 @@ def main() -> int:
     state = RuntimeState(args.desired_state)
     supervisor = WorkerSupervisor(Path(args.repo_root), Path(args.generated_dir), state)
     reloader = DesiredStateReloader(args, state, supervisor)
+    retention = SnapshotRetention(
+        Path(os.getenv("SNAPSHOT_ROOT", "/state/snapshots")),
+        high_bytes=int(os.getenv("SNAPSHOT_RETENTION_HIGH_BYTES", str(8 * 1024**3))),
+        low_bytes=int(os.getenv("SNAPSHOT_RETENTION_LOW_BYTES", str(6 * 1024**3))),
+        maximum_age_seconds=int(os.getenv("SNAPSHOT_RETENTION_MAX_AGE_SECONDS", "86400")),
+        scan_seconds=int(os.getenv("SNAPSHOT_RETENTION_SCAN_SECONDS", "60")),
+    )
 
     def _shutdown(signum, frame):
         reloader.stop_requested.set()
+        retention.stop_event.set()
         supervisor.stop()
         raise SystemExit(0)
 
     signal.signal(signal.SIGTERM, _shutdown)
     signal.signal(signal.SIGINT, _shutdown)
     reloader.start()
+    retention.start()
     RuntimeHandler.runtime_state = state
     server = ThreadingHTTPServer((args.host, args.port), RuntimeHandler)
     print(f"traffic-pilot solution API listening on {args.host}:{args.port}", flush=True)
@@ -689,6 +747,7 @@ def main() -> int:
         server.serve_forever()
     finally:
         reloader.stop_requested.set()
+        retention.stop_event.set()
         supervisor.stop()
         server.server_close()
     return 0

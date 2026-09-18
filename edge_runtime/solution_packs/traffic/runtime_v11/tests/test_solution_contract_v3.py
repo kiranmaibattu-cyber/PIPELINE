@@ -9,27 +9,16 @@ from traffic_pilot_runtime.solution_image_entrypoint import (
     _metrics,
     _resolve_snapshot_path,
 )
+from services.worker.pipeline.output_sinks import simple_event
 
 
 def test_metrics_matches_apexfabric_outer_contract():
     state = RuntimeState("/configs/desired_state.json")
     payload = _metrics(state)
 
-    assert payload["format"] == "application/json"
-    assert payload["events"] == {
-        "protocol": "server-sent-events",
-        "path": "/events",
-        "delivery": "at-most-once",
-        "start_position": "eof",
-        "historical_replay": False,
-        "heartbeat_seconds": 15.0,
-    }
-    assert payload["snapshots"]["path_prefix"] == "/snapshots/"
-    assert payload["snapshots"]["source"] == "persistent_state"
-    runtime = payload["runtime"]
-    assert runtime["solution_pack"] == "sporada-secure"
-    assert runtime["desired_state"]["path"] == "/configs/desired_state.json"
-    assert runtime["desired_state"]["reload_state"] == "idle"
+    assert "apexfabric_runtime_ready 0" in payload
+    assert "apexfabric_runtime_cameras 0" in payload
+    assert "apexfabric_runtime_revision 0" in payload
 
 
 def test_worker_jsonl_is_normalized_to_apexfabric_analytics_event(monkeypatch, tmp_path):
@@ -84,8 +73,9 @@ def test_image_schema_event_examples_validate():
     schema = json.loads(Path("image_schema/analytics-event.schema.json").read_text())
     examples = json.loads(Path("image_schema/event.examples.json").read_text())
     validator = Draft202012Validator(schema)
-    for event in examples:
-        validator.validate(event)
+    for name in ("analytics_event", "vehicle_count_event", "pedestrian_count_event",
+                 "plate_read_event", "smoke_event"):
+        validator.validate(examples[name])
 
 
 def test_normalized_worker_event_validates_against_image_schema(monkeypatch, tmp_path):
@@ -125,8 +115,10 @@ def test_face_event_references_sample_without_exposing_embedding():
             "use_case": "face_recognition",
             "timestamp": "2026-09-18T10:00:00Z",
             "sample_id": "face-0123456789abcdef0123456789abcdef",
-            "model_id": "adaface-ir101-int8-v1",
-            "embedding_space": "adaface-ir101-int8-v1:512:bgr-aligned-112",
+            "person_id": None,
+            "track_id": "7",
+            "match_confidence": None,
+            "model_id": "face-embedding-model-v1",
             "face_quality": 0.9,
             "subject": {"type": "face", "confidence": 0.95,
                         "track_id": 7, "bbox": {"x1": 1, "y1": 2, "x2": 30, "y2": 40}},
@@ -149,3 +141,30 @@ def test_face_event_references_sample_without_exposing_embedding():
     assert event["payload"]["sample_id"].startswith("face-")
     assert "embedding" not in event["payload"]
     assert "face_crop" in event["payload"]["snapshot_assets"]
+    schema = json.loads(Path("image_schema/analytics-event.schema.json").read_text())
+    from jsonschema import Draft202012Validator
+    Draft202012Validator(schema).validate(event)
+
+
+def test_face_event_serializer_accepts_normalized_bbox_and_null_identity():
+    event = simple_event({
+        "observation_id": "face-event",
+        "observed_at": "2026-09-18T10:00:00Z",
+        "use_case": "face_recognition",
+        "type": "face_seen",
+        "sample_id": "face-sample",
+        "person_id": None,
+        "track_id": "7",
+        "match_confidence": None,
+        "face_quality": 0.9,
+        "subject": {
+            "type": "face", "track_id": 7, "confidence": 0.95,
+            "bbox": {"x1": 0.1, "y1": 0.2, "x2": 0.3, "y2": 0.4},
+        },
+    })
+
+    assert event["subject"]["type"] == "face"
+    assert event["subject"]["bbox"]["x1"] == 0.1
+    assert event["track_id"] == "7"
+    assert event["person_id"] is None
+    assert event["match_confidence"] is None

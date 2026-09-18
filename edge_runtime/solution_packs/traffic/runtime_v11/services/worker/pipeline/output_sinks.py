@@ -618,7 +618,16 @@ def tracked_objects(packet: FramePacket) -> list[dict]:
     return objects
 
 
-def bbox_payload(bbox: list[int] | tuple[int, int, int, int] | None) -> dict:
+def bbox_payload(bbox) -> dict:
+    if isinstance(bbox, Mapping):
+        try:
+            x1, y1, x2, y2 = [float(bbox[key]) for key in ("x1", "y1", "x2", "y2")]
+        except (KeyError, TypeError, ValueError):
+            return {"x1": None, "y1": None, "x2": None, "y2": None, "width": None, "height": None}
+        return {
+            "x1": x1, "y1": y1, "x2": x2, "y2": y2,
+            "width": max(0.0, x2 - x1), "height": max(0.0, y2 - y1),
+        }
     if not bbox or len(bbox) < 4:
         return {"x1": None, "y1": None, "x2": None, "y2": None, "width": None, "height": None}
     x1, y1, x2, y2 = [int(value) for value in bbox[:4]]
@@ -632,7 +641,13 @@ def bbox_payload(bbox: list[int] | tuple[int, int, int, int] | None) -> dict:
     }
 
 
-def center_payload(bbox: list[int] | tuple[int, int, int, int] | None) -> dict:
+def center_payload(bbox) -> dict:
+    if isinstance(bbox, Mapping):
+        try:
+            x1, y1, x2, y2 = [float(bbox[key]) for key in ("x1", "y1", "x2", "y2")]
+        except (KeyError, TypeError, ValueError):
+            return {"x": None, "y": None}
+        return {"x": (x1 + x2) / 2.0, "y": (y1 + y2) / 2.0}
     if not bbox or len(bbox) < 4:
         return {"x": None, "y": None}
     x1, y1, x2, y2 = [float(value) for value in bbox[:4]]
@@ -757,7 +772,7 @@ def simple_event(event: Mapping[str, object]) -> dict:
         "observed_at": observed_at,
         "subject": {
             "track_id": track_id,
-            "type": subject.get("class"),
+            "type": subject.get("type") or subject.get("class"),
             "confidence": subject.get("confidence"),
             "bbox": bbox_payload(subject.get("bbox")),
             "center": center_payload(subject.get("bbox")),
@@ -801,8 +816,11 @@ def simple_event(event: Mapping[str, object]) -> dict:
         cooldown = float(event.get("cooldown_seconds") or 0.0)
         payload["cooldown_seconds"] = cooldown
         payload["details"]["cooldown_seconds"] = cooldown
-    for field in ("sample_id", "model_id", "embedding_space", "face_quality"):
+    for field in ("sample_id", "track_id", "model_id", "embedding_space", "face_quality"):
         if event.get(field) is not None:
+            payload[field] = event[field]
+    for field in ("person_id", "match_confidence"):
+        if field in event:
             payload[field] = event[field]
     snapshot = event.get("snapshot")
     extra_snapshots = event.get("snapshots") or {}

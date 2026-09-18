@@ -73,8 +73,8 @@ def _nms(boxes: np.ndarray, scores: np.ndarray, threshold: float) -> list[int]:
 
 class OpenVINOFaceExtractor:
     dimension = 512
-    model_id = "adaface-ir101-int8-v1"
-    embedding_space = "adaface-ir101-int8-v1:512:bgr-aligned-112"
+    model_id = "face-embedding-model-v1"
+    embedding_space = "face-embedding-model-v1:512:bgr-aligned-112"
 
     def __init__(self, detector_model: str, embedder_model: str) -> None:
         core = shared_core()

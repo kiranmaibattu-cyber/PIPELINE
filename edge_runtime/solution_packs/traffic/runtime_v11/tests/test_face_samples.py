@@ -20,8 +20,8 @@ from pipeline.types import FramePacket  # noqa: E402
 
 class FakeExtractor:
     dimension = 512
-    model_id = "adaface-ir101-int8-v1"
-    embedding_space = "adaface-ir101-int8-v1:512:bgr-aligned-112"
+    model_id = "face-embedding-model-v1"
+    embedding_space = "face-embedding-model-v1:512:bgr-aligned-112"
 
     def extract(self, frame, people):
         assert len(people) == 1
@@ -42,7 +42,12 @@ def test_face_sample_vector_is_durable_but_not_in_analytics_event(monkeypatch, t
     monkeypatch.setenv("FACE_PROCESS_INTERVAL", "1")
     monkeypatch.setenv("FACE_MIN_QUALITY", "0.3")
     monkeypatch.setenv("FACE_MANAGEMENT_CONFIG", str(tmp_path / "absent.json"))
-    camera_config = {"runtime_analytics": {"face_recognition": {"zones": []}}}
+    camera_config = {"analytics": {"face_recognition": {
+        "zones": [],
+        "embedding": {"model_id": "face-embedding-model-v1", "dimensions": 512},
+        "emission": {"minimum_quality": 0.3, "cooldown_seconds": 5,
+                     "material_change_threshold": 0.15},
+    }}, "runtime_analytics": {"face_recognition": {"zones": []}}}
     pipeline = FaceSamplePipeline("cam1", "edge1", FakeExtractor(), camera_config)
     packet = FramePacket(index=1, name="cam1", frame=np.zeros((120, 160, 3), dtype=np.uint8))
     person = SimpleNamespace(model_name="vehicle", class_name="pedestrian",
@@ -54,27 +59,50 @@ def test_face_sample_vector_is_durable_but_not_in_analytics_event(monkeypatch, t
     assert len(records) == 1
     record = json.loads(records[0].read_text(encoding="utf-8"))
     assert len(record["sample"]["embedding"]) == 512
-    assert set(record["sample"]["artifacts"]) == {"event_frame", "face_crop"}
+    assert record["sample"]["face_crop_url"].startswith("/snapshots/")
+    from jsonschema import Draft202012Validator
+    schema = json.loads((Path(__file__).parents[1] / "image_schema/face-sample.schema.json").read_text())
+    Draft202012Validator(schema).validate(record["sample"])
     assert len(packet.analytics_events) == 1
     assert packet.analytics_events[0]["sample_id"] == record["sample"]["sample_id"]
     assert "embedding" not in packet.analytics_events[0]
-    assert (state / record["sample"]["artifacts"]["face_crop"]["ref"]).is_file()
+    assert next((state / "snapshots/cam1/faces").glob("*-face.jpg")).is_file()
 
 
-def test_management_uploads_artifact_before_sample_and_acknowledges(monkeypatch, tmp_path):
+def test_zero_embedding_is_suppressed(monkeypatch, tmp_path):
+    class ZeroExtractor(FakeExtractor):
+        def extract(self, frame, people):
+            sample = super().extract(frame, people)[0]
+            sample.embedding[:] = 0
+            return [sample]
+
+    state = tmp_path / "state"
+    monkeypatch.setenv("APEXFABRIC_STATE_ROOT", str(state))
+    monkeypatch.setenv("SNAPSHOT_ROOT", str(state / "snapshots"))
+    monkeypatch.setenv("FACE_PROCESS_INTERVAL", "1")
+    monkeypatch.delenv("APEXFABRIC_FACE_IDENTITY_TOKEN", raising=False)
+    config = {"analytics": {"face_recognition": {
+        "zones": [], "embedding": {"model_id": "face-embedding-model-v1", "dimensions": 512},
+        "emission": {"minimum_quality": 0.3, "cooldown_seconds": 5,
+                     "material_change_threshold": 0.15},
+    }}, "runtime_analytics": {"face_recognition": {"zones": []}}}
+    pipeline = FaceSamplePipeline("cam1", "edge1", ZeroExtractor(), config)
+    packet = FramePacket(index=1, name="cam1", frame=np.zeros((120, 160, 3), dtype=np.uint8))
+    person = SimpleNamespace(model_name="vehicle", class_name="pedestrian",
+                             bbox=[10, 10, 100, 115], metadata={"track_id": 7})
+
+    pipeline.process(packet, [person])
+
+    assert not packet.analytics_events
+    assert not list((state / "face_samples/outbox/cam1").glob("*.json"))
+
+
+def test_management_submits_contract_sample_and_acknowledges(monkeypatch, tmp_path):
     received = []
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             return
-
-        def do_PUT(self):
-            body = self.rfile.read(int(self.headers["Content-Length"]))
-            digest = self.path.rsplit("/", 1)[1]
-            assert self.headers["Authorization"] == "Bearer test-token"
-            assert hashlib.sha256(body).hexdigest() == digest
-            received.append(("artifact", digest))
-            self.respond({"sha256": digest})
 
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -94,29 +122,23 @@ def test_management_uploads_artifact_before_sample_and_acknowledges(monkeypatch,
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        token = tmp_path / "token"
-        token.write_text("test-token", encoding="utf-8")
-        config = tmp_path / "management.json"
-        config.write_text(json.dumps({
-            "url": f"http://127.0.0.1:{server.server_port}",
-            "token_file": str(token),
-            "allow_insecure_loopback": True,
-        }), encoding="utf-8")
-        artifact = tmp_path / "face.jpg"
-        artifact.write_bytes(b"jpeg-data")
-        digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
         outbox = tmp_path / "outbox"
         outbox.mkdir()
         record = outbox / "face-test.json"
         record.write_text(json.dumps({
             "sample": {"sample_id": "face-test"},
-            "artifacts": {"face_crop": {"artifact_id": digest, "path": str(artifact)}},
+            "artifacts": {},
         }), encoding="utf-8")
 
-        uploader = FaceManagementUploader("edge-test", outbox, str(config))
+        from pipeline.face_metrics import FaceMetrics
+        monkeypatch.setenv("APEXFABRIC_STATE_ROOT", str(tmp_path / "state"))
+        uploader = FaceManagementUploader(
+            outbox, f"http://127.0.0.1:{server.server_port}/internal/face-samples", "test-token",
+            FaceMetrics("cam1"),
+        )
         uploader._cycle()
 
-        assert received == [("artifact", digest), ("sample", "face-test")]
+        assert received == [("sample", "face-test")]
         assert not record.exists()
     finally:
         server.shutdown()

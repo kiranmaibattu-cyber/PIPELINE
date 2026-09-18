@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 import sys
 import time
 from typing import Any
@@ -288,6 +289,13 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
              smoke_fire.exec_devices if smoke_fire is not None else "disabled",
              async_ocr.actual_device if async_ocr is not None else "disabled",
              "GPU+NPU" if face_pipeline is not None else "disabled")
+    ready_dir = os.getenv("APEXFABRIC_CAMERA_READY_DIR")
+    if ready_dir:
+        path = Path(ready_dir)
+        path.mkdir(parents=True, exist_ok=True)
+        temporary = path / f".{name}.tmp"
+        temporary.write_text("ready\n", encoding="utf-8")
+        os.replace(temporary, path / f"{name}.ready")
     dec = FfmpegDecoder(uri, fps=INFER_FPS, name=name)
     fidx = 0
     last = time.time()

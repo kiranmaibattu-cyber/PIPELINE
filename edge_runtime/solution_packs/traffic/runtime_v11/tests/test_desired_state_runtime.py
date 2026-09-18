@@ -20,7 +20,15 @@ def _config_for(apps):
     for app in apps:
         key = "anpr" if app == "plate_detection" else app
         zones[key] = [_zone(f"{key}-zone")]
-    return {"zones": zones}
+    return {
+        "embedding": {"model_id": "face-embedding-model-v1", "dimensions": 512},
+        "emission": {
+            "minimum_quality": 0.3,
+            "cooldown_seconds": 5,
+            "material_change_threshold": 0.15,
+        },
+        "zones": zones,
+    }
 
 
 def _desired(tmp_path: Path, apps, config=None):
@@ -161,32 +169,29 @@ def test_validator_rejects_lines(tmp_path):
 
 
 def test_validator_accepts_missing_counting_zone_as_full_frame(tmp_path):
-    desired_path, secrets = _desired(tmp_path, ["vehicle_counting"], {"zones": {}})
+    config = _config_for([])
+    desired_path, secrets = _desired(tmp_path, ["vehicle_counting"], config)
 
     state = DesiredStateValidator(secrets).load(desired_path)
     payload = write_worker_config(state, tmp_path / "generated" / "cameras.json")
 
-    assert state.cameras[0].config == {"zones": {}}
+    assert state.cameras[0].config["zones"] == {}
     assert payload["cameras"][0]["analytics"]["vehicle_counting"]["zones"] == []
 
 
-def test_validator_accepts_omitted_config_as_full_frame(tmp_path):
+def test_validator_rejects_omitted_config(tmp_path):
     desired_path, secrets = _desired(tmp_path, ["vehicle_counting", "pedestrian_counting"])
     document = json.loads(desired_path.read_text(encoding="utf-8"))
     document["cameras"][0].pop("config")
     desired_path.write_text(json.dumps(document), encoding="utf-8")
 
-    state = DesiredStateValidator(secrets).load(desired_path)
-    payload = write_worker_config(state, tmp_path / "generated" / "cameras.json")
-
-    assert state.cameras[0].config == {}
-    analytics = payload["cameras"][0]["analytics"]
-    assert analytics["vehicle_counting"]["zones"] == []
-    assert analytics["pedestrian_counting"]["zones"] == []
+    with pytest.raises(ValueError, match="missing fields"):
+        DesiredStateValidator(secrets).load(desired_path)
 
 
 def test_validator_rejects_bad_polygon(tmp_path):
-    config = {"zones": {"vehicle_counting": [{"id": "bad", "name": "bad", "poly": [[0, 0], [1, 1], [0, 1], [1, 0]]}]}}
+    config = _config_for([])
+    config["zones"] = {"vehicle_counting": [{"id": "bad", "name": "bad", "poly": [[0, 0], [1, 1], [0, 1], [1, 0]]}]}
     desired_path, secrets = _desired(tmp_path, ["vehicle_counting"], config)
 
     with pytest.raises(ValueError, match="zero area|self-intersecting"):

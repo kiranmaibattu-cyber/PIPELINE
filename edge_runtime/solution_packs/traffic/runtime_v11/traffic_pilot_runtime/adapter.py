@@ -46,12 +46,16 @@ def _camera_to_worker(camera: DesiredCamera) -> dict[str, Any]:
 
 def _use_case_config(app: str, config: dict[str, Any]) -> dict[str, Any]:
     zones = _items_for(config, app)
-    return {
+    result = {
         "enabled": True,
         "lines": [],
         "zones": [_zone_geometry(item, app) for item in zones],
         "masks": [],
     }
+    if app == "face_recognition":
+        result["embedding"] = dict(config["embedding"])
+        result["emission"] = dict(config["emission"])
+    return result
 
 
 def _items_for(config: dict[str, Any], app: str) -> list[dict[str, Any]]:
