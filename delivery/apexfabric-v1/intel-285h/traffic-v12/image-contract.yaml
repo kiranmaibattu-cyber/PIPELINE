@@ -1,0 +1,53 @@
+name: sporada-secure
+contractVersion: v1
+architectures: [amd64]
+configuration:
+  desiredStatePath: /configs/desired_state.json
+  desiredStateSchema: desired-state.schema.json
+  revisionPolicy: strictly-increasing
+endpoints:
+  health: /healthz
+  readiness: /readyz
+  metrics: /metrics
+  events: /events
+  snapshots: /snapshots/<camera-id>/<filename>
+eventProtocol: sse
+eventSchema: analytics-event.schema.json
+eventDelivery:
+  mode: live-tail
+  startPosition: eof
+  historicalReplay: false
+  semantics: at-most-once
+  sseIdField: event_id
+  heartbeatSeconds: 15
+  journal:
+    path: /state/events/analytics.jsonl
+    rotateBytes: 536870912
+    retainedFiles: 2
+    maximumTotalBytesExclusive: 1073741824
+faceSamples:
+  schema: face-sample.schema.json
+  managementConfigPath: /configs/face-management.json
+  sampleEndpoint: /v1/edges/<edge-id>/face-samples
+  artifactEndpoint: /v1/edges/<edge-id>/artifacts/<sha256>
+  durableOutbox: /state/face_samples/outbox
+evidence:
+  requiredForDashboardEvents: true
+  eventFrameAssetName: event_frame
+  contentTypes: [image/jpeg, image/png]
+  maximumBytesPerSnapshot: 20971520
+  urlPrefix: /snapshots/
+  forbiddenUrlPrefix: /snapshots/snapshots/
+ui:
+  camera:
+    apps:
+      vehicle_counting:
+        geometry: {kind: zone, configPath: zones.vehicle_counting, points: 4, required: false, fallback: full_frame}
+      pedestrian_counting:
+        geometry: {kind: zone, configPath: zones.pedestrian_counting, points: 4, required: false, fallback: full_frame}
+      anpr:
+        geometry: {kind: zone, configPath: zones.anpr, points: 4, required: false}
+      fire_smoke_detection:
+        geometry: {kind: zone, configPath: zones.fire_smoke_detection, points: 4, required: false}
+      face_recognition:
+        geometry: {kind: zone, configPath: zones.face_recognition, points: 4, required: false}

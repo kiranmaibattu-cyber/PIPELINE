@@ -1,0 +1,18 @@
+{
+  "edge_id": "apexfabric-box",
+  "revision": 1,
+  "cameras": [{
+    "camera_id": "traffic-1",
+    "source": "file:/run/secrets/apexfabric/traffic-1.rtsp",
+    "solution_pack": "sporada-secure",
+    "fps": 8,
+    "apps": ["anpr", "vehicle_counting", "pedestrian_counting", "fire_smoke_detection", "face_recognition"],
+    "config": {
+      "zones": {
+        "anpr": [{"id": "traffic-1-anpr-zone", "name": "anpr_zone", "poly": [[0.20, 0.50], [0.80, 0.50], [0.80, 0.95], [0.20, 0.95]]}],
+        "fire_smoke_detection": [{"id": "traffic-1-fire-zone", "name": "fire_zone", "poly": [[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]]}],
+        "face_recognition": [{"id": "traffic-1-face-zone", "name": "face_zone", "poly": [[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]]}]
+      }
+    }
+  }]
+}

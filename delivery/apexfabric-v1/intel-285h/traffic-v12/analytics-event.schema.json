@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:apexfabric:sporada-secure:analytics-event:1",
+  "title": "Sporada Secure dashboard event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "event_id", "timestamp", "camera_id", "solution_pack", "application", "event_type", "payload"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "event_id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "camera_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"},
+    "solution_pack": {"const": "sporada-secure"},
+    "application": {"enum": ["anpr", "vehicle_counting", "pedestrian_counting", "fire_smoke_detection", "face_recognition"]},
+    "event_type": {"enum": ["plate_read", "vehicle_count_per_frame", "pedestrian_count_per_frame", "smoke_detected", "fire_detected", "face_seen"]},
+    "payload": {
+      "type": "object",
+      "required": ["snapshot_ref", "snapshot_url", "snapshot_content_type", "snapshot_assets"],
+      "properties": {
+        "snapshot_ref": {"$ref": "#/$defs/snapshot_ref"},
+        "snapshot_url": {"$ref": "#/$defs/snapshot_url"},
+        "snapshot_content_type": {"enum": ["image/jpeg", "image/png"]},
+        "snapshot_assets": {
+          "type": "object",
+          "required": ["event_frame"],
+          "properties": {"event_frame": {"$ref": "#/$defs/snapshot_asset"}},
+          "additionalProperties": {"$ref": "#/$defs/snapshot_asset"}
+        },
+        "count": {
+          "type": "object",
+          "required": ["total"],
+          "properties": {"total": {"type": "integer", "minimum": 0}},
+          "additionalProperties": true
+        },
+        "plate": {
+          "type": "object",
+          "required": ["text"],
+          "properties": {"text": {"type": "string", "minLength": 1}},
+          "additionalProperties": true
+        },
+        "objects": {"type": "array", "items": {"$ref": "#/$defs/detection"}},
+        "subject": {"$ref": "#/$defs/detection"},
+        "location": {
+          "type": "object",
+          "required": ["id", "type"],
+          "properties": {
+            "id": {"type": "string", "minLength": 1},
+            "name": {"type": "string"},
+            "label": {"type": "string"},
+            "type": {"const": "zone"}
+          },
+          "additionalProperties": false
+        },
+        "details": {"type": "object"},
+        "object_id": {}
+      },
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"event_type": {"const": "plate_read"}}},
+      "then": {
+        "properties": {
+          "application": {"const": "anpr"},
+          "payload": {"required": ["plate", "subject"]}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"event_type": {"enum": ["vehicle_count_per_frame", "pedestrian_count_per_frame"]}}},
+      "then": {
+        "properties": {"payload": {"required": ["count", "objects", "location"]}}
+      }
+    },
+    {
+      "if": {"properties": {"event_type": {"const": "vehicle_count_per_frame"}}},
+      "then": {"properties": {"application": {"const": "vehicle_counting"}}}
+    },
+    {
+      "if": {"properties": {"event_type": {"const": "pedestrian_count_per_frame"}}},
+      "then": {"properties": {"application": {"const": "pedestrian_counting"}}}
+    },
+    {
+      "if": {"properties": {"event_type": {"enum": ["smoke_detected", "fire_detected"]}}},
+      "then": {
+        "properties": {
+          "application": {"const": "fire_smoke_detection"},
+          "payload": {"required": ["subject"]}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"event_type": {"const": "face_seen"}}},
+      "then": {
+        "properties": {
+          "application": {"const": "face_recognition"},
+          "payload": {"required": ["sample_id", "model_id", "embedding_space", "face_quality", "subject"]}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "snapshot_ref": {
+      "type": "string",
+      "pattern": "^snapshots/(?!snapshots/)[A-Za-z0-9._/-]+\\.(jpg|jpeg|png)$"
+    },
+    "snapshot_url": {
+      "type": "string",
+      "pattern": "^/snapshots/(?!snapshots/)[A-Za-z0-9._/-]+\\.(jpg|jpeg|png)$"
+    },
+    "snapshot_asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "url", "content_type"],
+      "properties": {
+        "ref": {"$ref": "#/$defs/snapshot_ref"},
+        "url": {"$ref": "#/$defs/snapshot_url"},
+        "content_type": {"enum": ["image/jpeg", "image/png"]}
+      }
+    },
+    "bbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x1", "y1", "x2", "y2"],
+      "properties": {
+        "x1": {"type": "number", "minimum": 0},
+        "y1": {"type": "number", "minimum": 0},
+        "x2": {"type": "number", "exclusiveMinimum": 0},
+        "y2": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "detection": {
+      "type": "object",
+      "required": ["type", "bbox"],
+      "properties": {
+        "type": {"type": "string", "minLength": 1},
+        "bbox": {"$ref": "#/$defs/bbox"},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "track_id": {}
+      },
+      "additionalProperties": true
+    }
+  }
+}

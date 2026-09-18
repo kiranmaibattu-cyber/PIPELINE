@@ -1,0 +1,12 @@
+ARG INTEL_TRAFFIC_PARENT_BASE=localhost/apexfabric-intel-traffic-runtime-base:intel-285h-2026.08.24-v1
+FROM ${INTEL_TRAFFIC_PARENT_BASE}
+
+RUN python -c "import cv2, numpy, openvino; assert hasattr(cv2, 'estimateAffinePartial2D')" \
+    && test "$(id -u apexruntime)" = "10001"
+
+LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/PIPELINE" \
+      org.opencontainers.image.title="ApexFabric Intel Multi-Analytics Runtime Base" \
+      org.opencontainers.image.description="Intel GPU/NPU, VAAPI, OpenVINO, OpenCV, and Python runtime for traffic and face extraction" \
+      org.opencontainers.image.version="intel-285h-2026.09.18-v2" \
+      io.apexfabric.image.role="runtime-base" \
+      io.apexfabric.hardware.profile="intel-285h"

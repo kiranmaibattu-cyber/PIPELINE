@@ -1,0 +1,74 @@
+ARG INTEL_TRAFFIC_RUNTIME_BASE=localhost/apexfabric-intel-traffic-runtime-base:intel-285h-2026.09.18-v2
+FROM ${INTEL_TRAFFIC_RUNTIME_BASE}
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/opt/traffic-pilot \
+    TRAFFIC_PILOT_ROOT=/opt/traffic-pilot \
+    SOLUTION_PACK=sporada-secure \
+    APEXFABRIC_CONTRACT_VERSION=v1 \
+    APEXFABRIC_SECRETS_ROOT=/run/secrets/apexfabric \
+    APEXFABRIC_STATE_ROOT=/state \
+    SNAPSHOT_ROOT=/state/snapshots \
+    OPENVINO_MODELS_DIR=/models/traffic/openvino \
+    FACE_MODELS_DIR=/models/face/openvino \
+    FACE_DETECTOR_DEVICE=GPU \
+    FACE_EMBEDDER_DEVICE=NPU \
+    APEX_API_HOST=0.0.0.0 \
+    APEX_API_PORT=8080 \
+    DESIRED_STATE_RELOAD_INTERVAL=3 \
+    HOME=/tmp/apexfabric \
+    XDG_CACHE_HOME=/tmp/apexfabric/cache
+
+WORKDIR /opt/traffic-pilot
+
+COPY edge_runtime/solution_packs/traffic/runtime_v11/services /opt/traffic-pilot/services
+COPY edge_runtime/solution_packs/traffic/runtime_v11/traffic_pilot_runtime /opt/traffic-pilot/traffic_pilot_runtime
+COPY edge_runtime/solution_packs/traffic/runtime_v11/config /opt/traffic-pilot/config
+COPY models/traffic-v11/openvino /models/traffic/openvino
+COPY models/traffic-v11/face/openvino /models/face/openvino
+COPY delivery/apexfabric-v1/intel-285h/traffic-v12/CV-PIPELINE-HANDOFF.md \
+     delivery/apexfabric-v1/intel-285h/traffic-v12/README.md \
+     delivery/apexfabric-v1/intel-285h/traffic-v12/analytics-event.example.json \
+     delivery/apexfabric-v1/intel-285h/traffic-v12/analytics-event.schema.json \
+     delivery/apexfabric-v1/intel-285h/traffic-v12/desired-state.example.json \
+     delivery/apexfabric-v1/intel-285h/traffic-v12/desired-state.schema.json \
+     delivery/apexfabric-v1/intel-285h/traffic-v12/event.examples.json \
+     delivery/apexfabric-v1/intel-285h/traffic-v12/face-management.example.json \
+     delivery/apexfabric-v1/intel-285h/traffic-v12/face-sample.schema.json \
+     delivery/apexfabric-v1/intel-285h/traffic-v12/image-contract.yaml \
+     delivery/apexfabric-v1/intel-285h/traffic-v12/metrics.schema.json \
+     delivery/apexfabric-v1/intel-285h/traffic-v12/model-registry.yaml \
+     delivery/apexfabric-v1/intel-285h/traffic-v12/solution-pack.spec.yaml \
+     /opt/traffic-pilot/delivery/apexfabric-v1/intel-285h/traffic-v12/
+COPY edge_runtime/solution_packs/traffic/runtime_v11/image_schema /opt/traffic-pilot/image_schema
+
+RUN python -m py_compile traffic_pilot_runtime/*.py \
+        services/worker/stream_fleet_openvino.py \
+        services/worker/detectors/backends/openvino_face.py \
+        services/worker/pipeline/face_samples.py \
+    && test -f /models/traffic/openvino/vehicle.xml \
+    && test -f /models/traffic/openvino/license_plate.xml \
+    && test -f /models/traffic/openvino/ocr.xml \
+    && test -f /models/traffic/openvino/smoke_fire.xml \
+    && test -f /models/face/openvino/scrfd_500m.onnx \
+    && test -f /models/face/openvino/adaface_ir101_int8.xml \
+    && test -f /models/face/openvino/adaface_ir101_int8.bin \
+    && test "$(id -u apexruntime)" = "10001"
+
+ARG IMAGE_VERSION=2026.09.18-v12
+ARG INTEL_TRAFFIC_RUNTIME_BASE_DIGEST=unresolved
+
+LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/PIPELINE" \
+      org.opencontainers.image.title="ApexFabric Traffic Multi-Analytics Runtime" \
+      org.opencontainers.image.description="Intel 285H runtime for counting, ANPR, smoke/fire, and anonymous face samples" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      io.apexfabric.contract.version="v1" \
+      io.apexfabric.hardware.profile="intel-285h" \
+      io.apexfabric.image.role="solution-runtime" \
+      io.apexfabric.models.delivery="baked-in" \
+      io.apexfabric.ui.included="false" \
+      io.apexfabric.runtime-base.digest="${INTEL_TRAFFIC_RUNTIME_BASE_DIGEST}"
+
+EXPOSE 8080
+USER 10001:10001
+CMD ["python", "-m", "traffic_pilot_runtime.solution_image_entrypoint"]

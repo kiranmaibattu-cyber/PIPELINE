@@ -1,0 +1,46 @@
+solution_pack: sporada-secure
+image: ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime:intel-285h-2026.09.18-v12
+contract_version: v1
+hardware_profile: intel-285h
+architecture: amd64
+camera_model: platform-managed
+max_streams_per_instance: 26
+endpoints:
+  liveness: {path: /healthz, port: 8080, format: application/json}
+  readiness: {path: /readyz, port: 8080, format: application/json}
+  metrics: {path: /metrics, port: 8080, format: application/json}
+  analytics_events:
+    path: /events
+    port: 8080
+    protocol: server-sent-events
+    format: text/event-stream
+    delivery: at-most-once
+    start_position: eof
+    historical_replay: false
+    heartbeat_seconds: 15
+  snapshots: {path: /snapshots/<camera-id>/<filename>, port: 8080, format: image/jpeg}
+inputs:
+  desired_state: /configs/desired_state.json
+  camera_secrets:
+    root: /run/secrets/apexfabric
+    reference: file:/run/secrets/apexfabric/<camera-id>.rtsp
+  models:
+    delivery: baked-in
+    path: /models/traffic/openvino
+storage:
+  event_journal:
+    path: /state/events/analytics.jsonl
+    rotate_bytes: 536870912
+    retained_files: 2
+  persistent_volumes:
+    - mountPath: /state
+      purpose: events and snapshots
+  temporary_paths: [/plans, /tmp/apexfabric]
+devices:
+  required: [/dev/dri, /dev/accel]
+runtime:
+  no_internet_required: true
+  external_dependencies: []
+  run_as_user: 10001
+  graceful_sigterm: true
+  host_network_required: false
