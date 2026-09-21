@@ -5,6 +5,11 @@ models/** filter=lfs diff=lfs merge=lfs -text
 # intentionally excluded from LFS because the repository LFS budget is full.
 models/traffic-v11/openvino/smoke_fire.bin -filter -diff -merge -text
 models/traffic-v11/openvino/smoke_fire.xml -filter -diff -merge -text
+# The v14 INT8 detector is also small enough for normal Git. Keeping these two
+# exact files out of LFS allows the release to remain reproducible when the
+# repository LFS quota is unavailable.
+models/traffic-v11/openvino/vehicle.bin -filter -diff -merge -text
+models/traffic-v11/openvino/vehicle.xml -filter -diff -merge -text
 state/** filter=lfs diff=lfs merge=lfs -text
 *.db filter=lfs diff=lfs merge=lfs -text
 *.sqlite filter=lfs diff=lfs merge=lfs -text

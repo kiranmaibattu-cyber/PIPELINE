@@ -104,7 +104,7 @@ Management returns `201` for both a new assignment and an idempotent retry. The 
 
 ### 4. SSE event
 
-The runtime may publish the corresponding `face_seen` event before or after the durable transaction. Use the same `sample_id` and `event_id`. The event contains no embedding and must not be required for the face to appear in the Faces UI. Its edge-relative `event_frame` and `face_crop` references remain useful telemetry evidence but are not the durable identity crop.
+The runtime may publish the corresponding `face_seen` event before or after the durable transaction. Use the same `sample_id` and `event_id`. The event contains no embedding and must not be required for the face to appear in the Faces UI. Its edge-relative `event_frame` and `face_crop` references remain useful, retention-bounded telemetry evidence but are not the durable identity crop. Successful identity delivery must not immediately invalidate those event URLs.
 
 ### 5. Complete the outbox record
 

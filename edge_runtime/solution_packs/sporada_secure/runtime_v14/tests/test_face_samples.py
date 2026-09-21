@@ -199,7 +199,7 @@ def test_management_submits_contract_sample_and_acknowledges(monkeypatch, tmp_pa
         assert received[0] == ("artifact", "face-test", b"exact-jpeg-bytes")
         assert received[1] == ("sample", "face-test")
         assert not record.exists()
-        assert not crop.exists()
+        assert crop.exists()
     finally:
         server.shutdown()
         server.server_close()
@@ -273,7 +273,7 @@ def test_artifact_ack_survives_embedding_outage_and_restart(monkeypatch, tmp_pat
         restarted = FaceManagementUploader(*args, FaceMetrics("cam1"))
         restarted._cycle()
         assert requests == {"artifact": 1, "sample": 2}
-        assert not path.exists() and not crop.exists()
+        assert not path.exists() and crop.exists()
     finally:
         server.shutdown(); server.server_close()
 

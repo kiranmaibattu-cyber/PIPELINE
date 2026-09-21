@@ -297,10 +297,10 @@ class FaceManagementUploader(threading.Thread):
     def _complete(record_path: Path, record: dict[str, Any]) -> None:
         if not record["delivery"].get("artifact_ack") or not record["delivery"].get("embedding_ack"):
             return
-        try:
-            Path(record["artifact"]["path"]).unlink(missing_ok=True)
-        finally:
-            record_path.unlink(missing_ok=True)
+        # The management copy is the durable biometric artifact, while the local
+        # crop remains telemetry evidence for the face_seen event URL. Snapshot
+        # retention bounds its age and disk usage independently of this outbox.
+        record_path.unlink(missing_ok=True)
 
 
 class FaceSamplePipeline:

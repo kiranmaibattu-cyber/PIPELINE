@@ -28,9 +28,12 @@ The image implements ANPR, vehicle counting, pedestrian counting, smoke/fire det
 The outbox stores one immutable crop and embedding transaction per `sample_id`.
 It uploads the crop first, validates and persists the artifact acknowledgement,
 then submits the embedding with the returned artifact ID and checksum. Restart
-resumes at the incomplete stage. Completion removes both the crop and record.
-Permanent contract failures retain metadata-only diagnostics; transient failures
-retain the same IDs and bytes until retry or bounded-outbox eviction.
+resumes at the incomplete stage. Completion removes the delivery record but keeps
+the local telemetry crop so the `face_seen` snapshot URL remains valid. The shared
+snapshot-retention policy bounds that local copy to 24 hours and the configured
+6-8 GiB watermarks. Permanent contract failures retain metadata-only diagnostics;
+transient failures retain the same IDs and bytes until retry or bounded-outbox
+eviction.
 
 The original supplied `image-contract.yaml` listed HTTP 409 as retryable while
 the detailed handoff classifies it as a permanent same-ID/different-bytes error.
@@ -44,10 +47,10 @@ Published image:
 
 ```text
 ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime:intel-285h-2026.09.21-v14
-ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime@sha256:ce577fb11dc7609db18c3f722d774dac0bf987bd53817ef9ccbebde5acfe0016
+ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime@sha256:8bd59ceb40a3a5dc8e8fa4101639061848426de2b61db4beb91bfd8b893b050e
 ```
 
-The host runtime suite passes 60 tests. The final live test used the camera7
+The host runtime suite passes 62 tests. The final live test used the camera7
 RTSP source and the actual image entrypoint with Intel GPU face detection and
 NPU embedding. The published build accepted a 7,255-byte face crop, simulated an embedding
 service outage, restarted the container, and resumed the same sample at the

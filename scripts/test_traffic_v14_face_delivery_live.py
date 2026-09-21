@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import subprocess
 import threading
@@ -20,6 +21,10 @@ NAME = "pipeline-traffic-v14-face-delivery"
 IMAGE = "localhost/traffic-pilot-runtime:intel-285h-2026.09.21-v14"
 API = "http://127.0.0.1:18080"
 TOKEN = "v14-live-test-token"
+CAMERA_URL = os.getenv(
+    "SPORADA_TEST_CAMERA_URL",
+    "rtsp://admin:Admin123_@192.168.1.7:554/video/live?channel=1&subtype=0",
+)
 
 
 class Receiver:
@@ -126,9 +131,7 @@ def main() -> None:
     for folder in ("configs", "secrets", "state"):
         (RUN / folder).mkdir(parents=True, exist_ok=True)
     (RUN / "configs/desired_state.json").write_text(json.dumps(desired_state()))
-    (RUN / "secrets/camera7.url").write_text(
-        "rtsp://admin:Admin123_@192.168.1.7:554/video/live?channel=1&subtype=0\n"
-    )
+    (RUN / "secrets/camera7.url").write_text(CAMERA_URL.rstrip() + "\n")
     receiver = Receiver()
     server = ThreadingHTTPServer(("127.0.0.1", 18444), receiver.handler())
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -174,6 +177,10 @@ def main() -> None:
         assert sample["artifact_id"] == "artifact-sha256-" + artifact["sha256"][7:]
         assert len(sample["embedding"]) == 512
         assert not list((RUN / "state/face_samples/outbox/camera7").glob(f"{sample_id}.json"))
+        local_crop = RUN / "state/snapshots/camera7/faces" / f"{sample_id}-face.jpg"
+        assert local_crop.is_file(), "acknowledged face crop no longer backs its event URL"
+        with urlopen(API + f"/snapshots/camera7/faces/{sample_id}-face.jpg", timeout=5) as response:
+            assert response.read() == artifact["body"] == local_crop.read_bytes()
         journal = RUN / "state/events/analytics.jsonl"
         assert "\"embedding\"" not in journal.read_text(errors="replace")
 
@@ -184,6 +191,7 @@ def main() -> None:
             "artifact_requests_for_resumed_sample": receiver.artifact_requests[sample_id],
             "sample_attempts": receiver.sample_attempts[sample_id],
             "restart_resumed_embedding_only": True,
+            "local_crop_retained_after_ack": True,
             "sse_client_connected": False,
             "embedding_dimensions": len(sample["embedding"]),
         }
