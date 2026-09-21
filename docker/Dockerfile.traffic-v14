@@ -21,13 +21,13 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /opt/traffic-pilot
 
-COPY edge_runtime/solution_packs/traffic/runtime_v11/services /opt/traffic-pilot/services
-COPY edge_runtime/solution_packs/traffic/runtime_v11/traffic_pilot_runtime /opt/traffic-pilot/traffic_pilot_runtime
-COPY edge_runtime/solution_packs/traffic/runtime_v11/config /opt/traffic-pilot/config
+COPY edge_runtime/solution_packs/sporada_secure/runtime_v14/services /opt/traffic-pilot/services
+COPY edge_runtime/solution_packs/sporada_secure/runtime_v14/traffic_pilot_runtime /opt/traffic-pilot/traffic_pilot_runtime
+COPY edge_runtime/solution_packs/sporada_secure/runtime_v14/config /opt/traffic-pilot/config
 COPY models/traffic-v11/openvino /models/traffic/openvino
 COPY models/traffic-v11/face/openvino /models/face/openvino
 COPY delivery/apexfabric-v1/intel-285h/traffic-v14 /opt/traffic-pilot/delivery/apexfabric-v1/intel-285h/traffic-v14
-COPY edge_runtime/solution_packs/traffic/runtime_v11/image_schema /opt/traffic-pilot/image_schema
+COPY edge_runtime/solution_packs/sporada_secure/runtime_v14/image_schema /opt/traffic-pilot/image_schema
 
 RUN python -m py_compile traffic_pilot_runtime/*.py \
         services/worker/stream_fleet_openvino.py \
@@ -49,12 +49,13 @@ ARG IMAGE_VERSION=2026.09.21-v14
 ARG INTEL_TRAFFIC_RUNTIME_BASE_DIGEST=unresolved
 
 LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/PIPELINE" \
-      org.opencontainers.image.title="ApexFabric Traffic Multi-Analytics Runtime" \
-      org.opencontainers.image.description="Intel 285H runtime for ANPR, counting, smoke/fire, and durable anonymous face samples" \
+      org.opencontainers.image.title="ApexFabric Sporada Secure Runtime" \
+      org.opencontainers.image.description="Sporada Secure Intel 285H runtime for ANPR, counting, smoke/fire, and durable anonymous face samples" \
       org.opencontainers.image.version="${IMAGE_VERSION}" \
       io.apexfabric.contract.version="v1" \
       io.apexfabric.hardware.profile="intel-285h" \
       io.apexfabric.image.role="solution-runtime" \
+      io.apexfabric.solution-pack="sporada-secure" \
       io.apexfabric.models.delivery="baked-in" \
       io.apexfabric.ui.included="false" \
       io.apexfabric.runtime-base.digest="${INTEL_TRAFFIC_RUNTIME_BASE_DIGEST}"

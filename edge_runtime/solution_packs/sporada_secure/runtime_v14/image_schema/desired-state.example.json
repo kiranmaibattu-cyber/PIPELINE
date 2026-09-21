@@ -1,0 +1,22 @@
+{
+  "edge_id": "single-box-01",
+  "revision": 1,
+  "cameras": [{
+    "camera_id": "face-cam-1",
+    "source": "file:/run/secrets/apexfabric/face-cam-1.url",
+    "solution_pack": "sporada-secure",
+    "fps": 8,
+    "apps": ["anpr", "vehicle_counting", "pedestrian_counting", "fire_smoke_detection", "face_recognition"],
+    "config": {
+      "embedding": {"model_id": "face-embedding-model-v1", "dimensions": 512},
+      "emission": {"minimum_quality": 0.5, "cooldown_seconds": 30, "material_change_threshold": 0.15},
+      "zones": {
+        "anpr": [{"id": "face-cam-1-anpr-zone", "name": "anpr_zone", "poly": [[0.20, 0.50], [0.80, 0.50], [0.80, 0.95], [0.20, 0.95]]}],
+        "vehicle_counting": [{"id": "face-cam-1-vehicle-zone", "name": "vehicle_zone", "poly": [[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]]}],
+        "pedestrian_counting": [{"id": "face-cam-1-people-zone", "name": "people_zone", "poly": [[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]]}],
+        "fire_smoke_detection": [{"id": "face-cam-1-fire-zone", "name": "fire_zone", "poly": [[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]]}],
+        "face_recognition": [{"id": "face-cam-1-face-zone", "name": "face_zone", "poly": [[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]]}]
+      }
+    }
+  }]
+}

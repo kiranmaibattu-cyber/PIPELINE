@@ -17,6 +17,8 @@ The image implements ANPR, vehicle counting, pedestrian counting, smoke/fire det
 
 - Image: `localhost/traffic-pilot-runtime:intel-285h-2026.09.21-v14`
 - Build: `scripts/build_traffic_v14_layered_image.sh` (Podman only)
+- Product source: `edge_runtime/solution_packs/sporada_secure/runtime_v14`
+- Product map: `SPORADA_SECURE.md` at the repository root
 - Base: `apexfabric-intel-traffic-runtime-base:intel-285h-2026.09.18-v2`
 - Persistent mount: `/state` for the event journal, snapshots, metrics, and the bounded face-delivery outbox
 - Read-only mounts: `/configs/desired_state.json` and camera `.url` files under `/run/secrets/apexfabric`
@@ -42,7 +44,7 @@ Published image:
 
 ```text
 ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime:intel-285h-2026.09.21-v14
-ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime@sha256:67cec61daaca22a3f0ee95383b164d14915c5916e2410eb0067928642420155c
+ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime@sha256:ce577fb11dc7609db18c3f722d774dac0bf987bd53817ef9ccbebde5acfe0016
 ```
 
 The host runtime suite passes 60 tests. The final live test used the camera7

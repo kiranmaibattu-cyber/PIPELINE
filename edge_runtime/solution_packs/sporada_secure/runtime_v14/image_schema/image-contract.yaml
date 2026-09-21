@@ -1,0 +1,153 @@
+name: sporada-secure
+version: 2026.09.21-v14
+contractVersion: v1
+architectures: [amd64]
+hardwareProfile: intel-285h
+capabilities:
+  apps: [anpr, vehicle_counting, pedestrian_counting, fire_smoke_detection, face_recognition]
+models:
+  delivery: baked-in
+  embedding:
+    modelId: face-embedding-model-v1
+    dimensions: 512
+    compatibilityRule: exact-model-id-and-dimensions
+configuration:
+  desiredStatePath: /configs/desired_state.json
+  compilerMode: runtime-internal-v1
+  hotReload: {enabled: true, pollSeconds: 2, revisionPolicy: strictly-increasing, mountPath: /configs}
+secrets:
+  root: /run/secrets/apexfabric
+  referenceFormat: file:/run/secrets/apexfabric/<camera-id>.url
+  cameraSourceSchemes: [rtsp, rtsps, http, https]
+  identityToken:
+    environmentVariable: APEXFABRIC_FACE_IDENTITY_TOKEN
+    kubernetesSecretKey: face-identity-token
+network: {port: 8080, hostNetworkRequired: false}
+endpoints:
+  health: /healthz
+  readiness: /readyz
+  metrics: /metrics
+  events: /events
+  snapshots: /snapshots/<camera-id>/<filename>
+eventProtocol: sse
+eventDelivery:
+  mode: live-tail
+  initialPosition: end-of-journal
+  historicalReplay: disabled
+  messageId: event_id
+  heartbeatSeconds: 15
+  reconnectBehavior: new-events-only
+  guarantees: at-most-once
+faceArtifactSubmission:
+  method: POST
+  urlTemplate: http://apexfabric-ui.apexfabric.svc/internal/face-artifacts/<sample-id>
+  contentTypes: [image/jpeg, image/png]
+  authentication: {scheme: bearer, tokenEnvironmentVariable: APEXFABRIC_FACE_IDENTITY_TOKEN}
+  checksumHeader: X-ApexFabric-Artifact-SHA256
+  checksumFormat: 'sha256:<64 lowercase hexadecimal characters>'
+  timeoutSeconds: 15
+  maximumRequestBytes: 20971520
+  idempotencyKey: sample_id
+  successStatuses: [200, 201]
+  responseSchema: face-artifact-response.schema.json
+  retry:
+    attempts: unlimited-while-outbox-record-is-retained
+    backoff: exponential-with-jitter
+    initialDelayMilliseconds: 250
+    maximumDelaySeconds: 60
+    retryStatuses: [408, 425, 429, 500, 502, 503, 504]
+    permanentStatuses: [400, 404, 409, 413, 415, 422]
+identitySubmission:
+  method: POST
+  url: http://apexfabric-ui.apexfabric.svc/internal/face-samples
+  contentType: application/json
+  authentication: {scheme: bearer, tokenEnvironmentVariable: APEXFABRIC_FACE_IDENTITY_TOKEN}
+  schema: face-sample.schema.json
+  timeoutSeconds: 10
+  maximumRequestBytes: 1048576
+  retry:
+    attempts: unlimited-while-outbox-record-is-retained
+    backoff: exponential-with-jitter
+    initialDelayMilliseconds: 250
+    maximumDelaySeconds: 10
+    retryStatuses: [408, 429, 500, 502, 503, 504]
+  idempotencyKey: sample_id
+  requiresAcknowledgedArtifact: true
+  runtimeUsesReturnedPersonId: false
+faceEmission:
+  newTrack: required
+  qualityGate: required
+  materialChangeGate: required
+  cooldown: required
+  oneSampleIdPerObservation: required
+  sharedEventIdForTelemetryAndEmbedding: required
+  durableOutbox:
+    required: true
+    completionRule: remove-only-after-artifact-and-embedding-acknowledgements
+    retryUsesSameSampleId: true
+process: {uid: 10001, gid: 10001, readOnlyRootSupported: true}
+resources: {cpuRequest: '8', memoryRequest: 16Gi, maxCameraStreams: 8}
+accelerators: [intel-igpu, intel-npu]
+devices: [/dev/dri, /dev/accel]
+storage:
+  persistentVolumes:
+    - {mountPath: /state, purpose: event journal and retained snapshot evidence}
+  snapshotRetention:
+    root: /state/snapshots
+    highBytes: 8589934592
+    lowBytes: 6442450944
+    maximumAgeSeconds: 86400
+    scanSeconds: 60
+  eventJournalRetention:
+    path: /state/events/analytics.jsonl
+    rotateAtBytes: 536870912
+    retainedFiles: 2
+    maximumTotalBytes: 1073741824
+    rotation: atomic-rename
+    liveTailReopenAfterRotation: required
+  temporaryPaths: [/plans, /tmp/apexfabric]
+externalDependencies:
+  - {name: apex-fabric-face-identity, type: cluster-service, required: true}
+privacy:
+  rawEmbeddingInEvents: forbidden
+  rawEmbeddingInLogs: forbidden
+  personDatabaseAccess: forbidden
+  runtimeAssignedPersonId: forbidden
+  faceCropRequired: true
+  faceCropDelivery: authenticated-central-upload
+ui:
+  included: false
+  displayName: Sporada Secure with Face Recognition
+  description: ANPR, vehicle and people counting, smoke/fire detection, and server-clustered face recognition.
+  camera:
+    defaultFps: 8
+    defaultApp: vehicle_counting
+    apps:
+      anpr:
+        label: Number plate recognition
+        symbol: ID
+        geometry: {kind: zone, label: ANPR zone, configPath: zones.anpr, points: 4, required: false, nameTemplate: '{app}_zone', idTemplate: '{camera_id}-{app}-zone'}
+      vehicle_counting:
+        label: Vehicle counting
+        symbol: VC
+        geometry: {kind: zone, label: Vehicle counting zone, configPath: zones.vehicle_counting, points: 4, required: false, nameTemplate: '{app}_zone', idTemplate: '{camera_id}-{app}-zone'}
+      pedestrian_counting:
+        label: People counting
+        symbol: PC
+        geometry: {kind: zone, label: People counting zone, configPath: zones.pedestrian_counting, points: 4, required: false, nameTemplate: '{app}_zone', idTemplate: '{camera_id}-{app}-zone'}
+      fire_smoke_detection:
+        label: Smoke and fire detection
+        symbol: FS
+        geometry: {kind: zone, label: Fire and smoke zone, configPath: zones.fire_smoke_detection, points: 4, required: false, nameTemplate: '{app}_zone', idTemplate: '{camera_id}-{app}-zone'}
+      face_recognition:
+        label: Face recognition
+        symbol: FR
+        geometry: {kind: zone, label: Face detection zone, configPath: zones.face_recognition, points: 4, required: false, nameTemplate: '{app}_zone', idTemplate: '{camera_id}-{app}-zone'}
+  deployment:
+    storageGi: 20
+    cpuRequest: 8
+    cpuLimit: 16
+    memoryRequestGi: 16
+    memoryLimitGi: 32
+    pullPolicy: IfNotPresent
+    inferenceMode: intel-gpu-npu
