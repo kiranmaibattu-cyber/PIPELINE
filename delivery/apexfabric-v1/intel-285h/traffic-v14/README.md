@@ -47,7 +47,7 @@ Published image:
 
 ```text
 ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime:intel-285h-2026.09.21-v14
-ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime@sha256:8bd59ceb40a3a5dc8e8fa4101639061848426de2b61db4beb91bfd8b893b050e
+ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime@sha256:cfdcacb363e39863f84a7c8641d98b71314667790c49b236a1cb460a8ea2ff11
 ```
 
 The host runtime suite passes 62 tests. The final live test used the camera7

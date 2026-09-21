@@ -11,7 +11,7 @@ identifier used in desired state, events, contracts, and the runtime graph.
 - Build script: `scripts/build_traffic_v14_layered_image.sh`
 - Live acceptance test: `scripts/test_traffic_v14_face_delivery_live.py`
 - Published image: `ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime:intel-285h-2026.09.21-v14`
-- Immutable image: `ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime@sha256:8bd59ceb40a3a5dc8e8fa4101639061848426de2b61db4beb91bfd8b893b050e`
+- Immutable image: `ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime@sha256:cfdcacb363e39863f84a7c8641d98b71314667790c49b236a1cb460a8ea2ff11`
 
 The runtime directory is a product-owned snapshot. The v14 Dockerfile no
 longer reads application code from the older shared
