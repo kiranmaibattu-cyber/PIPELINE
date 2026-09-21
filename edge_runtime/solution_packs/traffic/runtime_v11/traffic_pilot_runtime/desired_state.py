@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-STREAM_SCHEMES = ("rtsp://", "rtsps://", "rtmp://", "http://", "https://")
+STREAM_SCHEMES = ("rtsp://", "rtsps://", "http://", "https://")
 SOLUTION_PACK = "sporada-secure"
 MAX_CAMERAS = 8
 MAX_FPS = 60.0
@@ -167,6 +167,8 @@ class DesiredStateValidator:
         secret_path = Path(source.removeprefix("file:").strip())
         if not str(secret_path):
             raise ValueError(f"camera {camera_id} Secret path is empty")
+        if secret_path.suffix != ".url":
+            raise ValueError(f"camera {camera_id} Secret file must end in .url")
         try:
             resolved = secret_path.resolve(strict=True)
         except (FileNotFoundError, OSError) as exc:
@@ -179,8 +181,10 @@ class DesiredStateValidator:
             raise ValueError(f"camera {camera_id} Secret file is missing or unreadable") from exc
         if not value:
             raise ValueError(f"camera {camera_id} Secret is empty")
-        if not value.startswith(STREAM_SCHEMES) and not Path(value).is_absolute():
-            raise ValueError(f"camera {camera_id} Secret must contain a stream URL or absolute file path")
+        if not value.startswith(STREAM_SCHEMES):
+            raise ValueError(
+                f"camera {camera_id} Secret must contain an rtsp, rtsps, http, or https stream URL"
+            )
 
     def _validate_geometry_config(self, camera_id: str, apps: set[str], config: dict[str, Any]) -> None:
         unknown = set(config) - {"embedding", "emission", "zones"}

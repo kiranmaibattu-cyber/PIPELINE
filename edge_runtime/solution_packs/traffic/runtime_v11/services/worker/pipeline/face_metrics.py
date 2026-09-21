@@ -24,6 +24,9 @@ class FaceMetrics:
             "submissions": {},
             "submission_latency_seconds": 0.0,
             "snapshot_write_failures": {},
+            "outbox_records": 0,
+            "outbox_bytes": 0,
+            "outbox_drops": {},
         }
         self._save()
 
@@ -44,6 +47,15 @@ class FaceMetrics:
 
     def snapshot_failure(self, asset: str) -> None:
         self._increment_map("snapshot_write_failures", asset)
+
+    def outbox(self, records: int, size_bytes: int) -> None:
+        with self.lock:
+            self.data["outbox_records"] = max(0, int(records))
+            self.data["outbox_bytes"] = max(0, int(size_bytes))
+            self._save_locked()
+
+    def outbox_drop(self, reason: str) -> None:
+        self._increment_map("outbox_drops", reason)
 
     def _update(self, field: str, value) -> None:
         with self.lock:

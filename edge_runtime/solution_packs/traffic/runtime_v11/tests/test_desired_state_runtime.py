@@ -34,7 +34,7 @@ def _config_for(apps):
 def _desired(tmp_path: Path, apps, config=None):
     secrets = tmp_path / "secrets"
     secrets.mkdir()
-    source = secrets / "cam1.rtsp"
+    source = secrets / "cam1.url"
     source.write_text("rtsp://camera.test/stream\n", encoding="utf-8")
     schema_apps = ["anpr" if app == "plate_detection" else app for app in apps]
     desired = tmp_path / "desired_state.json"
@@ -69,6 +69,35 @@ def test_desired_state_requires_secret_source(tmp_path):
 
     with pytest.raises(ValueError, match="Secret"):
         DesiredStateValidator(tmp_path).load(desired)
+
+
+@pytest.mark.parametrize("source", [
+    "/data/local.mp4",
+    "file:///data/local.mp4",
+    "rtmp://camera.test/live",
+    "ftp://camera.test/video",
+])
+def test_v14_secret_rejects_non_contract_source_schemes(tmp_path, source):
+    desired_path, secrets = _desired(tmp_path, ["vehicle_counting"])
+    (secrets / "cam1.url").write_text(source, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="rtsp, rtsps, http, or https"):
+        DesiredStateValidator(secrets).load(desired_path)
+
+
+@pytest.mark.parametrize("source", [
+    "rtsp://camera.test/live",
+    "rtsps://camera.test/live",
+    "http://camera.test/live.mjpg",
+    "https://camera.test/index.m3u8",
+])
+def test_v14_secret_accepts_contract_stream_schemes(tmp_path, source):
+    desired_path, secrets = _desired(tmp_path, ["vehicle_counting"])
+    (secrets / "cam1.url").write_text(source, encoding="utf-8")
+
+    state = DesiredStateValidator(secrets).load(desired_path)
+
+    assert state.cameras[0].source.endswith("cam1.url")
 
 
 def test_dynamic_graph_only_contains_active_counting_nodes(tmp_path):

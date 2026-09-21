@@ -17,6 +17,7 @@ real-time. Set OV_DECODE_HW=0 to fall back to software decode.
 from __future__ import annotations
 
 import ctypes
+import json
 import logging
 import os
 import signal
@@ -42,27 +43,56 @@ _HW = os.getenv("OV_DECODE_HW", "1") != "0"
 _VAAPI_DEVICE = os.getenv("VAAPI_DEVICE", "/dev/dri/renderD128")
 
 
+def _network_input_options(uri: str, *, probe: bool) -> list[str]:
+    lowered = uri.lower()
+    if lowered.startswith(("rtsp://", "rtsps://")):
+        timeout_option = "-rw_timeout" if probe else "-timeout"
+        return ["-rtsp_transport", "tcp", timeout_option, "30000000"]
+    if lowered.startswith(("http://", "https://")):
+        return [
+            "-rw_timeout", "30000000",
+            "-reconnect", "1",
+            "-reconnect_streamed", "1",
+            "-reconnect_on_network_error", "1",
+            "-reconnect_on_http_error", "408,429,500,502,503,504",
+            "-reconnect_delay_max", "10",
+        ]
+    if lowered.startswith(("rtmp://", "rtmps://", "rtmpt://", "rtmpts://")):
+        return ["-rw_timeout", "30000000"]
+    return []
+
+
 def _probe_resolution(uri: str) -> tuple[int, int]:
     args = ["ffprobe", "-v", "error"]
-    if uri.startswith(("rtsp://", "rtsps://")):
-        args += ["-rtsp_transport", "tcp", "-rw_timeout", "30000000"]
+    args += _network_input_options(uri, probe=True)
     args += ["-select_streams", "v:0", "-show_entries", "stream=width,height",
-             "-of", "csv=p=0:s=x", uri]
+             "-of", "json", uri]
     attempts = 3
     for attempt in range(1, attempts + 1):
         try:
             result = subprocess.run(args, capture_output=True, text=True,
                                     check=True, timeout=35)
-            out = result.stdout.strip()
-            w, h = out.split("x")[:2]
-            return int(w), int(h)
-        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, ValueError) as exc:
+            return _parse_probe_resolution(result.stdout)
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, ValueError, json.JSONDecodeError) as exc:
             if attempt == attempts:
                 raise RuntimeError(f"could not probe stream after {attempts} attempts") from exc
             delay = min(2 ** attempt, 10)
-            logger.warning("resolution probe failed for %s (attempt %d/%d); retrying in %ss",
-                           uri, attempt, attempts, delay)
+            logger.warning("resolution probe failed (attempt %d/%d); retrying in %ss",
+                           attempt, attempts, delay)
             time.sleep(delay)
+
+
+def _parse_probe_resolution(payload: str) -> tuple[int, int]:
+    document = json.loads(payload)
+    for stream in document.get("streams") or []:
+        try:
+            width = int(stream["width"])
+            height = int(stream["height"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if width > 0 and height > 0:
+            return width, height
+    raise ValueError("ffprobe returned no video dimensions")
 
 
 def _ffmpeg_cmd(uri: str, fps: int, is_stream: bool) -> list[str]:
@@ -71,10 +101,7 @@ def _ffmpeg_cmd(uri: str, fps: int, is_stream: bool) -> list[str]:
         cmd += ["-hwaccel", "vaapi", "-hwaccel_device", _VAAPI_DEVICE,
                 "-hwaccel_output_format", "vaapi"]
     if is_stream:
-        # Ubuntu's FFmpeg accepts the RTSP demuxer option as `timeout`; its
-        # FFprobe accepts `rw_timeout`. Keep the two commands intentionally
-        # different so the decoder does not exit immediately with option errors.
-        cmd += ["-rtsp_transport", "tcp", "-timeout", "30000000"]
+        cmd += _network_input_options(uri, probe=False)
     else:
         cmd += ["-re", "-stream_loop", "-1"]   # pace a file like a live camera, loop forever
     cmd += ["-i", uri]

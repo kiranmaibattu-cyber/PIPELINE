@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 import os
 from pathlib import Path
 import random
@@ -12,6 +13,7 @@ import threading
 import time
 from typing import Any
 from urllib.error import HTTPError
+from urllib.parse import quote
 from urllib.request import HTTPSHandler, HTTPRedirectHandler, Request, build_opener
 import uuid
 
@@ -35,7 +37,10 @@ class _RetryLater(RuntimeError):
 
 
 class _PermanentRejection(RuntimeError):
-    pass
+    def __init__(self, stage: str, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        self.stage = stage
+        self.status = status
 
 
 def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
@@ -56,13 +61,16 @@ def _write_jpeg(path: Path, frame, quality: int = 88) -> tuple[str, int]:
 
 
 class FaceManagementUploader(threading.Thread):
-    RETRY_STATUSES = {408, 429, 500, 502, 503, 504}
+    RETRY_STATUSES = {408, 425, 429, 500, 502, 503, 504}
+    PERMANENT_STATUSES = {400, 404, 409, 413, 415, 422}
 
-    def __init__(self, outbox: Path, url: str, token: str, metrics: FaceMetrics) -> None:
+    def __init__(self, outbox: Path, artifact_url: str, sample_url: str,
+                 token: str, metrics: FaceMetrics) -> None:
         super().__init__(name="face-management-uploader", daemon=True)
         self.outbox = outbox
         self.stop_event = threading.Event()
-        self.url = url
+        self.artifact_url = artifact_url
+        self.sample_url = sample_url
         self.token = token
         self.metrics = metrics
         context = ssl.create_default_context()
@@ -86,61 +94,213 @@ class FaceManagementUploader(threading.Thread):
         for record_path in sorted(self.outbox.glob("*.json")):
             if self.stop_event.is_set():
                 return
-            record = json.loads(record_path.read_text(encoding="utf-8"))
-            body = json.dumps(record["sample"], separators=(",", ":")).encode("utf-8")
-            if len(body) > 1024 * 1024:
-                logger.error("dropping oversized face sample %s", record["sample"].get("sample_id"))
-                record_path.unlink()
+            try:
+                record = json.loads(record_path.read_text(encoding="utf-8"))
+                if (record.get("delivery") or {}).get("permanent_error"):
+                    continue
+                self._validate_record(record)
+            except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+                self._mark_permanent(record_path, {}, _PermanentRejection(
+                    "record", f"invalid v14 outbox record: {type(exc).__name__}"
+                ))
                 continue
             try:
-                started = time.monotonic()
-                response = self._submit(body)
+                if not record["delivery"].get("artifact_ack"):
+                    self._upload_artifact(record_path, record)
+                if not record_path.exists():
+                    continue
+                if not record["delivery"].get("embedding_ack"):
+                    self._submit_embedding(record_path, record)
             except _PermanentRejection as exc:
-                self.metrics.submitted("rejected", time.monotonic() - started)
-                logger.error("dropping permanently rejected face sample %s: %s", record["sample"].get("sample_id"), exc)
-                record_path.unlink()
+                self._mark_permanent(record_path, record, exc)
                 continue
-            except Exception:
-                self.metrics.submitted("retrying", time.monotonic() - started)
-                raise
-            if response.get("sample_id") != record["sample"]["sample_id"]:
-                raise ValueError("management returned an invalid face-sample acknowledgement")
-            self.metrics.submitted("success", time.monotonic() - started)
-            record_path.unlink()
+            self._complete(record_path, record)
 
-    def _submit(self, body: bytes) -> dict[str, Any]:
-        for attempt in range(5):
-            try:
-                return self._request(body)
-            except HTTPError as exc:
-                if exc.code == 401:
-                    raise _RetryLater("identity service rejected credentials", 60.0) from exc
-                if exc.code not in self.RETRY_STATUSES:
-                    raise _PermanentRejection(
-                        f"identity service permanently rejected sample with HTTP {exc.code}"
-                    ) from exc
-                if attempt == 4:
-                    raise _RetryLater(f"identity service unavailable after five attempts (HTTP {exc.code})", 10.0) from exc
-            except OSError as exc:
-                if attempt == 4:
-                    raise _RetryLater("identity service transport unavailable after five attempts", 10.0) from exc
-            delay = min(10.0, 0.25 * (2 ** attempt))
-            self.stop_event.wait(delay * random.uniform(0.75, 1.25))
-        raise AssertionError("unreachable")
+    def _upload_artifact(self, record_path: Path, record: dict[str, Any]) -> None:
+        sample_id = record["sample"]["sample_id"]
+        artifact = record["artifact"]
+        path = Path(artifact["path"])
+        try:
+            body = path.read_bytes()
+        except OSError as exc:
+            raise _PermanentRejection("artifact", "face crop is missing") from exc
+        if not 0 < len(body) <= 20 * 1024 * 1024:
+            raise _PermanentRejection("artifact", "face crop size violates contract")
+        digest = "sha256:" + hashlib.sha256(body).hexdigest()
+        if digest != artifact["sha256"] or len(body) != artifact["size_bytes"]:
+            raise _PermanentRejection("artifact", "face crop checksum or size changed")
+        attempt = self._record_attempt(record_path, record, "artifact")
+        url = self.artifact_url.replace("<sample-id>", quote(sample_id, safe=""))
+        started = time.monotonic()
+        try:
+            status, response = self._request(
+                url, body, artifact["content_type"],
+                {"X-ApexFabric-Artifact-SHA256": digest}, 15.0,
+            )
+        except HTTPError as exc:
+            self._raise_http_failure("artifact", exc, attempt, 60.0)
+        except OSError as exc:
+            self.metrics.submitted("artifact_retrying", time.monotonic() - started)
+            raise _RetryLater("face artifact transport unavailable", self._delay(attempt, 60.0)) from exc
+        if status not in (200, 201):
+            raise _PermanentRejection("artifact", f"unexpected artifact HTTP {status}", status)
+        self._validate_artifact_ack(record, response)
+        record["delivery"]["artifact_ack"] = response
+        _atomic_json(record_path, record)
+        self.metrics.submitted("artifact_success", time.monotonic() - started)
 
-    def _request(self, body: bytes) -> dict[str, Any]:
+    def _submit_embedding(self, record_path: Path, record: dict[str, Any]) -> None:
+        ack = record["delivery"]["artifact_ack"]
+        sample = dict(record["sample"])
+        sample["artifact_id"] = ack["artifact_id"]
+        sample["artifact_sha256"] = ack["sha256"]
+        body = json.dumps(sample, separators=(",", ":"), allow_nan=False).encode("utf-8")
+        if len(body) > 1024 * 1024:
+            raise _PermanentRejection("embedding", "face sample exceeds one MiB")
+        attempt = self._record_attempt(record_path, record, "embedding")
+        started = time.monotonic()
+        try:
+            status, response = self._request(
+                self.sample_url, body, "application/json", {}, 10.0,
+            )
+        except HTTPError as exc:
+            self._raise_http_failure("embedding", exc, attempt, 10.0)
+        except OSError as exc:
+            self.metrics.submitted("embedding_retrying", time.monotonic() - started)
+            raise _RetryLater("face embedding transport unavailable", self._delay(attempt, 10.0)) from exc
+        if status not in (200, 201) or response.get("sample_id") != sample["sample_id"]:
+            raise _PermanentRejection("embedding", "invalid face-sample acknowledgement", status)
+        record["delivery"]["embedding_ack"] = {
+            "sample_id": response["sample_id"], "status": status,
+        }
+        _atomic_json(record_path, record)
+        self.metrics.submitted("embedding_success", time.monotonic() - started)
+
+    def _request(self, url: str, body: bytes, content_type: str,
+                 headers: dict[str, str], timeout: float) -> tuple[int, dict[str, Any]]:
         request = Request(
-            self.url,
+            url,
             data=body,
             method="POST",
             headers={
                 "Authorization": "Bearer " + self.token,
-                "Content-Type": "application/json",
+                "Content-Type": content_type,
                 "Accept": "application/json",
+                **headers,
             },
         )
-        with self.opener.open(request, timeout=self.timeout) as response:
-            return json.load(response)
+        with self.opener.open(request, timeout=timeout) as response:
+            return response.status, json.load(response)
+
+    def _record_attempt(self, path: Path, record: dict[str, Any], stage: str) -> int:
+        field = stage + "_attempts"
+        attempt = int(record["delivery"].get(field, 0)) + 1
+        record["delivery"][field] = attempt
+        record["delivery"]["last_attempt_at"] = time.time()
+        _atomic_json(path, record)
+        return attempt
+
+    def _raise_http_failure(self, stage: str, exc: HTTPError,
+                            attempt: int, maximum_delay: float) -> None:
+        if exc.code in (401, 403):
+            self.metrics.submitted(stage + "_auth_error", 0.0)
+            raise _RetryLater(f"{stage} credentials rejected", 60.0) from exc
+        if exc.code in self.RETRY_STATUSES:
+            self.metrics.submitted(stage + "_retrying", 0.0)
+            raise _RetryLater(
+                f"{stage} service returned retryable HTTP {exc.code}",
+                self._delay(attempt, maximum_delay),
+            ) from exc
+        raise _PermanentRejection(stage, f"management rejected {stage} with HTTP {exc.code}", exc.code) from exc
+
+    @staticmethod
+    def _delay(attempt: int, maximum: float) -> float:
+        return min(maximum, 0.25 * (2 ** min(max(0, attempt - 1), 16))) * random.uniform(0.75, 1.25)
+
+    @staticmethod
+    def _validate_record(record: dict[str, Any]) -> None:
+        if record.get("schema_version") != 2:
+            raise ValueError("unsupported outbox schema")
+        sample = record["sample"]
+        required = {"sample_id", "event_id", "camera_id", "track_id", "observed_at",
+                    "model_id", "dimensions", "embedding", "quality"}
+        if not required <= set(sample):
+            raise ValueError("outbox sample is incomplete")
+        if sample["model_id"] != "face-embedding-model-v1" or sample["dimensions"] != 512:
+            raise ValueError("outbox embedding space is incompatible")
+        embedding = sample["embedding"]
+        if (
+            not isinstance(embedding, list)
+            or len(embedding) != 512
+            or not all(isinstance(value, (int, float)) and math.isfinite(value) for value in embedding)
+        ):
+            raise ValueError("outbox embedding is invalid")
+        quality = sample["quality"]
+        if not isinstance(quality, (int, float)) or not math.isfinite(quality) or not 0 <= quality <= 1:
+            raise ValueError("outbox quality is invalid")
+        if not isinstance(record.get("artifact"), dict) or not isinstance(record.get("delivery"), dict):
+            raise ValueError("outbox delivery state is incomplete")
+        artifact = record["artifact"]
+        if artifact.get("content_type") not in {"image/jpeg", "image/png"}:
+            raise ValueError("outbox artifact content type is invalid")
+        digest = artifact.get("sha256")
+        if (
+            not isinstance(digest, str)
+            or not digest.startswith("sha256:")
+            or len(digest) != 71
+            or any(character not in "0123456789abcdef" for character in digest[7:])
+        ):
+            raise ValueError("outbox artifact checksum is invalid")
+
+    @staticmethod
+    def _validate_artifact_ack(record: dict[str, Any], response: dict[str, Any]) -> None:
+        artifact = record["artifact"]
+        sample_id = record["sample"]["sample_id"]
+        expected_id = "artifact-sha256-" + artifact["sha256"].removeprefix("sha256:")
+        expected = {
+            "artifact_id": expected_id,
+            "sample_id": sample_id,
+            "sha256": artifact["sha256"],
+            "content_type": artifact["content_type"],
+            "size_bytes": artifact["size_bytes"],
+        }
+        if any(response.get(key) != value for key, value in expected.items()):
+            raise _PermanentRejection("artifact", "artifact acknowledgement does not match request")
+        if response.get("status") not in {"created", "existing"}:
+            raise _PermanentRejection("artifact", "artifact acknowledgement has invalid status")
+
+    def _mark_permanent(self, path: Path, record: dict[str, Any], exc: _PermanentRejection) -> None:
+        if not record:
+            try:
+                record = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:  # noqa: BLE001
+                record = {"schema_version": 0, "delivery": {}}
+        artifact = record.get("artifact") or {}
+        artifact_path = Path(artifact.get("path", ""))
+        if artifact_path.is_file():
+            artifact_path.unlink(missing_ok=True)
+        sample = record.get("sample") or {}
+        sample.pop("embedding", None)
+        artifact.pop("path", None)
+        delivery = record.setdefault("delivery", {})
+        delivery.pop("artifact_ack", None)
+        delivery.pop("embedding_ack", None)
+        delivery["permanent_error"] = {
+            "stage": exc.stage, "status": exc.status,
+            "reason": str(exc)[:200], "recorded_at": time.time(),
+        }
+        _atomic_json(path, record)
+        self.metrics.submitted(exc.stage + "_rejected", 0.0)
+        logger.error("face delivery permanently rejected stage=%s status=%s", exc.stage, exc.status)
+
+    @staticmethod
+    def _complete(record_path: Path, record: dict[str, Any]) -> None:
+        if not record["delivery"].get("artifact_ack") or not record["delivery"].get("embedding_ack"):
+            return
+        try:
+            Path(record["artifact"]["path"]).unlink(missing_ok=True)
+        finally:
+            record_path.unlink(missing_ok=True)
 
 
 class FaceSamplePipeline:
@@ -174,10 +334,21 @@ class FaceSamplePipeline:
         self.last_embeddings: dict[int, np.ndarray] = {}
         self.uploader = None
         self.max_pending = max(1, int(os.getenv("FACE_SAMPLE_OUTBOX_MAX_RECORDS", "1000")))
+        self.max_pending_bytes = max(1024 * 1024, int(os.getenv(
+            "FACE_SAMPLE_OUTBOX_MAX_BYTES", str(1024 * 1024 * 1024)
+        )))
+        self.max_pending_age = max(60.0, float(os.getenv(
+            "FACE_SAMPLE_OUTBOX_MAX_AGE_SECONDS", str(7 * 24 * 60 * 60)
+        )))
+        self._prune_outbox()
         token = os.getenv("APEXFABRIC_FACE_IDENTITY_TOKEN", "").strip()
         if token:
             self.uploader = FaceManagementUploader(
                 self.outbox,
+                os.getenv(
+                    "APEXFABRIC_FACE_ARTIFACT_URL_TEMPLATE",
+                    "http://apexfabric-ui.apexfabric.svc/internal/face-artifacts/<sample-id>",
+                ),
                 os.getenv(
                     "APEXFABRIC_FACE_IDENTITY_URL",
                     "http://apexfabric-ui.apexfabric.svc/internal/face-samples",
@@ -213,10 +384,7 @@ class FaceSamplePipeline:
             if not self._should_emit(face.track_id, embedding, now):
                 self.metrics.suppressed("duplicate")
                 continue
-            if len(list(self.outbox.glob("*.json"))) >= self.max_pending:
-                self.metrics.suppressed("outbox_full")
-                logger.warning("face sample outbox is full; suppressing camera=%s track=%s", self.camera_id, face.track_id)
-                continue
+            self._prune_outbox(reserve_records=1)
             sample_id = "face-" + uuid.uuid4().hex
             observed_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
             event_id = f"{self.camera_id}:face_recognition:face_seen:{sample_id}"
@@ -230,17 +398,32 @@ class FaceSamplePipeline:
                 "sample_id": sample_id,
                 "event_id": event_id,
                 "camera_id": self.camera_id,
+                "track_id": str(face.track_id),
                 "observed_at": observed_at,
                 "model_id": self.extractor.model_id,
                 "dimensions": self.extractor.dimension,
                 "embedding": [float(value) for value in embedding],
                 "quality": round(float(face.quality), 6),
-                "face_crop_url": self._event_asset(assets["face_crop"])["url"],
             }
             _atomic_json(self.outbox / f"{sample_id}.json", {
+                "schema_version": 2,
+                "created_at": now,
                 "sample": sample,
-                "artifacts": assets,
+                "artifact": {
+                    "path": assets["face_crop"]["path"],
+                    "ref": assets["face_crop"]["ref"],
+                    "content_type": "image/jpeg",
+                    "size_bytes": assets["face_crop"]["size"],
+                    "sha256": "sha256:" + assets["face_crop"]["artifact_id"],
+                },
+                "delivery": {
+                    "artifact_ack": None,
+                    "embedding_ack": None,
+                    "artifact_attempts": 0,
+                    "embedding_attempts": 0,
+                },
             })
+            self._prune_outbox()
             packet.add_event({
                 "observation_id": event_id,
                 "observed_at": observed_at,
@@ -264,6 +447,48 @@ class FaceSamplePipeline:
             self.last_emitted[face.track_id] = now
             self.last_embeddings[face.track_id] = embedding.copy()
             self.metrics.emitted()
+
+    def _prune_outbox(self, reserve_records: int = 0) -> None:
+        now = time.time()
+        records = []
+        for path in self.outbox.glob("*.json"):
+            try:
+                record = json.loads(path.read_text(encoding="utf-8"))
+                created = float(record.get("created_at", path.stat().st_mtime))
+                artifact_path = Path((record.get("artifact") or {}).get("path", ""))
+                size = path.stat().st_size
+                if artifact_path.is_file():
+                    size += artifact_path.stat().st_size
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                created, size = 0.0, path.stat().st_size if path.exists() else 0
+            records.append((created, path, size))
+        records.sort(key=lambda item: (item[0], item[1].name))
+        total = sum(item[2] for item in records)
+        for created, path, size in list(records):
+            if created and now - created <= self.max_pending_age:
+                continue
+            self._drop_outbox_record(path, "max_age")
+            records.remove((created, path, size))
+            total -= size
+        while records and (
+            len(records) + reserve_records > self.max_pending
+            or total > self.max_pending_bytes
+        ):
+            _, path, size = records.pop(0)
+            self._drop_outbox_record(path, "capacity")
+            total -= size
+        self.metrics.outbox(len(records), max(0, total))
+
+    def _drop_outbox_record(self, path: Path, reason: str) -> None:
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+            artifact_path = Path((record.get("artifact") or {}).get("path", ""))
+            if artifact_path.is_file() and self.state_root.resolve() in artifact_path.resolve().parents:
+                artifact_path.unlink(missing_ok=True)
+        except (OSError, ValueError, json.JSONDecodeError):
+            pass
+        path.unlink(missing_ok=True)
+        self.metrics.outbox_drop(reason)
 
     def _eligible(self, person, frame_shape, now: float) -> bool:
         if person.model_name != "vehicle" or person.class_name != "pedestrian":
@@ -334,12 +559,37 @@ class FaceSamplePipeline:
         annotated = packet.frame.copy()
         cv2.rectangle(annotated, (face.bbox[0], face.bbox[1]),
                       (face.bbox[2], face.bbox[3]), (0, 255, 255), 2)
+        evidence_crop = self._evidence_crop(packet.frame, face.bbox)
         frame_digest, frame_size = _write_jpeg(frame_path, annotated)
-        crop_digest, crop_size = _write_jpeg(crop_path, face.chip)
+        crop_digest, crop_size = _write_jpeg(crop_path, evidence_crop)
         return {
             "event_frame": self._artifact(frame_path, frame_digest, frame_size),
             "face_crop": self._artifact(crop_path, crop_digest, crop_size),
         }
+
+    @staticmethod
+    def _evidence_crop(frame: np.ndarray, bbox) -> np.ndarray:
+        """Return a square UI crop with context; embedding still uses face.chip."""
+        frame_height, frame_width = frame.shape[:2]
+        x1, y1, x2, y2 = [int(round(value)) for value in bbox]
+        x1, x2 = sorted((max(0, min(frame_width, x1)), max(0, min(frame_width, x2))))
+        y1, y2 = sorted((max(0, min(frame_height, y1)), max(0, min(frame_height, y2))))
+        face_width = x2 - x1
+        face_height = y2 - y1
+        if face_width <= 0 or face_height <= 0:
+            raise ValueError("face evidence bounding box is empty")
+
+        # Make the detected face occupy at most half the crop. Shift the square
+        # inside the frame near boundaries instead of inventing padded pixels.
+        side = min(frame_width, frame_height, max(2, 2 * max(face_width, face_height)))
+        center_x = (x1 + x2) / 2.0
+        center_y = (y1 + y2) / 2.0
+        left = max(0, min(frame_width - side, int(round(center_x - side / 2.0))))
+        top = max(0, min(frame_height - side, int(round(center_y - side / 2.0))))
+        crop = frame[top:top + side, left:left + side]
+        if crop.size == 0:
+            raise ValueError("face evidence crop is empty")
+        return crop.copy()
 
     def _artifact(self, path: Path, digest: str, size: int) -> dict[str, Any]:
         return {

@@ -42,7 +42,7 @@ PLATE_DEVICE = os.getenv("PLATE_DEVICE", "GPU")
 SMOKE_FIRE_DEVICE = os.getenv("SMOKE_FIRE_DEVICE", "AUTO:GPU,NPU,CPU")
 VEHICLE_CLASS_IDS = {0, 2, 3, 5, 7}
 VEHICLE_CLASS_NAMES = {0: "pedestrian", 2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
-STREAM_SCHEMES = ("rtsp://", "rtsps://", "rtmp://", "http://", "https://")
+STREAM_SCHEMES = ("rtsp://", "rtsps://", "http://", "https://")
 
 
 def load_cameras() -> list[dict]:

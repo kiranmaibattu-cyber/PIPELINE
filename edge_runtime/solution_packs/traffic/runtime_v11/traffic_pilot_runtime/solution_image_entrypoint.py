@@ -427,6 +427,12 @@ def _metrics(state: RuntimeState) -> str:
             f'face_sample_submission_latency_seconds{{camera_id="{camera}"}} '
             f'{float(payload.get("submission_latency_seconds", 0.0))}'
         )
+        lines.append(f'face_sample_outbox_records{{camera_id="{camera}"}} {int(payload.get("outbox_records", 0))}')
+        lines.append(f'face_sample_outbox_bytes{{camera_id="{camera}"}} {int(payload.get("outbox_bytes", 0))}')
+        for reason, value in sorted((payload.get("outbox_drops") or {}).items()):
+            lines.append(
+                f'face_sample_outbox_dropped_total{{camera_id="{camera}",reason="{_prometheus_label(str(reason))}"}} {int(value)}'
+            )
         for asset, value in sorted((payload.get("snapshot_write_failures") or {}).items()):
             lines.append(
                 f'face_snapshot_write_failures_total{{camera_id="{camera}",asset="{_prometheus_label(str(asset))}"}} {int(value)}'
