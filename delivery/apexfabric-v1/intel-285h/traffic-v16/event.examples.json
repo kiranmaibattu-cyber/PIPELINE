@@ -1,0 +1,39 @@
+{
+  "vehicle_count_event": {
+    "schema_version": "1.0",
+    "event_id": "entrance-camera-vehicle-13051",
+    "timestamp": "2026-09-22T10:42:17Z",
+    "camera_id": "entrance-camera",
+    "solution_pack": "sporada-secure",
+    "application": "vehicle_counting",
+    "event_type": "vehicle_count_per_frame",
+    "payload": {
+      "count": {"total": 2},
+      "location": {"id": "entrance-camera-vehicle-zone", "name": "Vehicle counting zone", "type": "zone"},
+      "objects": [
+        {"type": "car", "confidence": 0.94, "track_id": 8291, "bbox": {"x1": 211, "y1": 173, "x2": 491, "y2": 422}},
+        {"type": "truck", "confidence": 0.91, "track_id": 8292, "bbox": {"x1": 510, "y1": 185, "x2": 760, "y2": 430}}
+      ],
+      "snapshot_url": "/snapshots/entrance-camera/vehicle-13051.jpg",
+      "snapshot_assets": {"event_frame": {"url": "/snapshots/entrance-camera/vehicle-13051.jpg", "content_type": "image/jpeg"}}
+    }
+  },
+  "vehicle_entry_exit_request": {
+    "schema_version": "1.0",
+    "event_id": "entrance-camera:main-entrance:track-8291:2026-09-22T10:42:18.381Z",
+    "observed_at": "2026-09-22T10:42:18.381Z",
+    "camera_id": "entrance-camera",
+    "line_id": "main-entrance",
+    "line_name": "Main entrance",
+    "direction": "in",
+    "track_id": "8291",
+    "crossing_point": {"x": 0.47, "y": 0.62},
+    "vehicle": {"class": "car", "confidence": 0.94, "bbox": {"x1": 211, "y1": 173, "x2": 491, "y2": 422}}
+  },
+  "vehicle_entry_exit_response_created": {
+    "event_id": "entrance-camera:main-entrance:track-8291:2026-09-22T10:42:18.381Z",
+    "status": "created",
+    "artifact_id": "artifact-sha256-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "artifact_sha256": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  }
+}

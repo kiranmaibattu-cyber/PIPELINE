@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:apexfabric:sporada-secure:vehicle-crossing:1",
+  "title": "Durable vehicle entry/exit crossing",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "event_id", "observed_at", "camera_id", "line_id", "direction", "track_id", "vehicle"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "event_id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "camera_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$", "maxLength": 200},
+    "line_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$", "maxLength": 200},
+    "line_name": {"type": "string", "minLength": 1, "maxLength": 200},
+    "direction": {"enum": ["in", "out"]},
+    "track_id": {"type": ["string", "integer"]},
+    "crossing_point": {"$ref": "#/$defs/point"},
+    "vehicle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "confidence", "bbox"],
+      "properties": {
+        "class": {"enum": ["car", "truck", "bus", "motorcycle"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "bbox": {"$ref": "#/$defs/bbox"}
+      }
+    }
+  },
+  "$defs": {
+    "point": {
+      "type": "object", "additionalProperties": false, "required": ["x", "y"],
+      "properties": {"x": {"type": "number", "minimum": 0, "maximum": 1}, "y": {"type": "number", "minimum": 0, "maximum": 1}}
+    },
+    "bbox": {
+      "type": "object", "additionalProperties": false, "required": ["x1", "y1", "x2", "y2"],
+      "properties": {"x1": {"type": "number", "minimum": 0}, "y1": {"type": "number", "minimum": 0}, "x2": {"type": "number", "exclusiveMinimum": 0}, "y2": {"type": "number", "exclusiveMinimum": 0}}
+    }
+  }
+}
