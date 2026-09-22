@@ -10,7 +10,8 @@ identifier used in desired state, events, contracts, and the runtime graph.
 - Workload Dockerfile: `docker/Dockerfile.traffic-v16`
 - Build script: `scripts/build_traffic_v16_layered_image.sh`
 - Published image: `ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime:intel-285h-2026.09.22-v16`
-- Verification and immutable references: `SPORADA_V16_RELEASE.md`
+- Immutable image: `ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime@sha256:ab73469305c422f3dbfd4592e77dbc13d4427dd7fdff56056de22a5dad25b224`
+- Verification: `SPORADA_V16_RELEASE.md`
 
 The runtime directory is a product-owned snapshot. The v16 Dockerfile does
 longer reads application code from the older shared

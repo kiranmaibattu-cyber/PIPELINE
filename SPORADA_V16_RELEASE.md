@@ -40,5 +40,17 @@ face chip and OCR tensor are resized to their model input dimensions.
 - No clearly readable plate crossed the test scene, so positive ANPR accuracy is
   not claimed by this release test.
 
-The local/registry image references and immutable registry digest are recorded
-after publication.
+## Published Image
+
+```text
+ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime:intel-285h-2026.09.22-v16
+ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime@sha256:ab73469305c422f3dbfd4592e77dbc13d4427dd7fdff56056de22a5dad25b224
+```
+
+Local image ID:
+`sha256:a8673d7f608ee511c2bfba0ca6994e76d9e2e91fdcf9ca1ffb3fa0f4490b2e67`.
+
+Offline archive:
+`latest-images-20260922/traffic-edge-runtime-intel-285h-2026.09.22-v16.tar`
+with SHA-256
+`36aa6203c24fd13296af51073f97498d7062f70a07b7251ed5ea7a7d6ec2dacd`.
