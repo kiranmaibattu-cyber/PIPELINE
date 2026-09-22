@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:apexfabric:face-recognition:artifact-response:2",
+  "title": "Durable face artifact acknowledgement v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["artifact_id", "sample_id", "sha256", "content_type", "size_bytes", "status"],
+  "properties": {
+    "artifact_id": {"type": "string", "pattern": "^artifact-sha256-[0-9a-f]{64}$"},
+    "sample_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "content_type": {"enum": ["image/jpeg", "image/png"]},
+    "size_bytes": {"type": "integer", "minimum": 1, "maximum": 20971520},
+    "status": {"enum": ["created", "existing"]}
+  }
+}

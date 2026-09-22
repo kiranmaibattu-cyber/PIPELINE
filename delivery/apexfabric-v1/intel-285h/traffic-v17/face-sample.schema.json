@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:apexfabric:face-recognition:face-sample:2",
+  "title": "Face embedding submission with acknowledged artifact v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sample_id", "event_id", "camera_id", "track_id", "observed_at",
+    "model_id", "dimensions", "embedding", "quality",
+    "artifact_id", "artifact_sha256"
+  ],
+  "properties": {
+    "sample_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "event_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "camera_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$", "maxLength": 200},
+    "track_id": {"type": ["string", "integer"]},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "model_id": {"const": "face-embedding-model-v1"},
+    "dimensions": {"const": 512},
+    "embedding": {"type": "array", "minItems": 512, "maxItems": 512, "items": {"type": "number"}},
+    "quality": {"type": "number", "minimum": 0, "maximum": 1},
+    "artifact_id": {"type": "string", "pattern": "^artifact-sha256-[0-9a-f]{64}$"},
+    "artifact_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

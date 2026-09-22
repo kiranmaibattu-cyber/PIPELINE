@@ -5,15 +5,16 @@ identifier used in desired state, events, contracts, and the runtime graph.
 
 ## Current release
 
-- Runtime source: `edge_runtime/solution_packs/sporada_secure/runtime_v16/`
-- Delivery contract: `delivery/apexfabric-v1/intel-285h/traffic-v16/`
-- Workload Dockerfile: `docker/Dockerfile.traffic-v16`
-- Build script: `scripts/build_traffic_v16_layered_image.sh`
-- Published image: `ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime:intel-285h-2026.09.22-v16`
-- Immutable image: `ghcr.io/kiranmaibattu-cyber/traffic-edge-runtime@sha256:ab73469305c422f3dbfd4592e77dbc13d4427dd7fdff56056de22a5dad25b224`
-- Verification: `SPORADA_V16_RELEASE.md`
+- Runtime source: `edge_runtime/solution_packs/sporada_secure/runtime_v17/`
+- Delivery contract: `delivery/apexfabric-v1/intel-285h/traffic-v17/`
+- Workload Dockerfile: `docker/Dockerfile.traffic-v17`
+- Build script: `scripts/build_traffic_v17_layered_image.sh`
+- Local candidate: `localhost/traffic-pilot-runtime:intel-285h-2026.09.22-v17`
+- Verification: `SPORADA_V17_RELEASE.md`
 
-The runtime directory is a product-owned snapshot. The v16 Dockerfile does
+The last published image remains v16. V17 is not yet archived or published.
+
+The runtime directory is a product-owned snapshot. The v17 Dockerfile does
 longer reads application code from the older shared
 `edge_runtime/solution_packs/traffic/runtime_v11/` path.
 

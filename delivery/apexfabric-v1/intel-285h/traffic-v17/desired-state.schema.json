@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:apexfabric:sporada-secure:desired-state:17",
+  "title": "Sporada Secure six-application desired state",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["edge_id", "revision", "cameras"],
+  "properties": {
+    "edge_id": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "cameras": {
+      "type": "array", "minItems": 1, "maxItems": 8,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["camera_id", "source", "solution_pack", "apps", "config"],
+        "properties": {
+          "camera_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"},
+          "source": {"type": "string", "pattern": "^file:/run/secrets/apexfabric/[A-Za-z0-9._-]+\\.url$"},
+          "solution_pack": {"const": "sporada-secure"},
+          "fps": {"type": "number", "exclusiveMinimum": 0, "maximum": 60},
+          "apps": {
+            "type": "array", "minItems": 1, "uniqueItems": true,
+            "items": {"enum": ["anpr", "vehicle_counting", "vehicle_entry_exit_counts", "pedestrian_counting", "fire_smoke_detection", "face_recognition"]}
+          },
+          "config": {"$ref": "#/$defs/camera_config"}
+        },
+        "allOf": [{
+          "if": {"properties": {"apps": {"contains": {"const": "vehicle_entry_exit_counts"}}}},
+          "then": {"properties": {"config": {"required": ["counting_lines"], "properties": {"counting_lines": {"required": ["vehicle_entry_exit_counts"]}}}}}
+        }]
+      }
+    }
+  },
+  "$defs": {
+    "point": {
+      "type": "array", "minItems": 2, "maxItems": 2, "items": false,
+      "prefixItems": [{"type": "number", "minimum": 0, "maximum": 1}, {"type": "number", "minimum": 0, "maximum": 1}]
+    },
+    "zone": {
+      "type": "object", "additionalProperties": false, "required": ["id", "name", "poly"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "name": {"type": "string", "minLength": 1},
+        "poly": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"$ref": "#/$defs/point"}}
+      }
+    },
+    "counting_line": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "a", "b", "direction_mapping"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$", "maxLength": 200},
+        "name": {"type": "string", "minLength": 1, "maxLength": 200},
+        "a": {"$ref": "#/$defs/point"},
+        "b": {"$ref": "#/$defs/point"},
+        "direction_mapping": {
+          "type": "object", "additionalProperties": false,
+          "description": "Crossing direction relative to the oriented line A to B. Looking from A toward B, the left side is IN and the right side is OUT; reversing A and B swaps the physical sides.",
+          "required": ["right_to_left", "left_to_right"],
+          "properties": {
+            "right_to_left": {"const": "in"},
+            "left_to_right": {"const": "out"}
+          }
+        },
+        "minimum_track_age_frames": {"type": "integer", "minimum": 1, "maximum": 300, "default": 3},
+        "minimum_crossing_displacement": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.02},
+        "crossing_cooldown_seconds": {"type": "number", "minimum": 0, "maximum": 3600, "default": 10}
+      }
+    },
+    "camera_config": {
+      "type": "object", "additionalProperties": false,
+      "required": ["embedding", "emission", "zones"],
+      "properties": {
+        "embedding": {
+          "type": "object", "additionalProperties": false, "required": ["model_id", "dimensions"],
+          "properties": {"model_id": {"const": "face-embedding-model-v1"}, "dimensions": {"const": 512}}
+        },
+        "emission": {
+          "type": "object", "additionalProperties": false,
+          "required": ["minimum_quality", "cooldown_seconds", "material_change_threshold"],
+          "properties": {
+            "minimum_quality": {"type": "number", "minimum": 0, "maximum": 1},
+            "cooldown_seconds": {"type": "number", "minimum": 0, "maximum": 3600},
+            "material_change_threshold": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        },
+        "zones": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "anpr": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/zone"}},
+            "vehicle_counting": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/zone"}},
+            "pedestrian_counting": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/zone"}},
+            "fire_smoke_detection": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/zone"}},
+            "face_recognition": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/zone"}}
+          }
+        },
+        "counting_lines": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "vehicle_entry_exit_counts": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/counting_line"}}
+          }
+        }
+      }
+    }
+  }
+}
