@@ -9,10 +9,12 @@ identifier used in desired state, events, contracts, and the runtime graph.
 - Delivery contract: `delivery/apexfabric-v1/intel-285h/traffic-v17/`
 - Workload Dockerfile: `docker/Dockerfile.traffic-v17`
 - Build script: `scripts/build_traffic_v17_layered_image.sh`
-- Local candidate: `localhost/traffic-pilot-runtime:intel-285h-2026.09.22-v17`
+- Local mirror: `localhost/traffic-pilot-runtime:intel-285h-2026.09.22-v17`
+- Published image: `ghcr.io/kiranmaibattu-cyber/sporada:intel-285h-2026.09.22-v17`
+- Published digest: `sha256:8d5e0d3d9297cd60aa0d95eb34ab2f644901a5d49a18eaa56b7e0d3f3e4ba8a9`
 - Verification: `SPORADA_V17_RELEASE.md`
 
-The last published image remains v16. V17 is not yet archived or published.
+V17 is archived locally and published as an anonymously readable GHCR image.
 
 The runtime directory is a product-owned snapshot. The v17 Dockerfile does
 longer reads application code from the older shared
