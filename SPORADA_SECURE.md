@@ -16,6 +16,14 @@ identifier used in desired state, events, contracts, and the runtime graph.
 
 V17 is archived locally and published as an anonymously readable GHCR image.
 
+## V18 Candidate
+
+The isolated v18 source is under
+`edge_runtime/solution_packs/sporada_secure/runtime_v18/`, with contract
+`delivery/apexfabric-v1/intel-285h/traffic-v18/`. It adds bounded best-face
+selection with fallback while keeping v17 immutable. See
+`SPORADA_V18_RELEASE.md` and `SPORADA_V18_FACE_SELECTION.md`.
+
 The runtime directory is a product-owned snapshot. The v17 Dockerfile does
 longer reads application code from the older shared
 `edge_runtime/solution_packs/traffic/runtime_v11/` path.

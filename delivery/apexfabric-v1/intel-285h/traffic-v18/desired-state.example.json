@@ -1,0 +1,34 @@
+{
+  "edge_id": "site-3d118f102313",
+  "revision": 15,
+  "cameras": [{
+    "camera_id": "entrance-camera",
+    "source": "file:/run/secrets/apexfabric/entrance-camera.url",
+    "solution_pack": "sporada-secure",
+    "fps": 8,
+    "apps": ["vehicle_counting", "vehicle_entry_exit_counts"],
+    "config": {
+      "embedding": {"model_id": "face-embedding-model-v1", "dimensions": 512},
+      "emission": {"minimum_quality": 0.20, "preferred_quality": 0.65, "selection_window_seconds": 1.5, "cooldown_seconds": 30, "material_change_threshold": 0.15},
+      "zones": {
+        "vehicle_counting": [{
+          "id": "entrance-camera-vehicle-zone",
+          "name": "Vehicle counting zone",
+          "poly": [[0.05, 0.15], [0.95, 0.15], [0.95, 0.95], [0.05, 0.95]]
+        }]
+      },
+      "counting_lines": {
+        "vehicle_entry_exit_counts": [{
+          "id": "main-entrance",
+          "name": "Main entrance",
+          "a": [0.15, 0.62],
+          "b": [0.88, 0.62],
+          "direction_mapping": {"right_to_left": "in", "left_to_right": "out"},
+          "minimum_track_age_frames": 3,
+          "minimum_crossing_displacement": 0.02,
+          "crossing_cooldown_seconds": 10
+        }]
+      }
+    }
+  }]
+}
