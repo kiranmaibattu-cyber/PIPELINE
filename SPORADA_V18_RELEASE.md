@@ -1,10 +1,10 @@
-# Sporada Secure v18 Candidate
+# Sporada Secure v18 Release
 
 Build date: 2026-09-23
 
 Hardware profile: Intel Core Ultra 285H (`linux/amd64`)
 
-## Local Image
+## Images
 
 ```text
 localhost/traffic-pilot-runtime:intel-285h-2026.09.23-v18
@@ -15,7 +15,15 @@ The PIPELINE mirror reuses its unchanged v2 Intel runtime base and baked
 OpenVINO models. The canonical tested standalone image is
 `localhost/sporada:intel-285h-2026.09.23-v18` with image ID
 `sha256:1d96213756ad26652238aed49b6cf94523c7e9c79c4dbdeb463930aee65bf0ee`.
-Neither v18 image has been archived or published.
+The anonymously readable canonical OCI image is:
+
+```text
+ghcr.io/kiranmaibattu-cyber/sporada:intel-285h-2026.09.23-v18
+ghcr.io/kiranmaibattu-cyber/sporada@sha256:c8a3527560968a6606c1e3f5acaabc1a2cec28515104eeed0569e53d0e949b76
+```
+
+No duplicate PIPELINE package is published; both source repositories reference
+this same immutable image.
 
 ## Face Selection
 
