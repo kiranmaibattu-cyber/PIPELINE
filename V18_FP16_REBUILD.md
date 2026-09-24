@@ -18,7 +18,7 @@ The previous local INT8 image is preserved as:
 
 The tested image is published as:
 
-`ghcr.io/kiranmaibattu-cyber/sporada@sha256:102b3d6100d11fd345608cd720ccc3ecc806d7168713c28c51d0c824f51f28b8`
+`ghcr.io/kiranmaibattu-cyber/sporada@sha256:f798a932cdf76cc711cdef7455218ba38ee501ff1bb13c7df78009033cbddddf`
 
 ## Verification
 
