@@ -19,7 +19,7 @@ import cv2
 ROOT = Path(__file__).resolve().parents[1]
 RUN = ROOT / "run" / f"sporada-v18-face-delivery-{int(time.time())}"
 NAME = "sporada-v18-face-delivery"
-IMAGE = "localhost/traffic-pilot-runtime:intel-285h-2026.09.23-v18"
+IMAGE = "localhost/sporada:intel-285h-2026.09.23-v18"
 API = "http://127.0.0.1:18080"
 TOKEN = "v18-live-test-token"
 CAMERA_URL = os.getenv(

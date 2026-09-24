@@ -6,14 +6,7 @@ import xml.etree.ElementTree as ET
 
 
 REPOSITORY = Path(__file__).resolve().parents[5]
-MODEL = next(
-    candidate
-    for candidate in (
-        REPOSITORY / "models/traffic-v11/openvino/vehicle.xml",
-        REPOSITORY / "models/sporada-secure-v14/openvino/vehicle.xml",
-    )
-    if candidate.is_file()
-)
+MODEL = REPOSITORY / "vehicle_yolo26n_fp16.xml"
 
 
 def test_vehicle_model_preserves_runtime_tensor_contract():
@@ -42,3 +35,17 @@ def test_vehicle_model_class_ids_match_worker_mapping():
         5: "bus",
         7: "truck",
     }
+
+
+def test_vehicle_model_is_fp16_without_int8_fake_quantization():
+    root = ET.parse(MODEL).getroot()
+    layer_types = {layer.attrib.get("type") for layer in root.findall("./layers/layer")}
+    precisions = {
+        port.attrib.get("precision")
+        for port in root.findall(".//port")
+        if port.attrib.get("precision")
+    }
+
+    assert "FP16" in precisions
+    assert "I8" not in precisions
+    assert "FakeQuantize" not in layer_types
