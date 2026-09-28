@@ -14,7 +14,7 @@ from urllib.request import urlopen
 ROOT = Path(__file__).resolve().parents[1]
 RUN = ROOT / "run" / f"sporada-v18-hot-reload-{int(time.time())}"
 NAME = "sporada-v18-hot-reload"
-IMAGE = "localhost/sporada:intel-285h-2026.09.23-v18"
+IMAGE = "localhost/sporada:intel-285h-2026.09.28-v18.1"
 API = "http://127.0.0.1:18080"
 
 

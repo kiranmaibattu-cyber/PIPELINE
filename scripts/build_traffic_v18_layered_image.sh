@@ -10,7 +10,7 @@ if ! command -v podman >/dev/null 2>&1; then
 fi
 
 BASE_TAG="${INTEL_TRAFFIC_V18_BASE_TAG:-localhost/apexfabric-intel-traffic-runtime-base:intel-285h-2026.09.18-v2}"
-IMAGE_VERSION="${APEXFABRIC_IMAGE_VERSION:-2026.09.23-v18}"
+IMAGE_VERSION="${APEXFABRIC_IMAGE_VERSION:-2026.09.28-v18.1}"
 IMAGE_REPOSITORY="${APEXFABRIC_IMAGE_REPOSITORY:-localhost/sporada}"
 IMAGE_TAG="${IMAGE_REPOSITORY}:intel-285h-${IMAGE_VERSION}"
 

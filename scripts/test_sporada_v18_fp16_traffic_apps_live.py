@@ -16,7 +16,7 @@ import cv2
 ROOT = Path(__file__).resolve().parents[1]
 RUN = ROOT / "run" / f"sporada-v18-fp16-traffic-apps-{int(time.time())}"
 NAME = "sporada-v18-fp16-traffic-apps"
-IMAGE = "localhost/sporada:intel-285h-2026.09.23-v18"
+IMAGE = "localhost/sporada:intel-285h-2026.09.28-v18.1"
 API = "http://127.0.0.1:18088"
 CAMERA_URL = os.getenv("SPORADA_TEST_CAMERA_URL", "rtsp://192.168.1.95:8554/traffic1")
 

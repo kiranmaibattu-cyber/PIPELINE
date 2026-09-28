@@ -20,7 +20,7 @@ from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
 RUN = ROOT / "run" / f"sporada-v18-crossing-{int(time.time())}"
-IMAGE = "localhost/sporada:intel-285h-2026.09.23-v18"
+IMAGE = "localhost/sporada:intel-285h-2026.09.28-v18.1"
 NAME = "sporada-v18-crossing-test"
 API = "http://127.0.0.1:18087"
 TOKEN = "crossing-live-test-token"
