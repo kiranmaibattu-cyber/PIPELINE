@@ -1,13 +1,10 @@
-# Sporada Secure v18 six-application contract
-
-This rebuilt v18 image uses the baked `yolo26n-coco-openvino-fp16` OpenVINO IR
-for vehicle and person detection on the Intel iGPU. It retains the previous
-input, output, and class-ID contract. Exact checksums are declared in
-`image-contract.yaml`.
+# Sporada Secure v18 eight-application contract
 
 CV-team entry point: [`CV-PIPELINE-HANDOFF.md`](CV-PIPELINE-HANDOFF.md).
 
-This revision removes detector-class selection from Management configuration. It preserves zone-based
+This revision adds SigLIP scene embeddings and multimodal person Re-ID using
+TransReID body appearance, AdaFace, MOG2 silhouettes, and GaitBase. It also
+removes detector-class selection from Management configuration. It preserves zone-based
 `vehicle_counting` and introduces the distinct `vehicle_entry_exit_counts`
 application. The control plane, not the edge image, owns cumulative daily
 entry/exit totals.

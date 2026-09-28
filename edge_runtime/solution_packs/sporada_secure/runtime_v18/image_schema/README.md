@@ -1,8 +1,10 @@
-# Sporada Secure v18 six-application contract
+# Sporada Secure v18 eight-application contract
 
 CV-team entry point: [`CV-PIPELINE-HANDOFF.md`](CV-PIPELINE-HANDOFF.md).
 
-This revision removes detector-class selection from Management configuration. It preserves zone-based
+This revision adds SigLIP scene embeddings and multimodal person Re-ID using
+TransReID body appearance, AdaFace, MOG2 silhouettes, and GaitBase. It also
+removes detector-class selection from Management configuration. It preserves zone-based
 `vehicle_counting` and introduces the distinct `vehicle_entry_exit_counts`
 application. The control plane, not the edge image, owns cumulative daily
 entry/exit totals.

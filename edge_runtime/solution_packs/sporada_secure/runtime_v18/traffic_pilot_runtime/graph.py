@@ -10,10 +10,13 @@ TRACK_APPS = {
     "vehicle_entry_exit_counts",
     "pedestrian_counting",
     "face_recognition",
+    "person_reid",
 }
 PLATE_APPS = {"plate_detection"}
 SMOKE_APPS = {"fire_smoke_detection"}
 FACE_APPS = {"face_recognition"}
+SCENE_APPS = {"scene_embeddings"}
+REID_APPS = {"person_reid"}
 NODE_CATALOG = {
     "camera_source": {"label": "Camera Source", "kind": "input"},
     "decode": {"label": "Decode", "kind": "runtime"},
@@ -27,6 +30,11 @@ NODE_CATALOG = {
     "face_embedder": {"label": "Face Embedder", "kind": "model", "device": "NPU"},
     "face_sample_outbox": {"label": "Face Sample Outbox", "kind": "state"},
     "face_management_uploader": {"label": "Face Management Uploader", "kind": "output"},
+    "body_reid_embedder": {"label": "TransReID Body Encoder", "kind": "model", "device": "NPU"},
+    "gait_silhouette_extractor": {"label": "MOG2 Silhouette Extractor", "kind": "processor", "device": "CPU"},
+    "gait_embedder": {"label": "GaitBase Encoder", "kind": "model", "device": "NPU"},
+    "presence_resolver": {"label": "Track Presence Resolver", "kind": "runtime"},
+    "person_reid": {"label": "Multimodal Person Re-ID", "kind": "app"},
     "vehicle_counting": {"label": "Vehicle Counting", "kind": "app"},
     "vehicle_entry_exit_counts": {"label": "Vehicle Entry/Exit Counts", "kind": "app"},
     "vehicle_crossing_evaluator": {"label": "Vehicle Crossing Evaluator", "kind": "runtime"},
@@ -37,6 +45,10 @@ NODE_CATALOG = {
     "plate_detection": {"label": "Plate Detection", "kind": "app"},
     "fire_smoke_detection": {"label": "Fire/Smoke Alert", "kind": "app"},
     "face_recognition": {"label": "Face Recognition Sample", "kind": "app"},
+    "scene_encoder": {"label": "SigLIP 2 Scene Encoder", "kind": "model", "device": "GPU"},
+    "sentinel_v2_outbox": {"label": "Sentinel V2 Durable Outbox", "kind": "state"},
+    "sentinel_v2_uploader": {"label": "Sentinel V2 Uploader", "kind": "output"},
+    "scene_embeddings": {"label": "Scene Embeddings", "kind": "app"},
     "snapshot_storage": {"label": "Snapshot Storage", "kind": "output"},
     "event_sink": {"label": "Event Output", "kind": "output"},
 }
@@ -119,6 +131,46 @@ def _camera_graph(camera: DesiredCamera) -> CameraGraph:
         ])
         devices.update({"face_detector": "GPU", "face_embedder": "NPU"})
 
+    if apps & REID_APPS:
+        node_ids.extend([
+            "body_reid_embedder", "face_detector", "face_alignment", "face_embedder",
+            "gait_silhouette_extractor", "gait_embedder", "presence_resolver", "person_reid",
+            "snapshot_storage", "sentinel_v2_outbox", "sentinel_v2_uploader",
+        ])
+        edge_ids.extend([
+            ("vehicle_tracker", "body_reid_embedder"),
+            ("vehicle_tracker", "face_detector"),
+            ("face_detector", "face_alignment"),
+            ("face_alignment", "face_embedder"),
+            ("vehicle_tracker", "gait_silhouette_extractor"),
+            ("gait_silhouette_extractor", "gait_embedder"),
+            ("body_reid_embedder", "presence_resolver"),
+            ("presence_resolver", "person_reid"),
+            ("face_embedder", "person_reid"),
+            ("gait_embedder", "person_reid"),
+            ("person_reid", "snapshot_storage"),
+            ("person_reid", "sentinel_v2_outbox"),
+            ("sentinel_v2_outbox", "sentinel_v2_uploader"),
+        ])
+        devices.update({
+            "body_reid_embedder": "NPU", "face_detector": "GPU",
+            "face_embedder": "NPU", "gait_silhouette_extractor": "CPU", "gait_embedder": "NPU",
+        })
+
+    if apps & SCENE_APPS:
+        node_ids.extend([
+            "scene_encoder", "scene_embeddings", "snapshot_storage",
+            "sentinel_v2_outbox", "sentinel_v2_uploader",
+        ])
+        edge_ids.extend([
+            ("decode", "scene_encoder"),
+            ("scene_encoder", "scene_embeddings"),
+            ("scene_embeddings", "snapshot_storage"),
+            ("scene_embeddings", "sentinel_v2_outbox"),
+            ("sentinel_v2_outbox", "sentinel_v2_uploader"),
+        ])
+        devices["scene_encoder"] = "GPU"
+
     if "vehicle_entry_exit_counts" in apps:
         node_ids.extend([
             "vehicle_crossing_evaluator", "vehicle_crossing_evidence",
@@ -139,13 +191,13 @@ def _camera_graph(camera: DesiredCamera) -> CameraGraph:
         elif app in SMOKE_APPS:
             edge_ids.append(("smoke_fire_detector", app))
             edge_ids.append((app, "snapshot_storage"))
-        elif app in FACE_APPS:
+        elif app in FACE_APPS or app in SCENE_APPS or app in REID_APPS:
             pass
         elif app in TRACK_APPS:
             edge_ids.append(("vehicle_tracker", app))
-        if app != "vehicle_entry_exit_counts":
+        if app not in {"vehicle_entry_exit_counts", "scene_embeddings", "person_reid"}:
             edge_ids.append((app, "event_sink"))
-    if any(app != "vehicle_entry_exit_counts" for app in camera.apps):
+    if any(app not in {"vehicle_entry_exit_counts", "scene_embeddings", "person_reid"} for app in camera.apps):
         node_ids.append("event_sink")
 
     node_ids = tuple(_dedupe(node_ids))

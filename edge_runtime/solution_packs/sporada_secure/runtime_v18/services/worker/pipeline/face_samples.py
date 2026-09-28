@@ -319,11 +319,13 @@ class FaceManagementUploader(threading.Thread):
 
 
 class FaceSamplePipeline:
-    def __init__(self, camera_id: str, edge_id: str, extractor, camera_config: dict) -> None:
+    def __init__(self, camera_id: str, edge_id: str, extractor, camera_config: dict,
+                 enable_legacy_delivery: bool = True) -> None:
         self.camera_id = camera_id
         self.edge_id = edge_id
         self.extractor = extractor
         self.camera_config = camera_config
+        self.enable_legacy_delivery = bool(enable_legacy_delivery)
         self.state_root = Path(os.getenv("APEXFABRIC_STATE_ROOT", "/state"))
         self.snapshot_root = Path(os.getenv("SNAPSHOT_ROOT", "/state/snapshots"))
         self.outbox = self.state_root / "face_samples" / "outbox" / camera_id
@@ -383,13 +385,14 @@ class FaceSamplePipeline:
             self.metrics.submitted("configuration_error", 0.0)
             logger.warning("face identity token is absent; samples will remain in bounded outbox %s", self.outbox)
 
-    def process(self, packet, people: list) -> None:
+    def process(self, packet, people: list) -> list[Any]:
         if packet.index % self.interval:
-            return
+            return []
         now = time.time()
         eligible = [person for person in people if self._eligible(person, packet.frame.shape, now)]
         faces = self.extractor.extract(packet.frame, eligible)
         self.metrics.tracks(len(faces))
+        usable = []
         for face in faces:
             self._refresh_policy()
             if face.quality < self.min_quality:
@@ -402,6 +405,9 @@ class FaceSamplePipeline:
                 or float(np.linalg.norm(embedding)) <= 1e-12
             ):
                 self.metrics.suppressed("invalid_embedding")
+                continue
+            usable.append(face)
+            if not self.enable_legacy_delivery:
                 continue
             if not self._should_emit(face.track_id, embedding, now):
                 self.metrics.suppressed("duplicate")
@@ -431,6 +437,8 @@ class FaceSamplePipeline:
                 self._emit_candidate(packet, candidate, now)
             else:
                 self.metrics.suppressed("duplicate")
+
+        return usable
 
     def _prune_outbox(self, reserve_records: int = 0) -> None:
         now = time.time()

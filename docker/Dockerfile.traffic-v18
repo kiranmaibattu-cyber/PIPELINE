@@ -11,6 +11,11 @@ ENV PYTHONUNBUFFERED=1 \
     SNAPSHOT_ROOT=/state/snapshots \
     OPENVINO_MODELS_DIR=/models/traffic/openvino \
     FACE_MODELS_DIR=/models/face/openvino \
+    SCENE_MODEL_PATH=/models/scene/openvino/siglip2-base-patch16-224.xml \
+    SCENE_EMBEDDER_DEVICE=GPU \
+    REID_MODELS_DIR=/models/surveillance \
+    BODY_REID_DEVICE=NPU \
+    GAIT_DEVICE=NPU \
     FACE_DETECTOR_DEVICE=GPU \
     FACE_EMBEDDER_DEVICE=NPU \
     APEX_API_HOST=0.0.0.0 \
@@ -28,15 +33,23 @@ COPY models/traffic-v11/openvino /models/traffic/openvino
 COPY vehicle_yolo26n_fp16.xml /models/traffic/openvino/vehicle.xml
 COPY vehicle_yolo26n_fp16.bin /models/traffic/openvino/vehicle.bin
 COPY models/traffic-v11/face/openvino /models/face/openvino
+COPY models/scene/openvino /models/scene/openvino
+COPY models/surveillance/transreid_ssl_int8.xml models/surveillance/transreid_ssl_int8.bin /models/surveillance/
+COPY models/surveillance/gaitbase_int8.xml models/surveillance/gaitbase_int8.bin /models/surveillance/
 COPY delivery/apexfabric-v1/intel-285h/traffic-v18 /opt/traffic-pilot/delivery/apexfabric-v1/intel-285h/traffic-v18
 COPY edge_runtime/solution_packs/sporada_secure/runtime_v18/image_schema /opt/traffic-pilot/image_schema
 
-RUN python -m py_compile traffic_pilot_runtime/*.py \
+RUN ln -s /usr/lib/x86_64-linux-gnu/libopenvino_intel_npu_compiler_loader.so \
+        /usr/local/lib/python3.12/dist-packages/openvino/libs/libopenvino_intel_npu_compiler_loader.so \
+    && python -m py_compile traffic_pilot_runtime/*.py \
         services/worker/stream_fleet_openvino.py \
         services/worker/decode.py \
         services/worker/detectors/backends/openvino_face.py \
         services/worker/pipeline/face_samples.py \
         services/worker/pipeline/face_metrics.py \
+        services/worker/pipeline/scene_embeddings.py \
+        services/worker/pipeline/person_reid.py \
+        services/worker/pipeline/sentinel_delivery.py \
         services/worker/pipeline/vehicle_crossings.py \
         services/worker/pipeline/vehicle_crossing_metrics.py \
         traffic_pilot_runtime/retention.py \
@@ -47,6 +60,13 @@ RUN python -m py_compile traffic_pilot_runtime/*.py \
     && test -f /models/face/openvino/scrfd_500m.onnx \
     && test -f /models/face/openvino/adaface_ir101_int8.xml \
     && test -f /models/face/openvino/adaface_ir101_int8.bin \
+    && test -f /models/scene/openvino/siglip2-base-patch16-224.xml \
+    && test -f /models/scene/openvino/siglip2-base-patch16-224.bin \
+    && test -f /models/scene/openvino/siglip2-base-patch16-224.metadata.json \
+    && test -f /models/surveillance/transreid_ssl_int8.xml \
+    && test -f /models/surveillance/transreid_ssl_int8.bin \
+    && test -f /models/surveillance/gaitbase_int8.xml \
+    && test -f /models/surveillance/gaitbase_int8.bin \
     && test "$(id -u apexruntime)" = "10001"
 
 ARG IMAGE_VERSION=2026.09.23-v18
@@ -54,7 +74,7 @@ ARG INTEL_TRAFFIC_RUNTIME_BASE_DIGEST=unresolved
 
 LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/PIPELINE" \
       org.opencontainers.image.title="ApexFabric Sporada Secure Runtime" \
-      org.opencontainers.image.description="Sporada Secure Intel 285H runtime for ANPR, occupancy and entry/exit counting, smoke/fire, and durable anonymous face samples" \
+      org.opencontainers.image.description="Sporada Secure Intel 285H runtime for traffic analytics, scene search, and durable multimodal person Re-ID" \
       org.opencontainers.image.version="${IMAGE_VERSION}" \
       io.apexfabric.contract.version="v1" \
       io.apexfabric.hardware.profile="intel-285h" \
@@ -65,6 +85,23 @@ LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/PI
       io.apexfabric.vehicle-model.precision="FP16" \
       io.apexfabric.vehicle-model.xml-sha256="8c06bc73d0e7538a0a68d18e36d948bd733bf771c48b0e5b53f1bfc05af50a66" \
       io.apexfabric.vehicle-model.bin-sha256="88f840b4592c13af3146f7924276e416565e2590260b7e89257ad882708ea588" \
+      io.apexfabric.scene-model.id="google/siglip2-base-patch16-224" \
+      io.apexfabric.scene-model.revision="75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2" \
+      io.apexfabric.scene-model.dimensions="768" \
+      io.apexfabric.scene-model.xml-sha256="77cf06fb4df4d737218aa87b107e5d9c6885bbd92c31b9304c0a0494e98dce6c" \
+      io.apexfabric.scene-model.bin-sha256="b5d2ef2f5ad105de9f4279707efca7f3472937ca2985ea0e1a7df6442243b6ae" \
+      io.apexfabric.body-reid-model.id="transreid_ssl_int8" \
+      io.apexfabric.body-reid-model.dimensions="384" \
+      io.apexfabric.body-reid-model.xml-sha256="63384268f74a2882cfe1201740680ed692bf39336207c844eb6fe4578354ad2b" \
+      io.apexfabric.body-reid-model.bin-sha256="365b5f0cf216cb2a5c80f3901c27528489c6e9b1bb91ab7b20a525a6c76a224e" \
+      io.apexfabric.gait-model.id="gaitbase_int8" \
+      io.apexfabric.gait-model.input-shape="1,30,64,44" \
+      io.apexfabric.gait-model.dimensions="4096" \
+      io.apexfabric.gait-model.xml-sha256="1e7c9fe736a3cba8557c1c2492b0e330900c9dd4153587550f1437881618c32e" \
+      io.apexfabric.gait-model.bin-sha256="e5ef031524b80c00f990bc3e356d25f2b9c0ddce59b4177bb49b438a7ddceba8" \
+      io.apexfabric.face-model.id="adaface_ir101_int8" \
+      io.apexfabric.face-model.dimensions="512" \
+      io.apexfabric.identity.recognition-policy="face-only" \
       io.apexfabric.ui.included="false" \
       io.apexfabric.runtime-base.digest="${INTEL_TRAFFIC_RUNTIME_BASE_DIGEST}"
 

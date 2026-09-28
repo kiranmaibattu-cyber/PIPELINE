@@ -12,6 +12,8 @@ ZONE_TYPE = {
     "plate_detection": "plate_roi",
     "fire_smoke_detection": "fire_smoke",
     "face_recognition": "face_recognition",
+    "scene_embeddings": "scene_embeddings",
+    "person_reid": "person_reid",
 }
 ZONE_CONFIG_KEY = {
     "vehicle_counting": "vehicle_counting",
@@ -19,6 +21,8 @@ ZONE_CONFIG_KEY = {
     "plate_detection": "anpr",
     "fire_smoke_detection": "fire_smoke_detection",
     "face_recognition": "face_recognition",
+    "scene_embeddings": "scene_embeddings",
+    "person_reid": "person_reid",
 }
 
 
@@ -56,6 +60,16 @@ def _use_case_config(app: str, config: dict[str, Any]) -> dict[str, Any]:
     if app == "face_recognition":
         result["embedding"] = dict(config["embedding"])
         result["emission"] = dict(config["emission"])
+    if app == "scene_embeddings":
+        result["embedding"] = dict(config["scene_embedding"])
+        result["emission"] = dict(config["scene_emission"])
+    if app == "person_reid":
+        result["embedding"] = {
+            modality: dict(value) for modality, value in config["reid_embedding"].items()
+        }
+        result["emission"] = dict(config["reid_emission"])
+        result["gait"] = dict(config["gait"])
+        result["reassociation"] = dict(config["reassociation"])
     return result
 
 

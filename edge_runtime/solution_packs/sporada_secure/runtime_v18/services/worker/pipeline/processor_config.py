@@ -38,6 +38,8 @@ USE_CASE_RULES = {
     "parking_violation_detection": {"zone_types": {"no_parking"}},
     "fire_smoke_detection": {"zone_types": {"fire_smoke"}},
     "face_recognition": {"zone_types": {"face_recognition"}},
+    "scene_embeddings": {"zone_types": {"scene_embeddings"}},
+    "person_reid": {"zone_types": {"person_reid"}},
 }
 
 

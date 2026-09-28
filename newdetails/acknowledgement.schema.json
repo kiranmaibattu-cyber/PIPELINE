@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"urn:sentinel:ingest:ack:2","type":"object","additionalProperties":false,
+  "required":["status"],"properties":{"status":{"enum":["created","stored","existing"]},"observation_id":{"type":"string"},"evidence_id":{"type":"string"},"embedding_id":{"type":"string"},"scene_id":{"type":"string"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}},
+  "oneOf":[{"required":["observation_id"]},{"required":["evidence_id","sha256"]},{"required":["embedding_id"]},{"required":["scene_id"]}]
+}

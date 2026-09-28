@@ -1,0 +1,118 @@
+name: sentinel-cv-runtime
+version: 2026.09.25-v2
+contractVersion: v2
+architectures: [amd64]
+hardwareProfile: intel-core-ultra-285h
+
+capabilities:
+  outputs: [observations, evidence, face_embeddings, body_embeddings, gait_embeddings, scene_embeddings, scene_understanding]
+  optionalOutputs: [live_sse]
+
+models:
+  delivery: baked-in
+  vectorSpaces:
+    face: {dimensions: 512, distanceMetric: cosine, normalization: l2}
+    body: {dimensions: 384, distanceMetric: cosine, normalization: l2}
+    gait: {dimensions: 4096, distanceMetric: cosine, normalization: l2, modelId: gaitbase_int8, modelVersion: v1}
+    scene: {dimensions: 768, distanceMetric: cosine, normalization: l2, modelId: google/siglip2-base-patch16-224, modelVersion: 75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2}
+  compatibilityRule: exact-modality-model-id-version-space-and-dimensions
+
+configuration:
+  desiredStatePath: /configs/desired_state.json
+  schema: desired-state.schema.json
+  hotReload: {enabled: true, pollSeconds: 2, revisionPolicy: strictly-increasing, mountPath: /configs}
+secrets:
+  root: /run/secrets/sentinel
+  cameraReferenceFormat: file:/run/secrets/sentinel/cameras/<camera-id>.url
+  managementToken:
+    environmentVariable: SENTINEL_EDGE_TOKEN
+    kubernetesSecretKey: SENTINEL_EDGE_TOKEN
+
+network: {port: 8080, hostNetworkRequired: false}
+endpoints:
+  health: /healthz
+  readiness: /readyz
+  metrics: /metrics
+  events: /events
+process: {uid: 10001, gid: 10001, readOnlyRootSupported: true}
+resources: {cpuRequest: "8", cpuLimit: "16", memoryRequest: 16Gi, memoryLimit: 32Gi, maxCameraStreams: 8}
+accelerators: [intel-igpu, intel-npu]
+devices: [/dev/dri, /dev/accel]
+storage:
+  persistentVolumes:
+    - {mountPath: /state, purpose: durable submission outbox and event journal}
+  temporaryPaths: [/tmp/sentinel]
+
+management:
+  baseUrl:
+    environmentVariable: SENTINEL_INGEST_BASE_URL
+    default: http://sentinel-ingestor.sentinel.svc.cluster.local:8080
+  authentication: {scheme: bearer, tokenEnvironmentVariable: SENTINEL_EDGE_TOKEN}
+  common:
+    timeoutSeconds: 30
+    successStatuses: [200, 201]
+    retryStatuses: [408, 425, 429, 500, 502, 503, 504]
+    retry: {attempts: unlimited-while-outbox-record-is-retained, backoff: exponential-with-jitter, initialDelayMilliseconds: 250, maximumDelaySeconds: 60}
+  submissions:
+    observation:
+      method: POST
+      path: /api/v1/ingest/observations
+      contentType: application/json
+      schema: observation.schema.json
+      responseSchema: acknowledgement.schema.json
+      idempotencyKey: observation_id
+    evidence:
+      method: POST
+      path: /api/v1/ingest/evidence
+      contentType: multipart/form-data
+      parts:
+        metadata: {contentType: application/json, schema: evidence.schema.json, required: true}
+        file: {contentTypes: [image/jpeg, image/png, video/mp4], required: true}
+      responseSchema: acknowledgement.schema.json
+      idempotencyKey: evidence_id
+      maximumImageBytes: 20971520
+      maximumClipBytes: 524288000
+      requiresAcknowledged: [observation]
+    embedding:
+      method: POST
+      path: /api/v1/ingest/embeddings
+      contentType: application/json
+      schema: embedding.schema.json
+      responseSchema: acknowledgement.schema.json
+      idempotencyKey: embedding_id
+      requiresAcknowledged: [observation, evidence]
+    sceneUnderstanding:
+      method: POST
+      path: /api/v1/ingest/scenes
+      contentType: application/json
+      schema: scene-understanding.schema.json
+      responseSchema: acknowledgement.schema.json
+      idempotencyKey: scene_id
+      requiresAcknowledged: [observation, evidence]
+
+liveEvents:
+  protocol: sse
+  endpoint: /events
+  schema: analytics-event.schema.json
+  delivery: live-tail
+  historicalReplay: disabled
+  guarantee: at-most-once
+  heartbeatSeconds: 15
+  rule: Live events never replace durable submissions and never contain raw vectors.
+
+delivery:
+  order: [observation, evidence, embedding_or_scene]
+  durableOutbox:
+    required: true
+    persistPayloadAndBinaryBeforeFirstAttempt: true
+    retryWithSameIdAndBytes: true
+    removeOnlyAfterManagementAcknowledgement: true
+  conflictBehavior: HTTP 409 is terminal and requires operator-visible dead-letter handling.
+
+identity:
+  trackId: local-to-stream-session
+  presenceId: optional-edge-local-continuous-presence
+  personId: management-owned-and-forbidden-in-edge-output
+ownership:
+  cvOwns: [detection, tracking, local_attributes, evidence_generation, embeddings, scene_understanding, model_metadata]
+  managementOwns: [persistence, cross_camera_association, identity_graph, semantic_search, retention, incidents, alerts, AI_guard, LLM_reasoning]

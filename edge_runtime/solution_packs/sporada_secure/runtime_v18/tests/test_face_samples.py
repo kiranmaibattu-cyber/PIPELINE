@@ -83,6 +83,33 @@ def test_face_sample_vector_is_durable_but_not_in_analytics_event(monkeypatch, t
     assert crop.shape[:2] == (120, 120)
 
 
+
+def test_reid_mode_returns_faces_without_legacy_event_or_outbox(monkeypatch, tmp_path):
+    state = tmp_path / "state"
+    monkeypatch.setenv("APEXFABRIC_STATE_ROOT", str(state))
+    monkeypatch.setenv("SNAPSHOT_ROOT", str(state / "snapshots"))
+    monkeypatch.setenv("FACE_PROCESS_INTERVAL", "1")
+    camera_config = {
+        "analytics": {"person_reid": {}},
+        "runtime_analytics": {"person_reid": {"zones": []}},
+    }
+    pipeline = FaceSamplePipeline(
+        "cam1", "edge1", FakeExtractor(), camera_config,
+        enable_legacy_delivery=False,
+    )
+    packet = FramePacket(
+        index=1, name="cam1", frame=np.zeros((120, 160, 3), dtype=np.uint8)
+    )
+    person = SimpleNamespace(
+        model_name="vehicle", class_name="pedestrian",
+        bbox=[10, 10, 100, 115], metadata={"track_id": 7},
+    )
+
+    faces = pipeline.process(packet, [person])
+
+    assert [face.track_id for face in faces] == [7]
+    assert packet.analytics_events == []
+    assert not list((state / "face_samples" / "outbox" / "cam1").glob("*.json"))
 def test_face_evidence_crop_keeps_context_and_shifts_at_frame_boundary():
     frame = np.zeros((200, 300, 3), dtype=np.uint8)
 

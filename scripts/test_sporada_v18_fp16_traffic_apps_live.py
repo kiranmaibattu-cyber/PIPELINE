@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import time
@@ -17,6 +18,7 @@ RUN = ROOT / "run" / f"sporada-v18-fp16-traffic-apps-{int(time.time())}"
 NAME = "sporada-v18-fp16-traffic-apps"
 IMAGE = "localhost/sporada:intel-285h-2026.09.23-v18"
 API = "http://127.0.0.1:18088"
+CAMERA_URL = os.getenv("SPORADA_TEST_CAMERA_URL", "rtsp://192.168.1.95:8554/traffic1")
 
 
 def ready() -> bool:
@@ -64,7 +66,7 @@ def render_detection_proof(event: dict, destination: Path) -> int:
 def main() -> None:
     for folder in ("configs", "secrets", "state"):
         (RUN / folder).mkdir(parents=True, exist_ok=True)
-    (RUN / "secrets/traffic.url").write_text("rtsp://192.168.1.95:8554/traffic1\n")
+    (RUN / "secrets/traffic.url").write_text(CAMERA_URL.rstrip() + "\n")
     desired = {
         "edge_id": "sporada-v18-fp16-traffic-live",
         "revision": 1,
@@ -138,6 +140,7 @@ def main() -> None:
             ["podman", "logs", NAME], capture_output=True, text=True
         )
         report = {
+            "camera_url": CAMERA_URL,
             "image": IMAGE,
             "events_by_application": {key: len(value) for key, value in sorted(by_app.items())},
             "snapshots_checked_bytes": checked_snapshots,

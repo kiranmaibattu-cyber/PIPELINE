@@ -1,0 +1,9 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"urn:sentinel:cv:evidence:2","type":"object","additionalProperties":false,
+  "required":["schema_version","evidence_id","observation_id","evidence_type","evidence_role","captured_at","content_type","size_bytes","sha256"],
+  "properties":{"schema_version":{"const":"2.0"},"evidence_id":{"type":"string","minLength":1,"maxLength":200},"observation_id":{"type":"string","minLength":1,"maxLength":200},
+    "evidence_type":{"enum":["frame","snapshot","person_crop","face_crop","vehicle_crop","clip"]},"evidence_role":{"enum":["context","subject_crop","face_crop","vehicle_crop","clip"]},"captured_at":{"type":"string","format":"date-time"},
+    "content_type":{"enum":["image/jpeg","image/png","video/mp4"]},"width":{"type":"integer","minimum":1},"height":{"type":"integer","minimum":1},"duration_ms":{"type":"integer","minimum":0},"size_bytes":{"type":"integer","minimum":1,"maximum":524288000},
+    "sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"quality":{"type":"number","minimum":0,"maximum":1},"metadata":{"type":"object"}},
+  "allOf":[{"if":{"properties":{"evidence_type":{"const":"clip"}}},"then":{"properties":{"content_type":{"const":"video/mp4"},"size_bytes":{"maximum":524288000}}},"else":{"properties":{"content_type":{"enum":["image/jpeg","image/png"]},"size_bytes":{"maximum":20971520}}}}]
+}

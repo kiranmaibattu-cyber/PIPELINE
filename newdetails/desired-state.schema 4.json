@@ -1,0 +1,12 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"urn:sentinel:cv:desired-state:2",
+  "type":"object","additionalProperties":false,"required":["edge_id","revision","cameras"],
+  "properties":{"edge_id":{"type":"string","minLength":1},"revision":{"type":"integer","minimum":1},
+    "cameras":{"type":"array","minItems":1,"maxItems":8,"items":{"$ref":"#/$defs/camera"}}},
+  "$defs":{"point":{"type":"array","prefixItems":[{"type":"number","minimum":0,"maximum":1},{"type":"number","minimum":0,"maximum":1}],"items":false},
+    "zone":{"type":"object","additionalProperties":false,"required":["id","name","poly"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"poly":{"type":"array","minItems":3,"items":{"$ref":"#/$defs/point"}}}},
+    "camera":{"type":"object","additionalProperties":false,"required":["camera_id","source","fps","outputs","zones"],"properties":{
+      "camera_id":{"type":"string","pattern":"^[A-Za-z0-9._-]+$"},"source":{"type":"string","pattern":"^file:/run/secrets/sentinel/cameras/[A-Za-z0-9._-]+\\.url$"},
+      "fps":{"type":"number","exclusiveMinimum":0,"maximum":60},"outputs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["observations","evidence","face_embeddings","body_embeddings","gait_embeddings","scene_embeddings","scene_understanding"]}},
+      "zones":{"type":"array","items":{"$ref":"#/$defs/zone"}},"minimum_quality":{"type":"number","minimum":0,"maximum":1},"evidence_cooldown_seconds":{"type":"number","minimum":0,"maximum":3600}}}}
+}

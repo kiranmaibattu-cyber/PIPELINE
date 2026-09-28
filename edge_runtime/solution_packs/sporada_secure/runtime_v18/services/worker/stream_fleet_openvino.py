@@ -34,6 +34,13 @@ CAMERAS_FILE = os.getenv("CAMERAS_FILE", f"{REPO}/config/cameras.json")
 INFER_FPS = int(os.getenv("INFER_FPS", "12"))
 OPENVINO_MODELS_DIR = os.getenv("OPENVINO_MODELS_DIR", f"{REPO}/models/openvino")
 FACE_MODELS_DIR = os.getenv("FACE_MODELS_DIR", "/models/face/openvino")
+SCENE_MODEL_PATH = os.getenv(
+    "SCENE_MODEL_PATH", "/models/scene/openvino/siglip2-base-patch16-224.xml"
+)
+SCENE_EMBEDDER_DEVICE = os.getenv("SCENE_EMBEDDER_DEVICE", "GPU")
+REID_MODELS_DIR = os.getenv("REID_MODELS_DIR", "/models/surveillance")
+BODY_REID_DEVICE = os.getenv("BODY_REID_DEVICE", "NPU")
+GAIT_DEVICE = os.getenv("GAIT_DEVICE", "NPU")
 CAMERA_CONFIG_RELOAD_INTERVAL_S = float(os.getenv("CAMERA_CONFIG_RELOAD_INTERVAL_S", "1"))
 # Device placement (capacity analysis: vehicle is the binding stage -> iGPU; plate +
 # OCR fit on the NPU). All overridable so the capacity probe can re-assign.
@@ -223,6 +230,8 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
     enable_plate = "plate_detection" in runtime
     enable_smoke_fire = "fire_smoke_detection" in runtime
     enable_face = "face_recognition" in runtime
+    enable_scene = "scene_embeddings" in runtime
+    enable_reid = "person_reid" in runtime
 
     shared_core()  # per-process singleton Core + CACHE_DIR
     vehicle_config = ((worker_config.get("models") or {}).get("vehicle") or {})
@@ -254,7 +263,7 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
     if smoke_fire is not None:
         smoke_fire.warmup()
     face_pipeline = None
-    if enable_face:
+    if enable_face or enable_reid:
         from detectors.backends.openvino_face import OpenVINOFaceExtractor
         from pipeline.face_samples import FaceSamplePipeline
         face_extractor = OpenVINOFaceExtractor(
@@ -264,7 +273,44 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
         face_extractor.warmup()
         face_pipeline = FaceSamplePipeline(
             name, os.getenv("EDGE_ID", "unknown"), face_extractor, camera_config,
+            enable_legacy_delivery=enable_face,
         )
+    reid_pipeline = None
+    if enable_reid:
+        from pipeline.person_reid import (
+            OpenVINOBodyExtractor,
+            OpenVINOGaitExtractor,
+            PersonReidPipeline,
+        )
+        reid_config = (camera_config.get("analytics") or {}).get("person_reid") or {}
+        gait_config = reid_config.get("gait") or {}
+        body_extractor = OpenVINOBodyExtractor(
+            os.path.join(REID_MODELS_DIR, "transreid_ssl_int8.xml"), BODY_REID_DEVICE
+        )
+        gait_extractor = OpenVINOGaitExtractor(
+            os.path.join(REID_MODELS_DIR, "gaitbase_int8.xml"),
+            gait_device=GAIT_DEVICE,
+            min_sequence=int(gait_config.get("minimum_sequence_frames", 20)),
+            max_sequence=int(gait_config.get("maximum_buffer_frames", 60)),
+            minimum_motion_pixels=float(gait_config.get("minimum_motion_pixels", 2.0)),
+        )
+        body_extractor.warmup()
+        gait_extractor.warmup()
+        reid_pipeline = PersonReidPipeline(
+            name, os.getenv("EDGE_ID", "unknown"), body_extractor, gait_extractor,
+            camera_config,
+        )
+    scene_pipeline = None
+    if enable_scene:
+        from pipeline.scene_embeddings import OpenVINOSceneExtractor, SceneEmbeddingPipeline
+        scene_extractor = OpenVINOSceneExtractor(
+            SCENE_MODEL_PATH, device=SCENE_EMBEDDER_DEVICE
+        )
+        scene_extractor.warmup()
+        scene_pipeline = SceneEmbeddingPipeline(
+            name, os.getenv("EDGE_ID", "unknown"), scene_extractor, camera_config,
+        )
+
     crossing_pipeline = None
     if "vehicle_entry_exit_counts" in runtime:
         from pipeline.vehicle_crossings import VehicleCrossingPipeline
@@ -301,11 +347,13 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
         WorkerMetricsMonitor.from_env(
             analytics, interval=float(os.getenv("METRICS_INTERVAL", "2"))).start()
 
-    log.info("cam[%s] up: vehicle=%s plate=%s smoke_fire=%s ocr=%s face=%s entry_exit=%s", name, veh.exec_devices,
+    log.info("cam[%s] up: vehicle=%s plate=%s smoke_fire=%s ocr=%s face=%s reid=%s scene=%s entry_exit=%s", name, veh.exec_devices,
              plate.exec_devices if plate is not None else "disabled",
              smoke_fire.exec_devices if smoke_fire is not None else "disabled",
              async_ocr.actual_device if async_ocr is not None else "disabled",
              "GPU+NPU" if face_pipeline is not None else "disabled",
+             "TransReID+GaitBase" if reid_pipeline is not None else "disabled",
+             SCENE_EMBEDDER_DEVICE if scene_pipeline is not None else "disabled",
              "enabled" if crossing_pipeline is not None else "disabled")
     ready_dir = os.getenv("APEXFABRIC_CAMERA_READY_DIR")
     if ready_dir:
@@ -378,14 +426,19 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
         consume_packet(packet, geo, tracker, analytics_stage, stab, async_ocr)
         if crossing_pipeline is not None:
             crossing_pipeline.process(packet)
+        tracked_people = [
+            detection for detection in packet.detections
+            if detection.model_name == "vehicle"
+            and detection.class_name == "pedestrian"
+            and detection.metadata.get("track_id") is not None
+        ]
+        face_samples = []
         if face_pipeline is not None:
-            tracked_people = [
-                detection for detection in packet.detections
-                if detection.model_name == "vehicle"
-                and detection.class_name == "pedestrian"
-                and detection.metadata.get("track_id") is not None
-            ]
-            face_pipeline.process(packet, tracked_people)
+            face_samples = face_pipeline.process(packet, tracked_people)
+        if reid_pipeline is not None:
+            reid_pipeline.process(packet, tracked_people, face_samples)
+        if scene_pipeline is not None:
+            scene_pipeline.process(packet)
         analytics.publish_packets([packet])
         tnow = time.time()
         if fidx % 200 == 0:

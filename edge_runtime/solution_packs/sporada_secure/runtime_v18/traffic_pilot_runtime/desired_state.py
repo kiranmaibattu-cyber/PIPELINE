@@ -13,6 +13,16 @@ MAX_CAMERAS = 8
 MAX_FPS = 60.0
 FACE_MODEL_ID = "face-embedding-model-v1"
 FACE_EMBEDDING_DIMENSIONS = 512
+SCENE_MODEL_ID = "google/siglip2-base-patch16-224"
+SCENE_MODEL_VERSION = "75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2"
+SCENE_EMBEDDING_DIMENSIONS = 768
+REID_MODELS = {
+    "body": ("transreid_ssl_int8", "v1", "transreid_ssl_int8@v1:l2:384", 384),
+    "face": ("face-embedding-model-v1", "adaface_ir101_int8-v1",
+             "adaface-ir101-int8@v1:aligned112:l2:512", 512),
+    "gait": ("gaitbase_int8", "v1",
+             "gaitbase_int8@v1:30x64x44:parts16x256:l2:4096", 4096),
+}
 SUPPORTED_APPS = {
     "vehicle_counting",
     "vehicle_entry_exit_counts",
@@ -20,6 +30,8 @@ SUPPORTED_APPS = {
     "plate_detection",
     "fire_smoke_detection",
     "face_recognition",
+    "scene_embeddings",
+    "person_reid",
 }
 SCHEMA_APP_NAMES = {
     "anpr",
@@ -28,6 +40,8 @@ SCHEMA_APP_NAMES = {
     "pedestrian_counting",
     "fire_smoke_detection",
     "face_recognition",
+    "scene_embeddings",
+    "person_reid",
 }
 APP_ALIASES = {
     "anpr": "plate_detection",
@@ -41,6 +55,8 @@ ZONE_APP_KEYS = {
     "anpr",
     "fire_smoke_detection",
     "face_recognition",
+    "scene_embeddings",
+    "person_reid",
 }
 ENTRY_EXIT_APP = "vehicle_entry_exit_counts"
 @dataclass(frozen=True)
@@ -188,7 +204,11 @@ class DesiredStateValidator:
             )
 
     def _validate_geometry_config(self, camera_id: str, apps: set[str], config: dict[str, Any]) -> None:
-        unknown = set(config) - {"embedding", "emission", "zones", "counting_lines"}
+        unknown = set(config) - {
+            "embedding", "emission", "zones", "counting_lines",
+            "scene_embedding", "scene_emission",
+            "reid_embedding", "reid_emission", "gait", "reassociation",
+        }
         if unknown:
             raise ValueError(f"camera {camera_id} config has unknown fields: {sorted(unknown)}")
         missing = {"embedding", "emission", "zones"} - set(config)
@@ -196,6 +216,14 @@ class DesiredStateValidator:
             raise ValueError(f"camera {camera_id} config is missing fields: {sorted(missing)}")
         self._validate_embedding(camera_id, config["embedding"])
         self._validate_emission(camera_id, config["emission"])
+        if "scene_embeddings" in apps:
+            self._validate_scene_embedding(camera_id, config.get("scene_embedding"))
+            self._validate_scene_emission(camera_id, config.get("scene_emission"))
+        if "person_reid" in apps:
+            self._validate_reid_embedding(camera_id, config.get("reid_embedding"))
+            self._validate_reid_emission(camera_id, config.get("reid_emission"))
+            self._validate_gait(camera_id, config.get("gait"))
+            self._validate_reassociation(camera_id, config.get("reassociation"))
         zones = config.get("zones") or {}
         if not isinstance(zones, dict):
             raise ValueError(f"camera {camera_id} zones must be an object")
@@ -264,6 +292,144 @@ class DesiredStateValidator:
                 )
         if emission.get("preferred_quality", emission["minimum_quality"]) < emission["minimum_quality"]:
             raise ValueError(f"camera {camera_id} emission.preferred_quality must not be below minimum_quality")
+
+    @staticmethod
+    def _validate_reid_embedding(camera_id: str, embedding: Any) -> None:
+        if not isinstance(embedding, dict) or set(embedding) != set(REID_MODELS):
+            raise ValueError(
+                f"camera {camera_id} reid_embedding must contain body, face, and gait"
+            )
+        required = {"model_id", "model_version", "embedding_space", "dimensions"}
+        for modality, expected_values in REID_MODELS.items():
+            value = embedding.get(modality)
+            if not isinstance(value, dict) or set(value) != required:
+                raise ValueError(
+                    f"camera {camera_id} reid_embedding.{modality} must contain only {sorted(required)}"
+                )
+            expected = dict(zip(
+                ("model_id", "model_version", "embedding_space", "dimensions"),
+                expected_values,
+            ))
+            for field, expected_value in expected.items():
+                if value.get(field) != expected_value:
+                    raise ValueError(
+                        f"camera {camera_id} reid_embedding.{modality}.{field} must be {expected_value}"
+                    )
+
+    @staticmethod
+    def _validate_reid_emission(camera_id: str, emission: Any) -> None:
+        required = {
+            "interval_seconds", "jpeg_quality", "silhouette_interval_frames",
+            "minimum_body_quality",
+        }
+        if not isinstance(emission, dict) or set(emission) != required:
+            raise ValueError(
+                f"camera {camera_id} reid_emission must contain only {sorted(required)}"
+            )
+        values = (
+            ("interval_seconds", 0.25, 3600, (int, float)),
+            ("jpeg_quality", 50, 100, int),
+            ("silhouette_interval_frames", 1, 60, int),
+            ("minimum_body_quality", 0, 1, (int, float)),
+        )
+        for field, minimum, maximum, expected_type in values:
+            value = emission[field]
+            if (isinstance(value, bool) or not isinstance(value, expected_type)
+                    or not minimum <= value <= maximum):
+                raise ValueError(
+                    f"camera {camera_id} reid_emission.{field} must be between {minimum:g} and {maximum:g}"
+                )
+
+    @staticmethod
+    def _validate_gait(camera_id: str, gait: Any) -> None:
+        required = {
+            "silhouette_source", "minimum_sequence_frames",
+            "model_sequence_frames", "maximum_buffer_frames", "minimum_motion_pixels",
+        }
+        if not isinstance(gait, dict) or set(gait) != required:
+            raise ValueError(f"camera {camera_id} gait must contain only {sorted(required)}")
+        if gait["silhouette_source"] != "background_subtraction":
+            raise ValueError(
+                f"camera {camera_id} gait.silhouette_source must be background_subtraction"
+            )
+        minimum = gait["minimum_sequence_frames"]
+        model = gait["model_sequence_frames"]
+        maximum = gait["maximum_buffer_frames"]
+        if any(isinstance(value, bool) or not isinstance(value, int)
+               for value in (minimum, model, maximum)):
+            raise ValueError(f"camera {camera_id} gait sequence lengths must be integers")
+        if model != 30:
+            raise ValueError(f"camera {camera_id} gait.model_sequence_frames must be 30")
+        if not 10 <= minimum <= model <= maximum <= 180:
+            raise ValueError(f"camera {camera_id} gait sequence lengths are inconsistent")
+        motion = gait["minimum_motion_pixels"]
+        if isinstance(motion, bool) or not isinstance(motion, (int, float)) or not 0 <= motion <= 100:
+            raise ValueError(
+                f"camera {camera_id} gait.minimum_motion_pixels must be between 0 and 100"
+            )
+
+    @staticmethod
+    def _validate_reassociation(camera_id: str, reassociation: Any) -> None:
+        required = {
+            "maximum_gap_seconds", "minimum_body_similarity", "maximum_center_distance_pixels",
+        }
+        if not isinstance(reassociation, dict) or set(reassociation) != required:
+            raise ValueError(
+                f"camera {camera_id} reassociation must contain only {sorted(required)}"
+            )
+        gap = reassociation["maximum_gap_seconds"]
+        similarity = reassociation["minimum_body_similarity"]
+        distance = reassociation["maximum_center_distance_pixels"]
+        if isinstance(gap, bool) or not isinstance(gap, (int, float)) or not 0 <= gap <= 60:
+            raise ValueError(
+                f"camera {camera_id} reassociation.maximum_gap_seconds must be between 0 and 60"
+            )
+        if (isinstance(similarity, bool) or not isinstance(similarity, (int, float))
+                or not 0 <= similarity <= 1):
+            raise ValueError(
+                f"camera {camera_id} reassociation.minimum_body_similarity must be between 0 and 1"
+            )
+        if (isinstance(distance, bool) or not isinstance(distance, (int, float))
+                or not 0 <= distance <= 4096):
+            raise ValueError(
+                f"camera {camera_id} reassociation.maximum_center_distance_pixels must be between 0 and 4096"
+            )
+
+    @staticmethod
+    def _validate_scene_embedding(camera_id: str, embedding: Any) -> None:
+        required = {"model_id", "model_version", "embedding_space", "dimensions"}
+        if not isinstance(embedding, dict) or set(embedding) != required:
+            raise ValueError(
+                f"camera {camera_id} scene_embedding must contain only {sorted(required)}"
+            )
+        expected = {
+            "model_id": SCENE_MODEL_ID,
+            "model_version": SCENE_MODEL_VERSION,
+            "dimensions": SCENE_EMBEDDING_DIMENSIONS,
+        }
+        for field, value in expected.items():
+            if embedding.get(field) != value:
+                raise ValueError(f"camera {camera_id} scene_embedding.{field} must be {value}")
+        if not isinstance(embedding["embedding_space"], str) or not embedding["embedding_space"].strip():
+            raise ValueError(f"camera {camera_id} scene_embedding.embedding_space must be non-empty")
+
+    @staticmethod
+    def _validate_scene_emission(camera_id: str, emission: Any) -> None:
+        required = {"interval_seconds", "jpeg_quality"}
+        if not isinstance(emission, dict) or set(emission) != required:
+            raise ValueError(
+                f"camera {camera_id} scene_emission must contain only {sorted(required)}"
+            )
+        interval = emission.get("interval_seconds")
+        quality = emission.get("jpeg_quality")
+        if isinstance(interval, bool) or not isinstance(interval, (int, float)) or not 0.25 <= interval <= 3600:
+            raise ValueError(
+                f"camera {camera_id} scene_emission.interval_seconds must be between 0.25 and 3600"
+            )
+        if isinstance(quality, bool) or not isinstance(quality, int) or not 50 <= quality <= 100:
+            raise ValueError(
+                f"camera {camera_id} scene_emission.jpeg_quality must be between 50 and 100"
+            )
 
     def _validate_zone(self, camera_id: str, field: str, zone: Any) -> None:
         if not isinstance(zone, dict):

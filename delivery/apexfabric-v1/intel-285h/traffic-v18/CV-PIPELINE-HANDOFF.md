@@ -103,6 +103,37 @@ Management deduplicates on `event_id` and calculates totals using `observed_at`
 in the configured site timezone. A delayed retry is therefore assigned to the
 day on which the crossing occurred, not the day on which it arrived.
 
+## Multimodal person Re-ID
+
+The `person_reid` application reuses V18 person tracks. It emits durable
+`reid_observation` records and exact JPEG evidence before uploading separate
+model-space vectors:
+
+- TransReID SSL INT8 on NPU: 384D body appearance.
+- AdaFace IR101 INT8: 512D face evidence.
+- Per-camera OpenCV MOG2 extracts foreground inside each tracked person box; morphological cleanup and OpenGait preprocessing produce 64x44 silhouettes.
+- GaitBase INT8 on NPU consumes 30 silhouettes and exports a normalized 4096D
+  flattened 16-part by 256-channel descriptor.
+The non-root runtime must receive the host `render` and `video` supplementary
+groups in addition to `/dev/dri` and `/dev/accel`. With rootless Podman, launch
+with `--group-add keep-groups`; an equivalent deployment must preserve those
+device-group permissions.
+
+
+
+`silhouette_source` is explicitly `background_subtraction`. V18 maintains one
+MOG2 background model per fixed camera and does not require or run a neural
+instance-segmentation model for gait.
+Gait buffers accept moving tracks only. Short tracker breaks retain one camera-local
+`presence_id` only when body similarity, time gap, and spatial distance all pass.
+Cross-camera identity association remains Management-owned.
+
+The durable dependency order is observation, evidence, then embeddings. Body,
+face, gait, and scene vectors never enter SSE. Management maintains separate
+indexes for every modality/model/version/space/dimension tuple. Only a qualifying
+AdaFace gallery match may produce a named recognition; body and gait produce
+candidate identity associations.
+
 ## Unchanged v14 requirements
 
 HTTP/HTTPS/RTSP camera sources, health/readiness/metrics endpoints, live-tail

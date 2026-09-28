@@ -6,7 +6,7 @@
     "source": "file:/run/secrets/apexfabric/entrance-camera.url",
     "solution_pack": "sporada-secure",
     "fps": 8,
-    "apps": ["vehicle_counting", "vehicle_entry_exit_counts"],
+    "apps": ["vehicle_counting", "vehicle_entry_exit_counts", "person_reid"],
     "config": {
       "embedding": {"model_id": "face-embedding-model-v1", "dimensions": 512},
       "emission": {"minimum_quality": 0.20, "preferred_quality": 0.65, "selection_window_seconds": 1.5, "cooldown_seconds": 30, "material_change_threshold": 0.15},
@@ -15,8 +15,21 @@
           "id": "entrance-camera-vehicle-zone",
           "name": "Vehicle counting zone",
           "poly": [[0.05, 0.15], [0.95, 0.15], [0.95, 0.95], [0.05, 0.95]]
+        }],
+        "person_reid": [{
+          "id": "entrance-camera-reid-zone",
+          "name": "Person Re-ID zone",
+          "poly": [[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]]
         }]
       },
+      "reid_embedding": {
+        "body": {"model_id": "transreid_ssl_int8", "model_version": "v1", "embedding_space": "transreid_ssl_int8@v1:l2:384", "dimensions": 384},
+        "face": {"model_id": "face-embedding-model-v1", "model_version": "adaface_ir101_int8-v1", "embedding_space": "adaface-ir101-int8@v1:aligned112:l2:512", "dimensions": 512},
+        "gait": {"model_id": "gaitbase_int8", "model_version": "v1", "embedding_space": "gaitbase_int8@v1:30x64x44:parts16x256:l2:4096", "dimensions": 4096}
+      },
+      "reid_emission": {"interval_seconds": 5, "jpeg_quality": 88, "silhouette_interval_frames": 3, "minimum_body_quality": 0.2},
+      "gait": {"silhouette_source": "background_subtraction", "minimum_sequence_frames": 20, "model_sequence_frames": 30, "maximum_buffer_frames": 60, "minimum_motion_pixels": 2},
+      "reassociation": {"maximum_gap_seconds": 8, "minimum_body_similarity": 0.78, "maximum_center_distance_pixels": 320},
       "counting_lines": {
         "vehicle_entry_exit_counts": [{
           "id": "main-entrance",

@@ -1,0 +1,11 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"urn:sentinel:cv:observation:2","type":"object","additionalProperties":false,
+  "required":["schema_version","edge_id","observation_id","camera_id","observed_at","object_type"],
+  "properties":{"schema_version":{"const":"2.0"},"edge_id":{"type":"string","minLength":1,"maxLength":200},"observation_id":{"type":"string","minLength":1,"maxLength":200},"camera_id":{"type":"string","pattern":"^[A-Za-z0-9._-]+$","maxLength":200},"observed_at":{"type":"string","format":"date-time"},
+    "stream_session_id":{"type":"string","maxLength":200},"track_id":{"type":["string","integer"]},"presence_id":{"type":"string","maxLength":200},"object_type":{"type":"string","minLength":1,"maxLength":100},"event_type":{"type":"string","minLength":1,"maxLength":150},
+    "bbox":{"$ref":"#/$defs/bbox"},"bbox_normalized":{"$ref":"#/$defs/normalized_bbox"},"confidence":{"type":"number","minimum":0,"maximum":1},"quality":{"type":"number","minimum":0,"maximum":1},
+    "first_seen_at":{"type":"string","format":"date-time"},"last_seen_at":{"type":"string","format":"date-time"},"location":{"type":"object","additionalProperties":false,"required":["zone_id"],"properties":{"zone_id":{"type":"string"},"zone_name":{"type":"string"}}},
+    "attributes":{"type":"object"},"source_frame":{"type":"object","additionalProperties":false,"properties":{"frame_index":{"type":"integer","minimum":0},"frame_timestamp":{"type":"string","format":"date-time"},"source_width":{"type":"integer","minimum":1},"source_height":{"type":"integer","minimum":1}}},"metadata":{"type":"object"}},
+  "$defs":{"bbox":{"type":"object","additionalProperties":false,"required":["x1","y1","x2","y2"],"properties":{"x1":{"type":"number","minimum":0},"y1":{"type":"number","minimum":0},"x2":{"type":"number","exclusiveMinimum":0},"y2":{"type":"number","exclusiveMinimum":0}}},
+    "normalized_bbox":{"allOf":[{"$ref":"#/$defs/bbox"}],"properties":{"x1":{"maximum":1},"y1":{"maximum":1},"x2":{"maximum":1},"y2":{"maximum":1}}}}
+}

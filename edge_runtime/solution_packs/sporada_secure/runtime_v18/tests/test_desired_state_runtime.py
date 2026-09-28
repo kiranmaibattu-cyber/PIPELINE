@@ -41,6 +41,45 @@ def _config_for(apps):
                 "direction_mapping": {"right_to_left": "in", "left_to_right": "out"},
             }]
         }
+    if "scene_embeddings" in apps:
+        config["scene_embedding"] = {
+            "model_id": "google/siglip2-base-patch16-224",
+            "model_version": "75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2",
+            "embedding_space": "google/siglip2-base-patch16-224@75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2:image-text:l2:768",
+            "dimensions": 768,
+        }
+        config["scene_emission"] = {"interval_seconds": 10, "jpeg_quality": 88}
+    if "person_reid" in apps:
+        config["reid_embedding"] = {
+            "body": {
+                "model_id": "transreid_ssl_int8", "model_version": "v1",
+                "embedding_space": "transreid_ssl_int8@v1:l2:384", "dimensions": 384,
+            },
+            "face": {
+                "model_id": "face-embedding-model-v1",
+                "model_version": "adaface_ir101_int8-v1",
+                "embedding_space": "adaface-ir101-int8@v1:aligned112:l2:512",
+                "dimensions": 512,
+            },
+            "gait": {
+                "model_id": "gaitbase_int8", "model_version": "v1",
+                "embedding_space": "gaitbase_int8@v1:30x64x44:parts16x256:l2:4096",
+                "dimensions": 4096,
+            },
+        }
+        config["reid_emission"] = {
+            "interval_seconds": 5, "jpeg_quality": 88,
+            "silhouette_interval_frames": 3, "minimum_body_quality": 0.2,
+        }
+        config["gait"] = {
+            "silhouette_source": "background_subtraction", "minimum_sequence_frames": 20,
+            "model_sequence_frames": 30, "maximum_buffer_frames": 60,
+            "minimum_motion_pixels": 2,
+        }
+        config["reassociation"] = {
+            "maximum_gap_seconds": 8, "minimum_body_similarity": 0.78,
+            "maximum_center_distance_pixels": 320,
+        }
     return config
 
 
@@ -175,6 +214,59 @@ def test_dynamic_graph_adds_face_branch_without_removing_traffic_nodes(tmp_path)
     assert graph.devices["face_embedder"] == "NPU"
     assert ("vehicle_tracker", "face_detector") in graph.edge_ids
     assert ("face_embedder", "face_recognition") in graph.edge_ids
+
+
+def test_scene_embedding_graph_and_worker_config(tmp_path):
+    desired_path, secrets = _desired(tmp_path, ["scene_embeddings"])
+    desired = DesiredStateValidator(secrets).load(desired_path)
+
+    graph = compile_runtime_plan(desired).cameras[0]
+    assert {"scene_encoder", "scene_embeddings", "sentinel_v2_outbox",
+            "sentinel_v2_uploader"} <= set(graph.node_ids)
+    assert ("scene_embeddings", "sentinel_v2_outbox") in graph.edge_ids
+    assert ("scene_embeddings", "event_sink") not in graph.edge_ids
+
+    payload = write_worker_config(desired, tmp_path / "generated" / "cameras.json")
+    scene = payload["cameras"][0]["analytics"]["scene_embeddings"]
+    assert scene["embedding"]["dimensions"] == 768
+    assert scene["emission"]["interval_seconds"] == 10
+    assert scene["zones"][0]["type"] == "scene_embeddings"
+
+
+def test_person_reid_graph_and_worker_config(tmp_path):
+    desired_path, secrets = _desired(tmp_path, ["person_reid"])
+    desired = DesiredStateValidator(secrets).load(desired_path)
+
+    graph = compile_runtime_plan(desired).cameras[0]
+    assert {
+        "body_reid_embedder", "face_embedder", "gait_silhouette_extractor", "gait_embedder",
+        "presence_resolver", "person_reid", "sentinel_v2_outbox",
+        "sentinel_v2_uploader",
+    } <= set(graph.node_ids)
+    assert ("vehicle_tracker", "body_reid_embedder") in graph.edge_ids
+    assert ("gait_silhouette_extractor", "gait_embedder") in graph.edge_ids
+    assert ("person_reid", "sentinel_v2_outbox") in graph.edge_ids
+    assert ("person_reid", "event_sink") not in graph.edge_ids
+    assert graph.devices["body_reid_embedder"] == "NPU"
+    assert graph.devices["gait_silhouette_extractor"] == "CPU"
+
+    payload = write_worker_config(desired, tmp_path / "generated" / "cameras.json")
+    reid = payload["cameras"][0]["analytics"]["person_reid"]
+    assert reid["embedding"]["body"]["dimensions"] == 384
+    assert reid["embedding"]["face"]["dimensions"] == 512
+    assert reid["embedding"]["gait"]["dimensions"] == 4096
+    assert reid["gait"]["silhouette_source"] == "background_subtraction"
+    assert reid["zones"][0]["type"] == "person_reid"
+
+
+
+def test_person_reid_rejects_neural_gait_segmentation(tmp_path):
+    config = _config_for(["person_reid"])
+    config["gait"]["silhouette_source"] = "segmentation"
+    desired_path, secrets = _desired(tmp_path, ["person_reid"], config)
+
+    with pytest.raises(ValueError, match="must be background_subtraction"):
+        DesiredStateValidator(secrets).load(desired_path)
 
 
 def test_adapter_writes_worker_config_from_secret_and_zone(tmp_path):
