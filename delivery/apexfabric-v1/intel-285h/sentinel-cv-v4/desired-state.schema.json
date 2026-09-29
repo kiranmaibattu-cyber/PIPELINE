@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentinel:cv:desired-state:4:draft",
+  "title": "DRAFT v4 management-issued desired state",
+  "type": "object", "additionalProperties": false,
+  "required": ["contract", "edge_id", "deployment_id", "revision", "cameras"],
+  "properties": {
+    "contract": {"const": "v4"},
+    "edge_id": {"type": "string", "minLength": 1},
+    "deployment_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "revision": {"type": "integer", "minimum": 1},
+    "cameras": {"type": "array", "minItems": 1, "maxItems": 8, "items": {"$ref": "#/$defs/camera"}}
+  },
+  "$defs": {
+    "uuid": {"type": "string", "format": "uuid"},
+    "point": {"type": "array", "prefixItems": [{"type": "number", "minimum": 0, "maximum": 1}, {"type": "number", "minimum": 0, "maximum": 1}], "items": false, "minItems": 2},
+    "polygon": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "kind", "points"],
+      "properties": {
+        "id": {"$ref": "#/$defs/uuid"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 200},
+        "kind": {"const": "polygon"},
+        "points": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/point"}}
+      }
+    },
+    "line": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "name", "kind", "points", "forward_means"],
+      "properties": {
+        "id": {"$ref": "#/$defs/uuid"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 200},
+        "kind": {"const": "line"},
+        "points": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/point"}},
+        "forward_means": {"enum": ["entry", "exit", "neither"]}
+      }
+    },
+    "zone": {"oneOf": [{"$ref": "#/$defs/polygon"}, {"$ref": "#/$defs/line"}]},
+    "threshold": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "metric", "zone_id", "value", "direction"],
+      "properties": {
+        "id": {"$ref": "#/$defs/uuid"},
+        "metric": {"enum": ["person_count", "vehicle_count", "dwell_seconds"]},
+        "zone_id": {"$ref": "#/$defs/uuid"},
+        "value": {"type": "number", "minimum": 0},
+        "direction": {"enum": ["over", "under"]}
+      }
+    },
+    "camera": {
+      "type": "object", "additionalProperties": false,
+      "required": ["camera_id", "source", "fps", "outputs", "enabled_event_types", "zones", "thresholds", "embedding_profile_ids"],
+      "allOf": [
+        {"properties": {"outputs": {"contains": {"const": "observations"}}, "enabled_event_types": {"allOf": [{"contains": {"const": "object_present"}}, {"contains": {"const": "camera_health"}}]}}},
+        {"if": {"properties": {"outputs": {"contains": {"enum": ["face_embeddings", "body_embeddings", "gait_embeddings", "scene_embeddings"]}}}, "required": ["outputs"]},
+         "then": {"properties": {"outputs": {"contains": {"const": "evidence"}}}}},
+        {"if": {"properties": {"enabled_event_types": {"contains": {"const": "fire_smoke_suspected"}}}, "required": ["enabled_event_types"]},
+         "then": {"properties": {"outputs": {"contains": {"const": "evidence"}}}}},
+        {"if": {"properties": {"enabled_event_types": {"contains": {"const": "scene_sample"}}}, "required": ["enabled_event_types"]},
+         "then": {"properties": {"outputs": {"contains": {"const": "evidence"}}}}}
+      ],
+      "properties": {
+        "camera_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$", "maxLength": 200},
+        "source": {"type": "string", "pattern": "^file:/run/secrets/sentinel/cameras/[A-Za-z0-9._-]+\\.url$"},
+        "fps": {"type": "number", "exclusiveMinimum": 0, "maximum": 60},
+        "outputs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["observations", "evidence", "face_embeddings", "body_embeddings", "gait_embeddings", "scene_embeddings"]}},
+        "enabled_event_types": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["object_present", "person_count", "vehicle_count", "dwell", "threshold_exceeded", "plate_read", "line_cross", "zone_entry", "zone_exit", "scene_sample", "fire_smoke_suspected", "camera_health"]}},
+        "zones": {"type": "array", "items": {"$ref": "#/$defs/zone"}},
+        "thresholds": {"type": "array", "items": {"$ref": "#/$defs/threshold"}},
+        "embedding_profile_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 200}},
+        "minimum_quality": {"type": "number", "minimum": 0, "maximum": 1},
+        "evidence_cooldown_seconds": {"type": "number", "minimum": 0, "maximum": 3600}
+      }
+    }
+  }
+}

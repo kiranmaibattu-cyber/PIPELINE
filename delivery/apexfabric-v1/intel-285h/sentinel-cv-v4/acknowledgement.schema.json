@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentinel:ingest:ack:4:draft",
+  "title": "DRAFT v4 ingest acknowledgement",
+  "type": "object", "additionalProperties": false,
+  "required": ["status"],
+  "properties": {
+    "status": {"enum": ["created", "stored", "existing"]},
+    "observation_id": {"type": "string", "format": "uuid"},
+    "evidence_id": {"type": "string", "format": "uuid"},
+    "embedding_id": {"type": "string", "format": "uuid"},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  },
+  "oneOf": [
+    {
+      "required": ["observation_id"],
+      "not": {"anyOf": [{"required": ["evidence_id"]}, {"required": ["embedding_id"]}, {"required": ["sha256"]}]}
+    },
+    {
+      "required": ["evidence_id", "sha256"],
+      "not": {"anyOf": [{"required": ["observation_id"]}, {"required": ["embedding_id"]}]}
+    },
+    {
+      "required": ["embedding_id"],
+      "not": {"anyOf": [{"required": ["observation_id"]}, {"required": ["evidence_id"]}, {"required": ["sha256"]}]}
+    }
+  ]
+}

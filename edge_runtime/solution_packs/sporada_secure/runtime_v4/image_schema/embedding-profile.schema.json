@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentinel:cv:embedding-profile:4:draft",
+  "title": "DRAFT v4 catalog embedding profile declaration",
+  "type": "object", "additionalProperties": false,
+  "required": ["profile_id", "kind", "model_id", "model_version", "dim", "embedding_space", "distance_metric", "normalization"],
+  "properties": {
+    "profile_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "kind": {"enum": ["face", "body", "gait", "scene"]},
+    "model_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "model_version": {"type": "string", "minLength": 1, "maxLength": 100},
+    "dim": {"type": "integer", "minimum": 1},
+    "embedding_space": {"type": "string", "minLength": 1, "maxLength": 200},
+    "distance_metric": {"enum": ["cosine"]},
+    "normalization": {"enum": ["l2"]}
+  }
+}

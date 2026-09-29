@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentinel:cv:evidence:4:draft",
+  "title": "DRAFT v4 evidence metadata; multipart file bytes are separate",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "evidence_id", "observation_id", "evidence_type", "evidence_role", "captured_at", "content_type", "size_bytes", "sha256"],
+  "properties": {
+    "schema_version": {"const": "4.0"},
+    "evidence_id": {"type": "string", "format": "uuid"},
+    "observation_id": {"type": "string", "format": "uuid"},
+    "evidence_type": {"enum": ["frame", "snapshot", "person_crop", "face_crop", "vehicle_crop", "clip"]},
+    "evidence_role": {"enum": ["context", "subject_crop", "face_crop", "vehicle_crop", "clip"]},
+    "captured_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "capture_started_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "capture_ended_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "content_type": {"enum": ["image/jpeg", "image/png", "video/mp4"]},
+    "width": {"type": "integer", "minimum": 1},
+    "height": {"type": "integer", "minimum": 1},
+    "duration_ms": {"type": "integer", "minimum": 0},
+    "size_bytes": {"type": "integer", "minimum": 1, "maximum": 524288000},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "quality": {"type": "number", "minimum": 0, "maximum": 1}
+  },
+  "allOf": [
+    {"if": {"properties": {"evidence_type": {"const": "clip"}}, "required": ["evidence_type"]},
+     "then": {"required": ["capture_started_at", "capture_ended_at", "duration_ms"], "properties": {"content_type": {"const": "video/mp4"}}},
+     "else": {"properties": {"content_type": {"enum": ["image/jpeg", "image/png"]}, "size_bytes": {"maximum": 20971520}}}}
+  ]
+}

@@ -1,0 +1,82 @@
+ARG INTEL_TRAFFIC_RUNTIME_BASE=localhost/apexfabric-intel-traffic-runtime-base:intel-285h-2026.09.18-v2
+FROM ${INTEL_TRAFFIC_RUNTIME_BASE}
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/opt/traffic-pilot \
+    TRAFFIC_PILOT_ROOT=/opt/traffic-pilot \
+    SOLUTION_PACK=sentinel-cv-runtime \
+    APEXFABRIC_CONTRACT_VERSION=v4 \
+    APEXFABRIC_SECRETS_ROOT=/run/secrets/sentinel/cameras \
+    APEXFABRIC_STATE_ROOT=/state \
+    APEXFABRIC_GENERATED_DIR=/tmp/sentinel/generated \
+    SNAPSHOT_ROOT=/state/snapshots \
+    OPENVINO_MODELS_DIR=/models/traffic/openvino \
+    FACE_MODELS_DIR=/models/face/openvino \
+    SCENE_MODEL_PATH=/models/scene/openvino/siglip2-base-patch16-224.xml \
+    SCENE_EMBEDDER_DEVICE=GPU \
+    REID_MODELS_DIR=/models/surveillance \
+    BODY_REID_DEVICE=NPU \
+    GAIT_DEVICE=NPU \
+    FACE_DETECTOR_DEVICE=GPU \
+    FACE_EMBEDDER_DEVICE=NPU \
+    APEX_API_HOST=0.0.0.0 \
+    APEX_API_PORT=8080 \
+    DESIRED_STATE_RELOAD_INTERVAL=2 \
+    HOME=/tmp/sentinel \
+    XDG_CACHE_HOME=/tmp/sentinel/cache
+
+WORKDIR /opt/traffic-pilot
+
+COPY edge_runtime/solution_packs/sporada_secure/runtime_v4/services /opt/traffic-pilot/services
+COPY edge_runtime/solution_packs/sporada_secure/runtime_v4/traffic_pilot_runtime /opt/traffic-pilot/traffic_pilot_runtime
+COPY edge_runtime/solution_packs/sporada_secure/runtime_v4/config /opt/traffic-pilot/config
+COPY models/traffic-v11/openvino /models/traffic/openvino
+COPY vehicle_yolo26n_fp16.xml /models/traffic/openvino/vehicle.xml
+COPY vehicle_yolo26n_fp16.bin /models/traffic/openvino/vehicle.bin
+COPY models/traffic-v11/face/openvino /models/face/openvino
+COPY models/scene/openvino /models/scene/openvino
+COPY models/surveillance/transreid_ssl_int8.xml models/surveillance/transreid_ssl_int8.bin /models/surveillance/
+COPY models/surveillance/gaitbase_int8.xml models/surveillance/gaitbase_int8.bin /models/surveillance/
+COPY delivery/apexfabric-v1/intel-285h/sentinel-cv-v4 /opt/traffic-pilot/delivery/sentinel-cv-v4
+COPY edge_runtime/solution_packs/sporada_secure/runtime_v4/image_schema /opt/traffic-pilot/image_schema
+
+RUN ln -s /usr/lib/x86_64-linux-gnu/libopenvino_intel_npu_compiler_loader.so \
+        /usr/local/lib/python3.12/dist-packages/openvino/libs/libopenvino_intel_npu_compiler_loader.so \
+    && python -m py_compile traffic_pilot_runtime/*.py \
+        services/worker/stream_fleet_openvino.py \
+        services/worker/pipeline/scene_embeddings.py \
+        services/worker/pipeline/person_reid.py \
+        services/worker/pipeline/sentinel_delivery.py \
+        services/worker/pipeline/v4_events.py \
+    && test -f /models/traffic/openvino/vehicle.xml \
+    && test -f /models/traffic/openvino/license_plate.xml \
+    && test -f /models/traffic/openvino/ocr.xml \
+    && test -f /models/traffic/openvino/smoke_fire.xml \
+    && test -f /models/face/openvino/scrfd_500m.onnx \
+    && test -f /models/face/openvino/adaface_ir101_int8.xml \
+    && test -f /models/scene/openvino/siglip2-base-patch16-224.xml \
+    && test -f /models/surveillance/transreid_ssl_int8.xml \
+    && test -f /models/surveillance/gaitbase_int8.xml \
+    && test "$(id -u apexruntime)" = "10001"
+
+ARG IMAGE_VERSION=2026.09.29-v4-draft1
+ARG INTEL_TRAFFIC_RUNTIME_BASE_DIGEST=unresolved
+
+LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/PIPELINE" \
+      org.opencontainers.image.title="Sentinel CV Runtime" \
+      org.opencontainers.image.description="Draft V4 typed events, evidence, and face/body/gait/scene embedding runtime for Intel 285H" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      io.apexfabric.contract.version="v4" \
+      io.apexfabric.contract.status="draft" \
+      io.apexfabric.hardware.profile="intel-285h" \
+      io.apexfabric.image.role="solution-runtime" \
+      io.apexfabric.solution-pack="sentinel-cv-runtime" \
+      io.apexfabric.models.delivery="baked-in" \
+      io.apexfabric.identity.recognition-policy="face-only" \
+      io.apexfabric.action-context.included="false" \
+      io.apexfabric.policy-clip-capture.included="false" \
+      io.apexfabric.runtime-base.digest="${INTEL_TRAFFIC_RUNTIME_BASE_DIGEST}"
+
+EXPOSE 8080
+USER 10001:10001
+CMD ["python", "-m", "traffic_pilot_runtime.solution_image_entrypoint"]

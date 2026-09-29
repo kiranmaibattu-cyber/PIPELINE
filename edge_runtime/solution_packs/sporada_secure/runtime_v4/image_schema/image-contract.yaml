@@ -1,0 +1,162 @@
+# DRAFT 4.0-draft.1 FOR CV-TEAM REVIEW. No CV image is conformant until tested and approved.
+name: sentinel-cv-runtime
+contract: v4
+schemaVersion: "4.0"
+status: DRAFT
+architectures: [amd64]
+hardwareProfile: intel-core-ultra-285h
+
+scope:
+  requiredOutputs: [observations]
+  optionalOutputs: [evidence, face_embeddings, body_embeddings, gait_embeddings, scene_embeddings]
+  excluded: [violence_detection, frequent_visitor_detection, frequent_visitor_alerting]
+  events:
+    - object_present
+    - person_count
+    - vehicle_count
+    - dwell
+    - threshold_exceeded
+    - plate_read
+    - line_cross
+    - zone_entry
+    - zone_exit
+    - scene_sample
+    - fire_smoke_suspected
+    - camera_health
+
+models:
+  delivery: baked-in
+  # Declare only seeded fixed-dimension profiles; new models need a new profile and physical table.
+  embedding_profiles:
+    schema: embedding-profile.schema.json
+    requiredForEachEmittedKind: true
+    declarations:
+      - {profile_id: adaface-ir101-v18.1, kind: face, model_id: AdaFace-IR101-INT8, model_version: v18.1, dim: 512, embedding_space: adaface-ir101-v18.1, distance_metric: cosine, normalization: l2}
+      - {profile_id: transreid-ssl-v18.1, kind: body, model_id: TransReID-SSL-INT8, model_version: v18.1, dim: 384, embedding_space: transreid-ssl-v18.1, distance_metric: cosine, normalization: l2}
+      - {profile_id: gaitbase-v18.1, kind: gait, model_id: GaitBase-INT8, model_version: v18.1, dim: 4096, embedding_space: gaitbase-v18.1, distance_metric: cosine, normalization: l2}
+      - {profile_id: siglip2-base-v1, kind: scene, model_id: google/siglip2-base-patch16-224, model_version: 75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2, dim: 768, embedding_space: siglip2-base-v1, distance_metric: cosine, normalization: l2}
+    fields: [profile_id, kind, model_id, model_version, dim, embedding_space, distance_metric, normalization]
+    compatibilityRule: exact-kind-model-id-model-version-embedding-space-dim-distance-metric-normalization
+    unusedProfilesAllowed: false
+    revisionNote: AdaFace-TransReID-and-GaitBase-v18.1-labels-are-provisional-until-CV-publishes-pinned-weight-revisions
+
+configuration:
+  desiredStatePath: /configs/desired_state.json
+  schema: desired-state.schema.json
+  hotReload:
+    enabled: true
+    pollSeconds: 2
+    revisionPolicy: strictly-increasing
+    mountPath: /configs
+    invalidRevision: keep-last-valid-and-report-not-ready
+  ownership: management-issues-deployment-camera-zone-line-threshold-and-profile-ids
+secrets:
+  root: /run/secrets/sentinel
+  cameraReferenceFormat: file:/run/secrets/sentinel/cameras/<camera-id>.url
+  managementToken:
+    environmentVariable: SENTINEL_EDGE_TOKEN
+    kubernetesSecretKey: SENTINEL_EDGE_TOKEN
+    boundTo: [deployment_id, contract_v4, authorized_camera_ids]
+
+network: {port: 8080, hostNetworkRequired: false}
+endpoints:
+  health: /healthz
+  readiness: /readyz
+  metrics: /metrics
+  optionalLiveEvents: /events
+process: {uid: 10001, gid: 10001, readOnlyRootSupported: true}
+resources: {cpuRequest: "8", cpuLimit: "16", memoryRequest: 16Gi, memoryLimit: 32Gi, maxCameraStreams: 8}
+accelerators: [intel-igpu, intel-npu]
+devices: [/dev/dri, /dev/accel]
+storage:
+  persistentVolumes:
+    - {mountPath: /state, purpose: durable submission outbox and event journal}
+  temporaryPaths: [/tmp/sentinel]
+  evidenceRetention:
+    defaultDays: 7
+    highBytes: 1932735283
+    lowBytes: 1610612736
+    pressurePolicy: expire-oldest-unprotected-until-low-watermark
+    vectorCleanupRequired: true
+
+management:
+  baseUrl:
+    environmentVariable: SENTINEL_INGEST_BASE_URL
+    default: http://sentinel-ingestor.sentinel.svc.cluster.local:8080
+  authentication: {scheme: bearer, tokenEnvironmentVariable: SENTINEL_EDGE_TOKEN}
+  common:
+    timeoutSeconds: 30
+    successStatuses: [200, 201]
+    acknowledgementSchema: acknowledgement.schema.json
+    retryStatuses: [408, 425, 429, 500, 502, 503, 504]
+    retry:
+      attempts: unlimited-while-outbox-record-is-retained
+      backoff: exponential-with-jitter
+      initialDelayMilliseconds: 250
+      maximumDelaySeconds: 60
+      retryAfter: honor-if-present-with-60-second-cap
+  submissions:
+    observation:
+      method: POST
+      path: /api/v4/ingest/events
+      contentType: application/json
+      schema: observation.schema.json
+      idempotencyKey: observation_id
+    evidence:
+      method: POST
+      path: /api/v4/ingest/evidence
+      contentType: multipart/form-data
+      parts:
+        metadata: {contentType: application/json, schema: evidence.schema.json, required: true}
+        file: {contentTypes: [image/jpeg, image/png, video/mp4], required: true}
+      idempotencyKey: evidence_id
+      maximumImageBytes: 20971520
+      maximumClipBytes: 524288000
+      requiresAcknowledged: [observation]
+    embedding:
+      method: POST
+      path: /api/v4/ingest/embeddings
+      contentType: application/json
+      schema: embedding.schema.json
+      idempotencyKey: embedding_id
+      requiresAcknowledged: [observation, evidence]
+
+delivery:
+  order: [observation, evidence, embedding]
+  durableOutbox:
+    required: true
+    persistPayloadAndBinaryBeforeFirstAttempt: true
+    retryWithSameIdAndBytes: true
+    removeOnlyAfterManagementAcknowledgement: true
+    neverDropOnCredentialOrServerFailure: true
+  idempotency: same-key-and-identical-payload-returns-existing-ack
+  conflictBehavior: HTTP 409 is terminal; retain operator-visible dead-letter with payload and reason.
+  non2xxNon409:
+    networkTimeoutOrConnectionError: retry-with-backoff-retain-outbox
+    retryableStatuses: retry-with-backoff-retain-outbox
+    unauthorizedStatuses: [401, 403]
+    unauthorizedAction: pause-submissions-alert-operator-retain-outbox-retry-same-bytes-after-credential-fix
+    permanentStatuses: [400, 404, 405, 413, 415, 422]
+    permanentAction: dead-letter-with-status-response-and-payload-retain-for-operator-repair-no-automatic-retry
+    other4xx: dead-letter-with-status-response-and-payload-retain-for-operator-repair-no-automatic-retry
+    other5xx: retry-with-backoff-retain-outbox
+    malformed2xxAcknowledgement: retry-with-backoff-retain-outbox-and-alert-operator
+    dependencyRejection: stop-dependent-submissions-until-parent-acknowledged
+
+identity:
+  streamSessionId: unique-per-camera-stream-opening-and-restart
+  trackId: never-reused-within-stream-session-not-cross-session-or-camera-identity
+  presenceId: optional-stable-only-for-one-continuous-camera-session-presence
+  personId: management-owned-and-forbidden-in-edge-output
+  namedRecognition: face-only-after-management-review
+  bodyAndGait: candidate-association-evidence-only-never-confirmed-identity
+ownership:
+  cvOwns: [detection, tracking, typed_measurements, positive_zone_transitions, evidence_generation, declared_embeddings, camera_health]
+  managementOwns: [desired_state, persistence, cross_camera_association, identity_graph, rule_thresholds, incidents, alerts, retention]
+
+# Relative to v2: typed v4 events/normalized required geometry and track/session;
+# explicit deployment/config revision, health and count semantics; v4 routes and
+# token binding; declared per-profile fixed-dimension tables instead of v2 fixed dimensions;
+# lines/apps/thresholds in desired state; explicit non-2xx retry/dead-letter rules.
+# V2/v3 packages are historical references only. A v4 deployment uses this
+# contract, its desired state and /api/v4 routes exclusively.

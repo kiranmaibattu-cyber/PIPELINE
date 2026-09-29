@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentinel:cv:observation:4:draft",
+  "title": "DRAFT Sentinel CV v4 observation",
+  "allOf": [{"$ref": "#/$defs/envelope"}],
+  "oneOf": [
+    {"$ref": "#/$defs/object_present"},
+    {"$ref": "#/$defs/person_count"},
+    {"$ref": "#/$defs/vehicle_count"},
+    {"$ref": "#/$defs/dwell"},
+    {"$ref": "#/$defs/threshold_exceeded"},
+    {"$ref": "#/$defs/plate_read"},
+    {"$ref": "#/$defs/line_cross"},
+    {"$ref": "#/$defs/zone_entry"},
+    {"$ref": "#/$defs/zone_exit"},
+    {"$ref": "#/$defs/scene_sample"},
+    {"$ref": "#/$defs/fire_smoke_suspected"},
+    {"$ref": "#/$defs/camera_health"}
+  ],
+  "unevaluatedProperties": false,
+  "$defs": {
+    "uuid": {"type": "string", "format": "uuid"},
+    "utc": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "score": {"type": "number", "minimum": 0, "maximum": 1},
+    "subject_type": {"enum": ["person", "vehicle"]},
+    "vehicle_type": {"enum": ["car", "truck", "van", "bus", "motorcycle", "other", null]},
+    "bbox": {
+      "type": "object", "additionalProperties": false,
+      "required": ["x1", "y1", "x2", "y2"],
+      "properties": {
+        "x1": {"type": "number", "minimum": 0, "maximum": 1},
+        "y1": {"type": "number", "minimum": 0, "maximum": 1},
+        "x2": {"type": "number", "minimum": 0, "maximum": 1},
+        "y2": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "envelope": {
+      "type": "object",
+      "required": ["schema_version", "observation_id", "deployment_id", "camera_id", "config_revision", "event_type", "observed_at"],
+      "properties": {
+        "schema_version": {"const": "4.0"},
+        "observation_id": {"$ref": "#/$defs/uuid"},
+        "deployment_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "camera_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$", "maxLength": 200},
+        "config_revision": {"type": "integer", "minimum": 1},
+        "event_type": {"type": "string"},
+        "observed_at": {"$ref": "#/$defs/utc"}
+      }
+    },
+    "object_present": {
+      "type": "object",
+      "required": ["stream_session_id", "track_id", "object_type", "vehicle_type", "bbox_normalized", "confidence", "first_seen_at", "zone_id"],
+      "properties": {
+        "event_type": {"const": "object_present"},
+        "stream_session_id": {"$ref": "#/$defs/uuid"},
+        "track_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "presence_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "object_type": {"$ref": "#/$defs/subject_type"},
+        "vehicle_type": {"$ref": "#/$defs/vehicle_type"},
+        "bbox_normalized": {"$ref": "#/$defs/bbox"},
+        "confidence": {"$ref": "#/$defs/score"},
+        "quality": {"$ref": "#/$defs/score"},
+        "first_seen_at": {"$ref": "#/$defs/utc"},
+        "zone_id": {"oneOf": [{"$ref": "#/$defs/uuid"}, {"type": "null"}]}
+      }
+    },
+    "count_fields": {
+      "type": "object",
+      "required": ["stream_session_id", "zone_id", "count", "as_of", "count_semantics", "counting_method", "counting_method_note", "coverage_state", "entries_since_session_start", "exits_since_session_start"],
+      "properties": {
+        "stream_session_id": {"$ref": "#/$defs/uuid"},
+        "zone_id": {"$ref": "#/$defs/uuid"},
+        "count": {"type": "integer", "minimum": 0},
+        "as_of": {"$ref": "#/$defs/utc"},
+        "count_semantics": {"enum": ["current_occupancy", "visible_now"]},
+        "counting_method": {"enum": ["tracked_occupancy", "line_balance", "frame_snapshot"]},
+        "counting_method_note": {"type": "string", "minLength": 1, "maxLength": 256},
+        "coverage_state": {"enum": ["complete", "degraded"]},
+        "entries_since_session_start": {"type": ["integer", "null"], "minimum": 0},
+        "exits_since_session_start": {"type": ["integer", "null"], "minimum": 0}
+      },
+      "allOf": [
+        {"if": {"properties": {"count_semantics": {"const": "visible_now"}}, "required": ["count_semantics"]},
+         "then": {"properties": {"entries_since_session_start": {"type": "null"}, "exits_since_session_start": {"type": "null"}}}},
+        {"if": {"properties": {"count_semantics": {"const": "current_occupancy"}}, "required": ["count_semantics"]},
+         "then": {"properties": {"entries_since_session_start": {"type": "integer"}, "exits_since_session_start": {"type": "integer"}, "counting_method": {"enum": ["tracked_occupancy", "line_balance"]}}}}
+      ]
+    },
+    "person_count": {"allOf": [{"$ref": "#/$defs/count_fields"}], "properties": {"event_type": {"const": "person_count"}}},
+    "vehicle_count": {"allOf": [{"$ref": "#/$defs/count_fields"}], "properties": {"event_type": {"const": "vehicle_count"}}},
+    "dwell": {
+      "type": "object",
+      "required": ["stream_session_id", "track_id", "object_type", "zone_id", "started_at", "ended_at", "status"],
+      "properties": {
+        "event_type": {"const": "dwell"},
+        "stream_session_id": {"$ref": "#/$defs/uuid"},
+        "track_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "presence_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "object_type": {"$ref": "#/$defs/subject_type"},
+        "zone_id": {"$ref": "#/$defs/uuid"},
+        "started_at": {"$ref": "#/$defs/utc"},
+        "ended_at": {"oneOf": [{"$ref": "#/$defs/utc"}, {"type": "null"}]},
+        "status": {"enum": ["ongoing", "completed"]}
+      },
+      "allOf": [
+        {"if": {"properties": {"status": {"const": "ongoing"}}, "required": ["status"]}, "then": {"properties": {"ended_at": {"type": "null"}}}},
+        {"if": {"properties": {"status": {"const": "completed"}}, "required": ["status"]}, "then": {"properties": {"ended_at": {"$ref": "#/$defs/utc"}}}}
+      ]
+    },
+    "threshold_exceeded": {
+      "type": "object",
+      "required": ["stream_session_id", "threshold_ref", "metric", "zone_id", "threshold_value", "observed_value", "direction", "as_of"],
+      "properties": {
+        "event_type": {"const": "threshold_exceeded"},
+        "stream_session_id": {"$ref": "#/$defs/uuid"},
+        "threshold_ref": {"$ref": "#/$defs/uuid"},
+        "metric": {"enum": ["person_count", "vehicle_count", "dwell_seconds"]},
+        "zone_id": {"$ref": "#/$defs/uuid"},
+        "threshold_value": {"type": "number", "minimum": 0},
+        "observed_value": {"type": "number", "minimum": 0},
+        "direction": {"enum": ["over", "under"]},
+        "as_of": {"$ref": "#/$defs/utc"}
+      },
+      "allOf": [
+        {"if": {"properties": {"metric": {"const": "dwell_seconds"}}, "required": ["metric"]},
+         "then": {"required": ["track_id", "object_type"], "properties": {"track_id": {"type": "string", "minLength": 1, "maxLength": 200}, "object_type": {"$ref": "#/$defs/subject_type"}}},
+         "else": {"properties": {"threshold_value": {"type": "integer"}, "observed_value": {"type": "integer"}}, "not": {"anyOf": [{"required": ["track_id"]}, {"required": ["object_type"]}]}}}
+      ]
+    },
+    "plate_read": {
+      "type": "object",
+      "required": ["stream_session_id", "plate_text", "confidence", "partial", "vehicle_type", "bbox_normalized"],
+      "properties": {
+        "event_type": {"const": "plate_read"},
+        "stream_session_id": {"$ref": "#/$defs/uuid"},
+        "track_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "plate_text": {"type": "string", "pattern": "^[A-Z0-9 -]+$", "minLength": 1, "maxLength": 32},
+        "confidence": {"$ref": "#/$defs/score"},
+        "partial": {"type": "boolean"},
+        "vehicle_type": {"$ref": "#/$defs/vehicle_type"},
+        "bbox_normalized": {"$ref": "#/$defs/bbox"}
+      }
+    },
+    "line_cross": {
+      "type": "object",
+      "required": ["stream_session_id", "track_id", "object_type", "zone_id", "direction", "crossed_at"],
+      "properties": {
+        "event_type": {"const": "line_cross"},
+        "stream_session_id": {"$ref": "#/$defs/uuid"},
+        "track_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "presence_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "object_type": {"$ref": "#/$defs/subject_type"},
+        "zone_id": {"$ref": "#/$defs/uuid"},
+        "direction": {"enum": ["forward", "reverse"]},
+        "crossed_at": {"$ref": "#/$defs/utc"}
+      }
+    },
+    "zone_entry": {"$ref": "#/$defs/zone_transition_entry"},
+    "zone_exit": {"$ref": "#/$defs/zone_transition_exit"},
+    "zone_transition": {
+      "type": "object",
+      "required": ["stream_session_id", "track_id", "object_type", "zone_id", "transition_at"],
+      "properties": {
+        "stream_session_id": {"$ref": "#/$defs/uuid"},
+        "track_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "presence_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "object_type": {"$ref": "#/$defs/subject_type"},
+        "zone_id": {"$ref": "#/$defs/uuid"},
+        "transition_at": {"$ref": "#/$defs/utc"}
+      }
+    },
+    "zone_transition_entry": {"allOf": [{"$ref": "#/$defs/zone_transition"}], "properties": {"event_type": {"const": "zone_entry"}}},
+    "zone_transition_exit": {"allOf": [{"$ref": "#/$defs/zone_transition"}], "properties": {"event_type": {"const": "zone_exit"}}},
+    "scene_sample": {
+      "type": "object", "required": ["stream_session_id", "zone_id", "evidence_id"],
+      "properties": {
+        "event_type": {"const": "scene_sample"},
+        "stream_session_id": {"$ref": "#/$defs/uuid"},
+        "zone_id": {"oneOf": [{"$ref": "#/$defs/uuid"}, {"type": "null"}]},
+        "evidence_id": {"$ref": "#/$defs/uuid"},
+        "embedding_id": {"$ref": "#/$defs/uuid"}
+      }
+    },
+    "fire_smoke_suspected": {
+      "type": "object",
+      "required": ["stream_session_id", "hazard", "score", "evidence_id"],
+      "properties": {
+        "event_type": {"const": "fire_smoke_suspected"},
+        "stream_session_id": {"$ref": "#/$defs/uuid"},
+        "hazard": {"enum": ["fire", "smoke", "both"]},
+        "score": {"$ref": "#/$defs/score"},
+        "evidence_id": {"$ref": "#/$defs/uuid"}
+      }
+    },
+    "camera_health": {
+      "type": "object",
+      "required": ["stream_session_id", "as_of", "state", "reason"],
+      "properties": {
+        "event_type": {"const": "camera_health"},
+        "stream_session_id": {"oneOf": [{"$ref": "#/$defs/uuid"}, {"type": "null"}]},
+        "as_of": {"$ref": "#/$defs/utc"},
+        "state": {"enum": ["healthy", "degraded", "unavailable"]},
+        "reason": {"enum": ["none", "stream_disconnected", "decode_error", "stale_frames", "occluded", "camera_disabled", "other"]}
+      },
+      "allOf": [
+        {"if": {"properties": {"state": {"const": "healthy"}}, "required": ["state"]}, "then": {"properties": {"reason": {"const": "none"}}}, "else": {"properties": {"reason": {"not": {"const": "none"}}}}}
+      ]
+    }
+  }
+}

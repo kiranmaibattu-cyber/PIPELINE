@@ -1,0 +1,96 @@
+axelera-model-format: 1.0.0
+name: alpr-vehicle-plate-v8s
+description: yolov8s@640 vehicle master (Axelera official onnx, domain-cal) -> yolo26n 224 plate on ROIs
+pipeline:
+  - vehicle_detections:
+      model_name: yolov8s-veh
+      input:
+        type: image
+      preprocess:
+        - letterbox:
+            width: 640
+            height: 640
+            scaleup: true
+        - torch-totensor:
+      inference:
+        handle_all: false
+      postprocess:
+        - decodeyolo:
+            box_format: xywh
+            conf_threshold: 0.4
+            label_filter: []
+            max_nms_boxes: 30000
+            nms_class_agnostic: true
+            nms_iou_threshold: 0.45
+            nms_top_k: 300
+            normalized_coord: false
+            use_multi_label: false
+  - plate_detections:
+      model_name: alpr-plate
+      input:
+        type: image
+        source: roi
+        where: vehicle_detections
+        which: AREA
+        top_k: 10
+        label_filter: [2, 3, 5, 7]
+      preprocess:
+        - letterbox:
+            width: 224
+            height: 224
+            scaleup: true
+        - torch-totensor:
+      inference:
+        handle_all: false
+      postprocess:
+        - decodeyolo10:
+            box_format: xyxy
+            conf_threshold: 0.25
+            dfl_size: 1
+            normalized_coord: false
+            top_k: 300
+            use_multi_label: false
+operators:
+  decodeyolo:
+    class: DecodeYolo
+    class_path: $AXELERA_FRAMEWORK/ax_models/decoders/yolo.py
+  decodeyolo10:
+    class: DecodeYolo10
+    class_path: $AXELERA_FRAMEWORK/ax_models/decoders/yolo10.py
+models:
+  yolov8s-veh:
+    class: AxONNXModel
+    class_path: $AXELERA_FRAMEWORK/ax_models/base_onnx.py
+    weight_path: /home/admin1/traffic-pilot/models/weights/yolov8s_ultralytics_v8.1.0.onnx
+    task_category: ObjectDetection
+    input_tensor_layout: NCHW
+    input_tensor_shape: [1, 3, 640, 640]
+    input_color_format: RGB
+    num_classes: 80
+    dataset: RepresentativeDataset
+    extra_kwargs:
+      aipu_cores: 3
+      compiler_config_file: yolov8s.toml
+  alpr-plate:
+    class: AxONNXModel
+    class_path: $AXELERA_FRAMEWORK/ax_models/base_onnx.py
+    weight_path: /home/admin1/traffic-pilot/models/weights/plate_yolo26n_224.onnx
+    task_category: ObjectDetection
+    input_tensor_layout: NCHW
+    input_tensor_shape: [1, 3, 224, 224]
+    input_color_format: RGB
+    num_classes: 1
+    dataset: AlprPlateCal
+    extra_kwargs:
+      aipu_cores: 1
+      compiler_config_file: yolo26.toml
+datasets:
+  RepresentativeDataset:
+    class: DataAdapter
+    repr_imgs_dir_path: /home/admin1/traffic-pilot/datasets/calib_mix/
+  AlprPlateCal:
+    class: ObjDataAdapter
+    class_path: $AXELERA_FRAMEWORK/ax_datasets/objdataadapter.py
+    data_dir_name: alpr_plate
+    ultralytics_data_yaml: data.yaml
+    label_type: YOLOv8
