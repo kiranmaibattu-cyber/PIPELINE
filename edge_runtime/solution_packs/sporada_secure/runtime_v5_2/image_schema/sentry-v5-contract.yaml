@@ -1,0 +1,159 @@
+# Proposed V5-compatible boundary revision. No released image claims conformance.
+name: sentry-v5
+schemaVersion: "5.2"
+status: draft-for-edge-and-management-review
+base: ../sentry-v5-contract.yaml
+hardwareProfile: intel-core-ultra-285h
+architectures: [amd64]
+schemas:
+  desiredState: desired-state.schema.json
+  desiredStateExample: desired-state.example.json
+  observation: observation.schema.json
+  observationExamples: observation-examples.json
+  evidence: evidence.schema.json
+  embedding: embedding.schema.json
+  acknowledgement: acknowledgement.schema.json
+
+boundary:
+  edge: [camera_observation, camera_local_presence, zone_and_line_facts, selected_evidence, embeddings, health, durable_delivery]
+  management: [desired_state, rules, dwell_thresholds, alerts, incidents, named_face_gallery, cross_camera_association, semantic_search, retention]
+  namedRecognition: qualifying_face_only
+  bodyAndGait: candidate_association_only
+  actionMatchingAndPolicyClips: deferred
+  managementToEdgeRecheck: deferred
+  internalProductionPolicy: ../../V4_1_EVENT_PRODUCTION_POLICY_WORKING.md
+
+desiredState:
+  path: /configs/desired_state.json
+  revision: strictly_increasing
+  apply: validate_whole_revision_then_atomically_apply
+  invalid: keep_last_valid_and_report_not_ready
+  source: mounted_camera_url_secret_only
+  apps: v5_app_catalog_selected_only_by_bindings
+  geometry: reusable_camera_local_polygons_and_lines
+  binding: one_use_case_id_per_app_instance_with_full_frame_or_geometry_scope
+  outputProfiles: profile_ids_enable_attempts_not_guaranteed_results
+  controls: [camera_fps, use_case_scope, object_types, scene_sample_interval_seconds, embedding_profile_ids]
+  excludes: [tracker_age, detection_confidence, reassociation_similarity, face_size_gate, crop_algorithm, model_queue_limit, alert_rule, named_person_id]
+
+outputSemantics:
+  object_present: confirmed_subject_presence_or_freshness_update_not_every_detection
+  zone_entry: positive_outside_to_inside_transition_only
+  zone_exit: positive_inside_to_outside_transition_only
+  line_cross: validated_directional_crossing_is_separate_from_zone_exit
+  track_lost: temporary_unobserved_not_departure
+  presence_recovered: positive_reobservation_after_track_loss_same_or_reassociated_track_id
+  presence_ended_unknown: lost_without_positive_exit_and_not_recovered
+  zone_count: visible_now_total_at_as_of_not_cumulative_arrivals_or_guaranteed_occupancy
+  plate_read: confirmed_text_with_source_frame_and_plate_bbox
+  plate_outcome: unreadable_or_timed_out_without_inventing_text
+  person_feature_sample: one_selected_face_body_or_gait_artifact_set_for_a_presence
+  scene_sample: selected_decoded_frame_and_matching_scene_vector
+  fire_smoke_suspected: suspected_hazard_not_confirmed_incident
+  fire_smoke_cleared: observed_clear_of_prior_suspected_episode
+  camera_health: transition_or_freshness_heartbeat
+subjectEventOwnership:
+  eligibleApps: [vehicle_presence, person_presence, person_identity, anpr]
+  eligibility: binding_enabled_and_full_frame_or_subject_in_bound_polygon_at_first_confirmation
+  priority: presence_app_before_person_identity_or_anpr
+  tieBreak: lexicographically_smallest_use_case_id
+  selectedAt: first_confirmed_presence_matching_an_eligible_binding
+  stableWhileBindingEnabled: true
+  onOwnerDisabledByNewRevision: reselect_without_another_first_seen_event
+  useCaseIdMeaning: origin_owner_not_a_claim_of_current_zone_membership
+sceneViewChanged: view_changed_can_trigger_a_new_scene_sample_and_camera_health_reason
+sceneRegionCrop:
+  source: decoded_source_frame
+  rectangle: axis_aligned_min_max_of_polygon_vertices
+  padding: none
+  outsidePolygonMask: none
+  evidenceType: scene_region_crop
+  provenance: evidence_source_bbox_normalized_matches_crop_rectangle
+  encoding: SigLIP2_uses_that_same_region_before_model_preprocessing
+  zoneIdMeaning: configured_source_polygon_not_proof_every_visible_object_is_inside_it
+derivedDwell: management_uses_presence_zone_episode_first_and_last_positive_observation_and_unknown_state
+
+evidenceByOutput:
+  object_present: selected_subject_crop_only_not_every_freshness_update_and_optional_semantic_crop_vector
+  zone_entry: selected_context_frame
+  zone_exit: selected_context_frame
+  line_cross: crossing_context_frame
+  plate_read: source_frame_with_plate_bbox_in_event_metadata
+  plate_outcome: optional_source_frame_when_an_attempt_occurred
+  scene_sample: exact_selected_full_frame_or_region_crop_used_for_encoding
+  fire_smoke_suspected: context_frame
+  person_feature_sample: wider_original_frame_face_crop_for_face_person_crop_for_body_or_representative_frame_for_gait
+  zone_count: normally_none
+  camera_health: normally_none
+evidenceCoordinates: plate_and_crossing_boxes_are_normalized_source_frame_coordinates_management_draws_overlays
+
+embeddingProfiles:
+  - {profile_id: adaface-ir101-v18.1, kind: face, dim: 512, weightRevision: provisional}
+  - {profile_id: transreid-ssl-v18.1, kind: body, dim: 384, weightRevision: provisional}
+  - {profile_id: siglip2-base-v1, kind: semantic, dim: 768, modelId: google/siglip2-base-patch16-224, weightRevision: 75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2}
+  - {profile_id: gaitbase-v18.1, kind: gait, dim: 4096, weightRevision: provisional}
+embeddingRules:
+  - exact_profile_model_weights_preprocessing_dimension_and_normalization_required
+  - enabled_profile_does_not_imply_a_usable_face_body_or_gait_sample
+  - face_body_and_gait_samples_may_be_sent_independently_for_the_same_presence
+  - absent_modality_is_omitted_not_sent_as_a_fake_or_zero_vector
+  - semantic_on_scene_frame_has_null_presence_id_semantic_on_selected_subject_crop_has_subject_presence_id
+
+management:
+  baseUrl: {env: SENTINEL_INGEST_BASE_URL, default: "http://sentinel-ingestor.sentinel.svc.cluster.local:8080"}
+  auth: bearer_SENTINEL_EDGE_TOKEN_bound_to_deployment_contract_and_camera_allowlist
+  routes:
+    - {kind: observation, POST: /api/v5/ingest/events, body: application/json, idempotencyKey: observation_id}
+    - {kind: evidence, POST: /api/v5/ingest/evidence, body: multipart_metadata_json_plus_file, idempotencyKey: evidence_id, needs: observation_ack}
+    - {kind: embedding, POST: /api/v5/ingest/embeddings, body: application/json, idempotencyKey: embedding_id, needs: observation_and_evidence_ack}
+  ack: status_created_stored_or_existing_plus_matching_id
+runtimeEndpoints:
+  port: 8080
+  health: GET /healthz
+  readiness: GET /readyz
+  metrics: GET /metrics
+  recheck: deferred
+resources:
+  recommendedMaxCameraStreams: 4
+  hardCapCameraStreams: 8
+  cpu: {request: "6", limit: "12"}
+  memory: {request: 8Gi, limit: 14Gi}
+  processUid: 10001
+  readOnlyRootFilesystem: true
+  devices: [/dev/dri, /dev/accel]
+delivery:
+  order: [observation, evidence, embedding]
+  outbox: {path: /state, persist_before_send: true, retry_same_id_and_bytes: true, remove_only_after_ack: true}
+  promisedEvidence: persist_before_parent_event_is_submitted_and_never_drop_after_parent_ack
+  pressure: skip_new_optional_scene_jobs_before_event_creation_and_report_sampling_gap
+  retry:
+    statuses: [408, 425, 429, 500, 502, 503, 504]
+    networkErrors: retry
+    backoff: exponential_with_jitter_250ms_to_60s
+    retryAfter: honor_up_to_60s
+  permanent4xx: dead_letter_with_reason
+  unauthorized: pause_and_retain_outbox
+
+relationalValidation:
+  - unique_camera_geometry_and_use_case_ids_within_deployment
+  - every_binding_references_enabled_app_and_existing_compatible_geometry
+  - full_frame_has_no_geometry_ids_and_line_apps_require_a_line
+  - scene_trigger_use_case_ids_reference_other_enabled_bindings_and_only_positive_transition_events_trigger_extra_samples
+  - subject_events_have_presence_id_and_one_stream_session_id
+  - person_feature_sample_references_person_identity_binding_and_exact_profile
+  - zone_episode_id_is_stable_across_track_changes_within_the_same_confirmed_episode
+  - no_zone_exit_or_inferred_dwell_completion_on_track_loss_or_camera_failure
+  - count_zero_requires_a_fresh_healthy_observation
+  - plate_bbox_is_inside_source_frame_and_plate_read_references_frame_evidence
+  - scene_full_frame_references_frame_evidence_and_region_sample_references_scene_region_crop_from_same_source_pixels
+  - polygon_scene_region_crop_uses_unmasked_axis_aligned_vertex_bbox_without_padding
+  - embedding_profile_matches_kind_dimension_model_and_preprocessing
+  - semantic_scene_embedding_references_scene_sample_and_scene_media_subject_semantic_embedding_references_object_present_and_subject_crop
+  - face_embedding_references_wider_face_crop_while_aligned_112_chip_remains_internal
+  - referenced_evidence_is_acknowledged_before_embedding_delivery
+
+openBeforeRelease:
+  - exact_model_weight_hashes_and_preprocessing_ids_for_face_body_gait
+  - scene_rate_and_evidence_bandwidth_on_target_camera_count
+  - management_acceptance_of_new_v5_2_event_fields_and_outcomes
+  - live_and_recorded_validation_of_gates_under_separate_production_policy

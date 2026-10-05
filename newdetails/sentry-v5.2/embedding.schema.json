@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentry:cv:embedding:5.2:draft",
+  "title": "Sentry V5.2 selected embedding",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "embedding_id", "observation_id", "use_case_id", "evidence_id", "profile_id", "kind", "vector", "captured_at", "source_frame_id", "presence_id", "model_id", "model_version", "preprocessing_id", "normalization"],
+  "properties": {
+    "schema_version": {"const": "5.2"},
+    "embedding_id": {"type": "string", "format": "uuid"},
+    "observation_id": {"type": "string", "format": "uuid"},
+    "use_case_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "evidence_id": {"type": "string", "format": "uuid"},
+    "profile_id": {"enum": ["adaface-ir101-v18.1", "transreid-ssl-v18.1", "siglip2-base-v1", "gaitbase-v18.1"]},
+    "kind": {"enum": ["face", "body", "semantic", "gait"]},
+    "vector": {"type": "array", "items": {"type": "number"}},
+    "quality": {"type": "number", "minimum": 0, "maximum": 1},
+    "captured_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "source_frame_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "presence_id": {"oneOf": [{"type": "string", "format": "uuid"}, {"type": "null"}]},
+    "model_id": {"type": "string", "minLength": 1},
+    "model_version": {"type": "string", "minLength": 1},
+    "preprocessing_id": {"type": "string", "minLength": 1},
+    "normalization": {"const": "l2"},
+    "sequence_started_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "sequence_ended_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "usable_silhouette_count": {"type": "integer", "minimum": 1}
+  },
+  "allOf": [
+    {"if": {"properties": {"profile_id": {"const": "adaface-ir101-v18.1"}}, "required": ["profile_id"]}, "then": {"required": ["quality"], "properties": {"kind": {"const": "face"}, "presence_id": {"type": "string", "format": "uuid"}, "vector": {"minItems": 512, "maxItems": 512}}}},
+    {"if": {"properties": {"profile_id": {"const": "transreid-ssl-v18.1"}}, "required": ["profile_id"]}, "then": {"required": ["quality"], "properties": {"kind": {"const": "body"}, "presence_id": {"type": "string", "format": "uuid"}, "vector": {"minItems": 384, "maxItems": 384}}}},
+    {"if": {"properties": {"profile_id": {"const": "siglip2-base-v1"}}, "required": ["profile_id"]}, "then": {"properties": {"kind": {"const": "semantic"}, "quality": false, "vector": {"minItems": 768, "maxItems": 768}}}},
+    {"if": {"properties": {"profile_id": {"const": "gaitbase-v18.1"}}, "required": ["profile_id"]}, "then": {"required": ["quality", "sequence_started_at", "sequence_ended_at", "usable_silhouette_count"], "properties": {"kind": {"const": "gait"}, "presence_id": {"type": "string", "format": "uuid"}, "vector": {"minItems": 4096, "maxItems": 4096}}}, "else": {"properties": {"sequence_started_at": false, "sequence_ended_at": false, "usable_silhouette_count": false}}}
+  ]
+}

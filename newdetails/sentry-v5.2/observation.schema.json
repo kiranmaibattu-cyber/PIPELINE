@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentry:cv:observation:5.2:draft",
+  "title": "Sentry V5.2 flat observation envelope and typed outputs",
+  "type": "object",
+  "required": ["schema_version", "observation_id", "deployment_id", "camera_id", "config_revision", "stream_session_id", "use_case_id", "event_type", "observed_at", "source_frame_id"],
+  "properties": {
+    "schema_version": {"const": "5.2"},
+    "observation_id": {"$ref": "#/$defs/uuid"},
+    "deployment_id": {"$ref": "#/$defs/id"},
+    "camera_id": {"$ref": "#/$defs/id"},
+    "config_revision": {"type": "integer", "minimum": 1},
+    "stream_session_id": {"oneOf": [{"$ref": "#/$defs/uuid"}, {"type": "null"}]},
+    "use_case_id": {"oneOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+    "event_type": {"type": "string"},
+    "observed_at": {"$ref": "#/$defs/utc"},
+    "source_frame_id": {"type": ["string", "null"], "maxLength": 200}
+  },
+  "oneOf": [
+    {"properties": {
+      "event_type": {"const": "object_present"}, "presence_id": {"$ref": "#/$defs/uuid"}, "track_id": {"$ref": "#/$defs/id"},
+      "object_type": {"enum": ["person", "vehicle"]}, "vehicle_type": {"enum": ["car", "truck", "van", "bus", "motorcycle", "other", null]},
+      "reason": {"enum": ["first_seen", "material_change", "periodic"]}, "bbox_normalized": {"$ref": "#/$defs/bbox"},
+      "confidence": {"$ref": "#/$defs/score"}, "first_seen_at": {"$ref": "#/$defs/utc"},
+      "zone_episodes": {"type": "array", "items": {"$ref": "#/$defs/zoneEpisode"}}, "evidence_ids": {"$ref": "#/$defs/evidenceIds"}, "embedding_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/uuid"}}
+    }, "required": ["presence_id", "track_id", "object_type", "vehicle_type", "reason", "bbox_normalized", "confidence", "first_seen_at", "zone_episodes"],
+    "allOf": [{"if": {"properties": {"object_type": {"const": "person"}}, "required": ["object_type"]}, "then": {"properties": {"vehicle_type": {"const": null}}}}]},
+    {"properties": {
+      "event_type": {"const": "zone_entry"}, "presence_id": {"$ref": "#/$defs/uuid"}, "track_id": {"$ref": "#/$defs/id"},
+      "object_type": {"enum": ["person", "vehicle"]}, "zone_id": {"$ref": "#/$defs/id"}, "zone_episode_id": {"$ref": "#/$defs/uuid"},
+      "first_observed_inside_at": {"$ref": "#/$defs/utc"}, "transition_at": {"$ref": "#/$defs/utc"},
+      "evidence_ids": {"$ref": "#/$defs/nonemptyEvidenceIds"}
+    }, "required": ["presence_id", "track_id", "object_type", "zone_id", "zone_episode_id", "first_observed_inside_at", "transition_at", "evidence_ids"]},
+    {"properties": {
+      "event_type": {"const": "zone_exit"}, "presence_id": {"$ref": "#/$defs/uuid"}, "track_id": {"$ref": "#/$defs/id"},
+      "object_type": {"enum": ["person", "vehicle"]}, "zone_id": {"$ref": "#/$defs/id"}, "zone_episode_id": {"$ref": "#/$defs/uuid"},
+      "first_observed_inside_at": {"$ref": "#/$defs/utc"}, "transition_at": {"$ref": "#/$defs/utc"},
+      "evidence_ids": {"$ref": "#/$defs/nonemptyEvidenceIds"}
+    }, "required": ["presence_id", "track_id", "object_type", "zone_id", "zone_episode_id", "first_observed_inside_at", "transition_at", "evidence_ids"]},
+    {"properties": {
+      "event_type": {"const": "line_cross"}, "presence_id": {"$ref": "#/$defs/uuid"}, "track_id": {"$ref": "#/$defs/id"},
+      "object_type": {"enum": ["person", "vehicle"]}, "line_id": {"$ref": "#/$defs/id"},
+      "direction": {"enum": ["in", "out", "none"]}, "direction_raw": {"enum": ["left_to_right", "right_to_left"]},
+      "crossed_at": {"$ref": "#/$defs/utc"}, "evidence_ids": {"$ref": "#/$defs/nonemptyEvidenceIds"}
+    }, "required": ["presence_id", "track_id", "object_type", "line_id", "direction", "direction_raw", "crossed_at", "evidence_ids"]},
+    {"properties": {
+      "event_type": {"const": "track_lost"}, "presence_id": {"$ref": "#/$defs/uuid"}, "track_id": {"$ref": "#/$defs/id"},
+      "object_type": {"enum": ["person", "vehicle"]}, "last_seen_at": {"$ref": "#/$defs/utc"},
+      "zone_episodes": {"type": "array", "items": {"$ref": "#/$defs/zoneEpisode"}},
+      "reason": {"enum": ["occluded", "out_of_view", "stream_interrupted", "unknown"]}
+    }, "required": ["presence_id", "track_id", "object_type", "last_seen_at", "zone_episodes", "reason"]},
+    {"properties": {
+      "event_type": {"const": "presence_recovered"}, "presence_id": {"$ref": "#/$defs/uuid"},
+      "previous_track_id": {"$ref": "#/$defs/id"}, "track_id": {"$ref": "#/$defs/id"},
+      "object_type": {"enum": ["person", "vehicle"]}, "last_seen_at": {"$ref": "#/$defs/utc"},
+      "zone_episodes": {"type": "array", "items": {"$ref": "#/$defs/zoneEpisode"}}
+    }, "required": ["presence_id", "track_id", "previous_track_id", "object_type", "last_seen_at", "zone_episodes"]},
+    {"properties": {
+      "event_type": {"const": "presence_ended_unknown"}, "presence_id": {"$ref": "#/$defs/uuid"}, "track_id": {"$ref": "#/$defs/id"},
+      "object_type": {"enum": ["person", "vehicle"]}, "last_seen_at": {"$ref": "#/$defs/utc"},
+      "zone_episodes": {"type": "array", "items": {"$ref": "#/$defs/zoneEpisode"}}
+    }, "required": ["presence_id", "track_id", "object_type", "last_seen_at", "zone_episodes"]},
+    {"properties": {
+      "event_type": {"const": "zone_count"}, "zone_id": {"oneOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+      "object_type": {"enum": ["person", "vehicle"]}, "count": {"type": "integer", "minimum": 0},
+      "count_semantics": {"const": "visible_now"}, "as_of": {"$ref": "#/$defs/utc"},
+      "coverage_state": {"enum": ["complete", "degraded"]}, "evidence_ids": {"$ref": "#/$defs/evidenceIds"}
+    }, "required": ["zone_id", "object_type", "count", "count_semantics", "as_of", "coverage_state"]},
+    {"properties": {
+      "event_type": {"const": "plate_read"}, "presence_id": {"$ref": "#/$defs/uuid"}, "track_id": {"$ref": "#/$defs/id"},
+      "zone_id": {"oneOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+      "plate_text": {"type": "string", "pattern": "^[A-Z0-9? -]+$", "minLength": 1, "maxLength": 32},
+      "partial": {"type": "boolean"}, "confidence": {"$ref": "#/$defs/score"},
+      "plate_bbox_normalized": {"$ref": "#/$defs/bbox"}, "evidence_ids": {"$ref": "#/$defs/nonemptyEvidenceIds"},
+      "supersedes_observation_id": {"oneOf": [{"$ref": "#/$defs/uuid"}, {"type": "null"}]}
+    }, "required": ["presence_id", "track_id", "zone_id", "plate_text", "partial", "confidence", "plate_bbox_normalized", "evidence_ids", "supersedes_observation_id"]},
+    {"properties": {
+      "event_type": {"const": "plate_outcome"}, "presence_id": {"$ref": "#/$defs/uuid"}, "track_id": {"$ref": "#/$defs/id"},
+      "outcome": {"enum": ["unreadable", "timed_out"]}, "evidence_ids": {"$ref": "#/$defs/evidenceIds"}
+    }, "required": ["presence_id", "track_id", "outcome"]},
+    {"properties": {
+      "event_type": {"const": "person_feature_sample"}, "presence_id": {"$ref": "#/$defs/uuid"}, "track_id": {"$ref": "#/$defs/id"},
+      "kind": {"enum": ["face", "body", "gait"]},
+      "profile_id": {"enum": ["adaface-ir101-v18.1", "transreid-ssl-v18.1", "gaitbase-v18.1"]},
+      "quality": {"$ref": "#/$defs/score"}, "sample_reason": {"enum": ["first_qualified", "quality_improved", "appearance_changed"]},
+      "evidence_ids": {"$ref": "#/$defs/nonemptyEvidenceIds"}, "embedding_ids": {"$ref": "#/$defs/nonemptyEmbeddingIds"}
+    }, "required": ["presence_id", "track_id", "kind", "profile_id", "quality", "sample_reason", "evidence_ids", "embedding_ids"],
+    "allOf": [
+      {"if": {"properties": {"kind": {"const": "face"}}, "required": ["kind"]}, "then": {"properties": {"profile_id": {"const": "adaface-ir101-v18.1"}}}},
+      {"if": {"properties": {"kind": {"const": "body"}}, "required": ["kind"]}, "then": {"properties": {"profile_id": {"const": "transreid-ssl-v18.1"}}}},
+      {"if": {"properties": {"kind": {"const": "gait"}}, "required": ["kind"]}, "then": {"properties": {"profile_id": {"const": "gaitbase-v18.1"}}}}
+    ]},
+    {"properties": {
+      "event_type": {"const": "scene_sample"}, "trigger": {"enum": ["interval", "event", "view_changed"]},
+      "triggering_observation_id": {"$ref": "#/$defs/uuid"}, "scope": {"enum": ["full_frame", "geometry"]},
+      "zone_id": {"oneOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+      "evidence_ids": {"$ref": "#/$defs/nonemptyEvidenceIds"}, "embedding_ids": {"$ref": "#/$defs/nonemptyEmbeddingIds"}
+    }, "required": ["trigger", "scope", "zone_id", "evidence_ids", "embedding_ids"],
+    "allOf": [
+      {"if": {"properties": {"trigger": {"const": "event"}}, "required": ["trigger"]}, "then": {"required": ["triggering_observation_id"]}, "else": {"properties": {"triggering_observation_id": false}}},
+      {"if": {"properties": {"scope": {"const": "full_frame"}}, "required": ["scope"]}, "then": {"properties": {"zone_id": {"type": "null"}}}, "else": {"properties": {"zone_id": {"$ref": "#/$defs/id"}}}}
+    ]},
+    {"properties": {
+      "event_type": {"const": "fire_smoke_suspected"}, "hazard": {"enum": ["fire", "smoke", "both"]},
+      "zone_id": {"oneOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+      "score": {"$ref": "#/$defs/score"}, "hazard_episode_id": {"$ref": "#/$defs/uuid"},
+      "evidence_ids": {"$ref": "#/$defs/nonemptyEvidenceIds"}
+    }, "required": ["hazard", "zone_id", "score", "hazard_episode_id", "evidence_ids"]},
+    {"properties": {
+      "event_type": {"const": "fire_smoke_cleared"}, "hazard": {"enum": ["fire", "smoke", "both"]},
+      "zone_id": {"oneOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+      "hazard_episode_id": {"$ref": "#/$defs/uuid"}
+    }, "required": ["hazard", "zone_id", "hazard_episode_id"]},
+    {"properties": {
+      "event_type": {"const": "camera_health"}, "state": {"enum": ["healthy", "degraded", "unavailable"]},
+      "reason": {"enum": ["none", "stream_disconnected", "decode_error", "stale_frames", "occluded", "view_changed", "backpressure", "camera_disabled", "other"]},
+      "as_of": {"$ref": "#/$defs/utc"}, "last_reliable_at": {"oneOf": [{"$ref": "#/$defs/utc"}, {"type": "null"}]},
+      "sampling_gap_seconds": {"type": "number", "minimum": 0}
+    }, "required": ["state", "reason", "as_of", "last_reliable_at", "sampling_gap_seconds"],
+    "allOf": [{"if": {"properties": {"state": {"const": "healthy"}}, "required": ["state"]}, "then": {"properties": {"reason": {"const": "none"}}}, "else": {"properties": {"reason": {"not": {"const": "none"}}}}}]}
+  ],
+  "allOf": [
+    {"if": {"properties": {"event_type": {"const": "camera_health"}}, "required": ["event_type"]}, "then": {"properties": {"stream_session_id": {"oneOf": [{"$ref": "#/$defs/uuid"}, {"type": "null"}]}}}, "else": {"properties": {"stream_session_id": {"$ref": "#/$defs/uuid"}}}},
+    {"if": {"properties": {"event_type": {"enum": ["camera_health", "track_lost", "presence_recovered", "presence_ended_unknown"]}}, "required": ["event_type"]}, "then": {"properties": {"use_case_id": {"type": "null"}}}, "else": {"properties": {"use_case_id": {"$ref": "#/$defs/id"}}}},
+    {"if": {"properties": {"event_type": {"enum": ["camera_health", "track_lost", "presence_ended_unknown"]}}, "required": ["event_type"]}, "else": {"properties": {"source_frame_id": {"type": "string", "minLength": 1}}}}
+  ],
+  "unevaluatedProperties": false,
+  "$defs": {
+    "uuid": {"type": "string", "format": "uuid"},
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$", "minLength": 1, "maxLength": 200},
+    "utc": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "score": {"type": "number", "minimum": 0, "maximum": 1},
+    "bbox": {"type": "object", "additionalProperties": false, "required": ["x1", "y1", "x2", "y2"], "properties": {"x1": {"type": "number", "minimum": 0, "maximum": 1}, "y1": {"type": "number", "minimum": 0, "maximum": 1}, "x2": {"type": "number", "minimum": 0, "maximum": 1}, "y2": {"type": "number", "minimum": 0, "maximum": 1}}},
+    "evidenceIds": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/uuid"}},
+    "nonemptyEvidenceIds": {"$ref": "#/$defs/evidenceIds", "minItems": 1},
+    "nonemptyEmbeddingIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/uuid"}},
+    "zoneEpisode": {"type": "object", "additionalProperties": false, "required": ["zone_id", "zone_episode_id", "first_observed_inside_at", "last_confirmed_inside_at", "entry_observed", "observation_state"], "properties": {
+      "zone_id": {"$ref": "#/$defs/id"}, "zone_episode_id": {"$ref": "#/$defs/uuid"},
+      "first_observed_inside_at": {"$ref": "#/$defs/utc"}, "last_confirmed_inside_at": {"$ref": "#/$defs/utc"},
+      "entry_observed": {"type": "boolean"}, "observation_state": {"enum": ["observed_inside", "unobserved", "ended_unknown"]}
+    }}
+  }
+}

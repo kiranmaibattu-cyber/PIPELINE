@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentry:cv:desired-state:5.2:draft",
+  "title": "Sentry V5.2 Management desired state",
+  "type": "object", "additionalProperties": false,
+  "required": ["contract", "schema_version", "edge_id", "deployment_id", "revision", "cameras"],
+  "properties": {
+    "contract": {"const": "sentry-v5"},
+    "schema_version": {"const": "5.2"},
+    "edge_id": {"$ref": "#/$defs/id"},
+    "deployment_id": {"$ref": "#/$defs/id"},
+    "revision": {"type": "integer", "minimum": 1},
+    "cameras": {"type": "array", "minItems": 1, "maxItems": 8, "items": {"$ref": "#/$defs/camera"}}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$", "minLength": 1, "maxLength": 200},
+    "point": {"type": "array", "prefixItems": [{"type": "number", "minimum": 0, "maximum": 1}, {"type": "number", "minimum": 0, "maximum": 1}], "items": false, "minItems": 2, "maxItems": 2},
+    "polygon": {"type": "object", "additionalProperties": false, "required": ["id", "name", "poly"], "properties": {"id": {"$ref": "#/$defs/id"}, "name": {"type": "string", "minLength": 1}, "poly": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/point"}}}},
+    "line": {"type": "object", "additionalProperties": false, "required": ["id", "name", "a", "b", "direction_mapping"], "properties": {
+      "id": {"$ref": "#/$defs/id"}, "name": {"type": "string", "minLength": 1},
+      "a": {"$ref": "#/$defs/point"}, "b": {"$ref": "#/$defs/point"},
+      "direction_mapping": {"type": "object", "additionalProperties": false, "required": ["left_to_right", "right_to_left"], "properties": {"left_to_right": {"enum": ["in", "out", "none"]}, "right_to_left": {"enum": ["in", "out", "none"]}}}
+    }},
+    "app": {"enum": ["vehicle_counting", "vehicle_entry_exit_counts", "vehicle_presence", "anpr", "people_counting", "people_entry_exit_counts", "person_presence", "line_crossing", "person_identity", "fire_smoke", "scene_search"]},
+    "binding": {"type": "object", "additionalProperties": false, "required": ["use_case_id", "app", "scope", "geometry_ids", "object_types"], "properties": {
+      "use_case_id": {"$ref": "#/$defs/id"}, "app": {"$ref": "#/$defs/app"},
+      "scope": {"enum": ["full_frame", "geometry"]},
+      "geometry_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+      "object_types": {"type": "array", "uniqueItems": true, "items": {"enum": ["person", "vehicle"]}},
+      "embedding_profile_ids": {"type": "array", "uniqueItems": true, "items": {"enum": ["adaface-ir101-v18.1", "transreid-ssl-v18.1", "siglip2-base-v1", "gaitbase-v18.1"]}},
+      "scene_trigger_use_case_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+      "sample_interval_seconds": {"type": "number", "minimum": 1, "maximum": 60}
+    }, "allOf": [
+      {"if": {"properties": {"scope": {"const": "full_frame"}}, "required": ["scope"]}, "then": {"properties": {"geometry_ids": {"maxItems": 0}}}},
+      {"if": {"properties": {"scope": {"const": "geometry"}}, "required": ["scope"]}, "then": {"properties": {"geometry_ids": {"minItems": 1}}}},
+      {"if": {"properties": {"app": {"enum": ["vehicle_entry_exit_counts", "people_entry_exit_counts", "line_crossing"]}}, "required": ["app"]}, "then": {"properties": {"scope": {"const": "geometry"}, "object_types": {"minItems": 1}}}},
+      {"if": {"properties": {"app": {"enum": ["vehicle_counting", "vehicle_entry_exit_counts", "vehicle_presence", "anpr"]}}, "required": ["app"]}, "then": {"properties": {"object_types": {"const": ["vehicle"]}}}},
+      {"if": {"properties": {"app": {"enum": ["people_counting", "people_entry_exit_counts", "person_presence", "person_identity"]}}, "required": ["app"]}, "then": {"properties": {"object_types": {"const": ["person"]}}}},
+      {"if": {"properties": {"app": {"enum": ["scene_search", "fire_smoke"]}}, "required": ["app"]}, "then": {"properties": {"object_types": {"maxItems": 0}}}},
+      {"if": {"properties": {"app": {"const": "scene_search"}}, "required": ["app"]},
+       "then": {"required": ["embedding_profile_ids", "sample_interval_seconds"], "properties": {"embedding_profile_ids": {"const": ["siglip2-base-v1"]}}},
+       "else": {"properties": {"scene_trigger_use_case_ids": false, "sample_interval_seconds": false}}},
+      {"if": {"properties": {"app": {"const": "person_identity"}}, "required": ["app"]},
+       "then": {"required": ["embedding_profile_ids"], "properties": {"embedding_profile_ids": {"minItems": 1, "contains": {"enum": ["adaface-ir101-v18.1", "transreid-ssl-v18.1", "gaitbase-v18.1"]}, "items": {"enum": ["adaface-ir101-v18.1", "transreid-ssl-v18.1", "gaitbase-v18.1", "siglip2-base-v1"]}}}}},
+      {"if": {"properties": {"app": {"enum": ["vehicle_presence", "person_presence"]}}, "required": ["app"]},
+       "then": {"properties": {"embedding_profile_ids": {"const": ["siglip2-base-v1"]}}}},
+      {"if": {"properties": {"app": {"enum": ["vehicle_counting", "vehicle_entry_exit_counts", "anpr", "people_counting", "people_entry_exit_counts", "line_crossing", "fire_smoke"]}}, "required": ["app"]},
+       "then": {"properties": {"embedding_profile_ids": false}}}
+    ]},
+    "camera": {"type": "object", "additionalProperties": false, "required": ["camera_id", "source", "fps", "bindings"], "properties": {
+      "camera_id": {"$ref": "#/$defs/id"},
+      "source": {"type": "string", "pattern": "^file:/run/secrets/sentinel/cameras/[A-Za-z0-9._-]+\\.url$"},
+      "fps": {"type": "number", "exclusiveMinimum": 0, "maximum": 60},
+      "geometry": {"type": "object", "additionalProperties": false, "properties": {
+        "zones": {"type": "array", "items": {"$ref": "#/$defs/polygon"}},
+        "counting_lines": {"type": "array", "items": {"$ref": "#/$defs/line"}}
+      }},
+      "bindings": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/binding"}}
+    }}
+  }
+}

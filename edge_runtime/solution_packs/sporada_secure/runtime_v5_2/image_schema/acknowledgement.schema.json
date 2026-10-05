@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentry:cv:acknowledgement:5.2:draft",
+  "title": "Sentry V5.2 Management ingest acknowledgement",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "kind", "id", "status"],
+  "properties": {
+    "schema_version": {"const": "5.2"},
+    "kind": {"enum": ["observation", "evidence", "embedding"]},
+    "id": {"type": "string", "format": "uuid"},
+    "status": {"enum": ["created", "stored", "existing"]},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  },
+  "allOf": [{"if": {"properties": {"kind": {"const": "evidence"}}, "required": ["kind"]}, "then": {"required": ["sha256"]}}]
+}

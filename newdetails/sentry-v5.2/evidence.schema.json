@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentry:cv:evidence:5.2:draft",
+  "title": "Sentry V5.2 evidence metadata; bytes travel in multipart file part",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "evidence_id", "observation_id", "evidence_type", "captured_at", "source_frame_id", "content_type", "width", "height", "size_bytes", "sha256", "source_bbox_normalized"],
+  "properties": {
+    "schema_version": {"const": "5.2"},
+    "evidence_id": {"type": "string", "format": "uuid"},
+    "observation_id": {"type": "string", "format": "uuid"},
+    "evidence_type": {"enum": ["frame", "scene_region_crop", "subject_crop", "face_crop"]},
+    "captured_at": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "source_frame_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "source_bbox_normalized": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/bbox"}]},
+    "content_type": {"enum": ["image/jpeg", "image/png"]},
+    "width": {"type": "integer", "minimum": 1},
+    "height": {"type": "integer", "minimum": 1},
+    "size_bytes": {"type": "integer", "minimum": 1, "maximum": 20971520},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  },
+  "allOf": [
+    {"if": {"properties": {"evidence_type": {"enum": ["scene_region_crop", "subject_crop", "face_crop"]}}, "required": ["evidence_type"]}, "then": {"properties": {"source_bbox_normalized": {"$ref": "#/$defs/bbox"}}}},
+    {"if": {"properties": {"evidence_type": {"const": "frame"}}, "required": ["evidence_type"]}, "then": {"properties": {"source_bbox_normalized": {"type": "null"}, "content_type": {"const": "image/jpeg"}}}},
+    {"if": {"properties": {"evidence_type": {"const": "scene_region_crop"}}, "required": ["evidence_type"]}, "then": {"properties": {"content_type": {"const": "image/jpeg"}}}}
+  ],
+  "$defs": {"bbox": {"type": "object", "additionalProperties": false, "required": ["x1", "y1", "x2", "y2"], "properties": {"x1": {"type": "number", "minimum": 0, "maximum": 1}, "y1": {"type": "number", "minimum": 0, "maximum": 1}, "x2": {"type": "number", "minimum": 0, "maximum": 1}, "y2": {"type": "number", "minimum": 0, "maximum": 1}}}}
+}

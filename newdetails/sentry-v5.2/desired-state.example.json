@@ -1,0 +1,29 @@
+{
+  "contract": "sentry-v5",
+  "schema_version": "5.2",
+  "edge_id": "edge-yard-01",
+  "deployment_id": "north-yard",
+  "revision": 17,
+  "cameras": [{
+    "camera_id": "entrance-camera",
+    "source": "file:/run/secrets/sentinel/cameras/entrance-camera.url",
+    "fps": 8,
+    "geometry": {
+      "zones": [
+        {"id": "parking-zone", "name": "Parking", "poly": [[0.05, 0.15], [0.95, 0.15], [0.95, 0.95], [0.05, 0.95]]},
+        {"id": "entrance-zone", "name": "Entrance", "poly": [[0.1, 0.1], [0.5, 0.1], [0.5, 0.6], [0.1, 0.6]]}
+      ],
+      "counting_lines": [{"id": "gate-line", "name": "Gate", "a": [0.15, 0.62], "b": [0.88, 0.62], "direction_mapping": {"left_to_right": "out", "right_to_left": "in"}}]
+    },
+    "bindings": [
+      {"use_case_id": "parking-count", "app": "vehicle_counting", "scope": "geometry", "geometry_ids": ["parking-zone"], "object_types": ["vehicle"]},
+      {"use_case_id": "parking-presence", "app": "vehicle_presence", "scope": "geometry", "geometry_ids": ["parking-zone", "entrance-zone"], "object_types": ["vehicle"], "embedding_profile_ids": ["siglip2-base-v1"]},
+      {"use_case_id": "plate-reading", "app": "anpr", "scope": "geometry", "geometry_ids": ["parking-zone"], "object_types": ["vehicle"]},
+      {"use_case_id": "gate-crossing", "app": "vehicle_entry_exit_counts", "scope": "geometry", "geometry_ids": ["gate-line"], "object_types": ["vehicle"]},
+      {"use_case_id": "person-search", "app": "person_identity", "scope": "full_frame", "geometry_ids": [], "object_types": ["person"], "embedding_profile_ids": ["adaface-ir101-v18.1", "transreid-ssl-v18.1", "gaitbase-v18.1"]},
+      {"use_case_id": "scene-history", "app": "scene_search", "scope": "full_frame", "geometry_ids": [], "object_types": [], "embedding_profile_ids": ["siglip2-base-v1"], "sample_interval_seconds": 2, "scene_trigger_use_case_ids": ["parking-presence"]},
+      {"use_case_id": "fire-monitor", "app": "fire_smoke", "scope": "geometry", "geometry_ids": ["parking-zone"], "object_types": []},
+      {"use_case_id": "parking-person-presence", "app": "person_presence", "scope": "geometry", "geometry_ids": ["parking-zone"], "object_types": ["person"]}
+    ]
+  }]
+}
