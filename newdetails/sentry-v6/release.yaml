@@ -1,0 +1,15 @@
+contract: sentry-v6
+schema_version: "6.0"
+wire_schema_version: "5.2"
+status: published-development
+image: ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.10.26-v6-dev17
+digest: sha256:0dcc7b1b299d715b5b3d9796b97df37d8d355445dd80da009cf188da78357272
+architecture: amd64
+hardware_profile: intel-285h
+changes:
+  - deployment_readiness_is_independent_of_individual_camera_health
+  - per_camera_decode_and_recovery_are_fault_isolated
+  - healthy_cameras_continue_inference_and_delivery_during_peer_camera_outages
+  - corrected_per_camera_and_container_runtime_telemetry
+  - measured_npu_utilization_and_explicitly_unavailable_gpu_utilization
+  - bounded_fire_smoke_cadence_with_latency_optimized_inference

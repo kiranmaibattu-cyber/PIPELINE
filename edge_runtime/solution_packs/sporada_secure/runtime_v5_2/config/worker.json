@@ -1,7 +1,7 @@
 {
   "models": {
     "vehicle": {
-      "path": "/models/pytorch/yolo26n.pt",
+      "path": "/models/traffic/openvino/vehicle_yolo26n_fp16.xml",
       "backend": "openvino",
       "tensorrt": false,
       "batch_size": "streams",
@@ -36,21 +36,22 @@
       "dedup_containment": 0.85
     },
     "plate": {
-      "path": "/models/pytorch/yolo26n_plate_detection_224.pt",
+      "path": "/models/traffic/openvino/license_plate.xml",
       "backend": "openvino",
       "tensorrt": false,
       "confidence": 0.35,
       "batch_size": 64,
-      "min_width": 32,
-      "min_height": 10,
-      "min_sharpness": 20.0,
-      "min_aspect_ratio": 1.2,
-      "max_aspect_ratio": 8.0,
-      "ocr_min_confidence": 0.4,
-      "confirm_min_reads": 4
+      "min_width": 16,
+      "min_height": 5,
+      "min_sharpness": 0.0,
+      "min_aspect_ratio": 0.8,
+      "max_aspect_ratio": 12.0,
+      "ocr_min_confidence": 0.25,
+      "confirm_min_reads": 1,
+      "require_format": false
     },
     "license_plate_ocr": {
-      "path": "/models/onnx/cct.onnx",
+      "path": "/models/traffic/openvino/ocr.xml",
       "backend": "openvino",
       "stable_char_ratio": 0.75,
       "batch_size": 128

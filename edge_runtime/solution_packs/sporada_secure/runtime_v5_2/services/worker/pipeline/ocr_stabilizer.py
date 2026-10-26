@@ -1,17 +1,12 @@
 """Thread-safe, track-keyed OCR stabilizer for the async pipeline.
 
 Async OCR results arrive out of order tagged only with (camera, track_id). This
-stabilizer turns that noisy per-frame stream into ONE confirmed plate per track:
+stabilizer turns that noisy per-frame stream into ONE best available plate read
+per track:
 
-  1. GATE each read (Step 2): drop low-confidence, wrong-length, non-Indian-format,
-     and (when size is known) too-small-plate reads before they can vote. Our study
-     showed <100px plates and <0.4-conf reads are mostly garbage.
-  2. VOTE + CONFIRM-AND-HOLD (Step 1): accumulate gated reads weighted by
-     confidence x plate-area (best-shot bias), vote per character position on the
-     modal length, and once a strong consensus forms LOCK it — the confirmed plate
-     never flips afterward. `confirmed_text()` returns only locked plates, so the
-     analytics layer fires exactly one plate_read event per track instead of one per
-     noisy frame.
+  1. Keep only non-empty OCR text inside the configured confidence range.
+  2. By default accept the first OCR text, while still supporting weighted voting
+     when a deployment raises `confirm_min_reads`.
 
 `text_for` still returns confirmed-or-provisional for live-view display; the EVENT
 path uses `confirmed_text`. `should_ocr` stops re-OCRing confirmed/exhausted tracks.
@@ -40,14 +35,14 @@ def normalize_plate(text: str) -> str:
 class OcrStabilizer:
     def __init__(
         self,
-        min_confidence: float = 0.4,
+        min_confidence: float = 0.25,
         min_plate_width: int = 0,
-        confirm_min_reads: int = 4,
+        confirm_min_reads: int = 1,
         positional_min_character_ratio: float = 0.6,
         positional_min_length_ratio: float = 0.5,
         prune_after_frames: int = 150,
         max_ocr_attempts: int = 12,
-        require_format: bool = True,
+        require_format: bool = False,
         **_legacy,  # tolerate old kwargs (min_length, exact_min_votes, max_history, ...)
     ):
         self.min_confidence = min_confidence
@@ -59,8 +54,9 @@ class OcrStabilizer:
         self.max_ocr_attempts = max_ocr_attempts
         self.require_format = require_format
         self._lock = threading.Lock()
-        self._reads: Dict[Key, List[Tuple[str, float]]] = {}   # (text, weight) gated reads
+        self._reads: Dict[Key, List[Tuple[str, float, float]]] = {}  # text, vote weight, OCR confidence
         self._confirmed: Dict[Key, str] = {}                   # locked plate
+        self._confirmed_confidence: Dict[Key, float] = {}
         self._provisional: Dict[Key, str] = {}                 # latest raw (display only)
         self._last_frame: Dict[Key, int] = {}
         self._attempts: Dict[Key, int] = {}
@@ -73,7 +69,7 @@ class OcrStabilizer:
             self._last_frame[key] = frame_idx
             if text:
                 self._provisional[key] = text
-            if key in self._confirmed:
+            else:
                 return
             # --- Step 2: gate ---
             if confidence < self.min_confidence:
@@ -84,23 +80,32 @@ class OcrStabilizer:
                 return
             # --- Step 1: weighted accumulate + vote ---
             weight = max(0.05, float(confidence)) * max(1.0, float(plate_width))
-            self._reads.setdefault(key, []).append((text, weight))
+            self._reads.setdefault(key, []).append((text, weight, float(confidence)))
+            if self.confirm_min_reads <= 1:
+                if float(confidence) >= self._confirmed_confidence.get(key, -1.0):
+                    self._confirmed[key] = text
+                    self._confirmed_confidence[key] = float(confidence)
+                return
             voted = self._vote(self._reads[key])
             if voted:
                 self._confirmed[key] = voted
+                self._confirmed_confidence[key] = max(
+                    (score for value, _weight, score in self._reads[key] if value == voted),
+                    default=float(confidence),
+                )
 
-    def _vote(self, reads: List[Tuple[str, float]]) -> str:
+    def _vote(self, reads: List[Tuple[str, float, float]]) -> str:
         if len(reads) < self.confirm_min_reads:
             return ""
-        total_w = sum(w for _, w in reads)
+        total_w = sum(w for _, w, _confidence in reads)
         # modal length (weighted) must dominate
         lenw: Counter = Counter()
-        for t, w in reads:
+        for t, w, _confidence in reads:
             lenw[len(t)] += w
         best_len, best_len_w = lenw.most_common(1)[0]
         if best_len_w < self.pos_len_ratio * total_w:
             return ""
-        same = [(t, w) for t, w in reads if len(t) == best_len]
+        same = [(t, w) for t, w, _confidence in reads if len(t) == best_len]
         same_w = sum(w for _, w in same)
         out = []
         for i in range(best_len):
@@ -118,6 +123,10 @@ class OcrStabilizer:
         with self._lock:
             return self._confirmed.get((camera, int(track_id)))
 
+    def confirmed_confidence(self, camera: str, track_id: int) -> Optional[float]:
+        with self._lock:
+            return self._confirmed_confidence.get((camera, int(track_id)))
+
     def text_for(self, camera: str, track_id: int) -> Optional[str]:
         key = (camera, int(track_id))
         with self._lock:
@@ -128,12 +137,9 @@ class OcrStabilizer:
             return (camera, int(track_id)) in self._confirmed
 
     def should_ocr(self, camera: str, track_id: int) -> bool:
-        """Skip re-OCR once a track is confirmed OR has burned through the attempt
-        budget without converging (distant/blurry plates that never will)."""
+        """Keep sampling within the attempt budget so later frames can improve confidence."""
         key = (camera, int(track_id))
         with self._lock:
-            if key in self._confirmed:
-                return False
             return self._attempts.get(key, 0) < self.max_ocr_attempts
 
     def note_ocr_submit(self, camera: str, track_id: int) -> None:
@@ -148,6 +154,7 @@ class OcrStabilizer:
             for k in stale:
                 self._reads.pop(k, None)
                 self._confirmed.pop(k, None)
+                self._confirmed_confidence.pop(k, None)
                 self._provisional.pop(k, None)
                 self._last_frame.pop(k, None)
                 self._attempts.pop(k, None)

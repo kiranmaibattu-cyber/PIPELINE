@@ -6,7 +6,9 @@ legacy option via ENABLE_REDIS_MONITOR=1.
 from __future__ import annotations
 
 import logging
+import json
 import os
+from pathlib import Path
 import threading
 import time
 from datetime import datetime, timezone
@@ -16,11 +18,24 @@ import psutil
 
 from hardware_check import Topology, detect_topology
 from pipeline.output_sinks import json_payload
+from pipeline.resource_metrics import AcceleratorSampler, CgroupSampler
 
 logger = logging.getLogger(__name__)
 
 SYSTEM_STREAM = os.getenv("SYSTEM_REDIS_STREAM", "traffic:system")
 SYSTEM_MAXLEN = int(os.getenv("SYSTEM_REDIS_MAXLEN", "1000"))
+
+
+def _persist_metric(name: str, payload: dict) -> None:
+    root = Path(os.getenv("APEXFABRIC_STATE_ROOT", "/state")) / "metrics"
+    path = root / name
+    temporary = root / f".{name}.{os.getpid()}.tmp"
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        temporary.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
+        os.replace(temporary, path)
+    except OSError as exc:
+        logger.warning("could not persist runtime metric %s: %s", name, exc)
 
 
 class SystemMonitor:
@@ -39,6 +54,8 @@ class SystemMonitor:
         self._thread: Optional[threading.Thread] = None
         self._proc = psutil.Process()
         self._topology = detect_topology()
+        self._cgroup = CgroupSampler()
+        self._accelerators = AcceleratorSampler()
         psutil.cpu_percent(interval=None)  # prime; first sample is always 0
 
     @classmethod
@@ -116,20 +133,23 @@ class SystemMonitor:
                 "threads": threads,
                 "open_fds": open_fds,
             },
+            "container_cgroup": self._cgroup.sample(),
+            "accelerators": self._accelerators.sample(),
             "decode": {
                 "backend": topology.decoder_backend,
                 "device": topology.decode_device,
                 "available": topology.decode_available,
             },
-            "npu": {
+            "inference": {
                 "backend": topology.detector_backend,
-                "device": topology.npu_device,
-                "available": topology.npu_available,
+                "device": topology.inference_devices,
+                "available": topology.inference_available,
                 "models_loaded": topology.models_resident,
             },
         }
 
     def _publish(self, payload: dict) -> None:
+        _persist_metric("system-health.json", payload)
         if self.redis is None:
             logger.info(
                 "system: ram=%s%% cpu=%s%% rss=%sMB threads=%s",

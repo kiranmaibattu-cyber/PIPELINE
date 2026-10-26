@@ -26,6 +26,8 @@ import sys
 import time
 from typing import Any
 
+from pipeline.motion_gate import MotionGateController
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("stream_fleet_openvino")
 
@@ -47,6 +49,12 @@ CAMERA_CONFIG_RELOAD_INTERVAL_S = float(os.getenv("CAMERA_CONFIG_RELOAD_INTERVAL
 VEHICLE_DEVICE = os.getenv("VEHICLE_DEVICE", "GPU")
 PLATE_DEVICE = os.getenv("PLATE_DEVICE", "GPU")
 SMOKE_FIRE_DEVICE = os.getenv("SMOKE_FIRE_DEVICE", "GPU")
+MOTION_GATE_ENABLED = os.getenv("SENTINEL_MOTION_GATE_ENABLED", "true").lower() not in {"0", "false", "no"}
+MOTION_CONFIRM_WIN = int(os.getenv("SENTINEL_MOTION_CONFIRM_WIN", "14"))
+MOTION_CONFIRM_NEED = int(os.getenv("SENTINEL_MOTION_CONFIRM_NEED", "4"))
+MOTION_RELEASE_MISSES = int(os.getenv("SENTINEL_MOTION_RELEASE_MISSES", "6"))
+MOTION_SWEEP_SECONDS = float(os.getenv("SENTINEL_MOTION_SWEEP_SECONDS", "5.0"))
+MOTION_REDET_EVERY = int(os.getenv("SENTINEL_MOTION_REDET_EVERY", "25"))
 
 
 def require_accelerator_device(label: str, requested: str) -> None:
@@ -59,6 +67,11 @@ def require_accelerator_device(label: str, requested: str) -> None:
 VEHICLE_CLASS_IDS = {0, 2, 3, 5, 7}
 VEHICLE_CLASS_NAMES = {0: "pedestrian", 2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
 STREAM_SCHEMES = ("rtsp://", "rtsps://", "http://", "https://")
+
+
+def should_evaluate_fire_smoke(detector, frame_index: int, *, idle_sweep: bool) -> bool:
+    """Respect the model cadence during activity and force idle safety sweeps."""
+    return bool(detector is not None and (idle_sweep or detector.should_process(frame_index)))
 
 
 def load_cameras() -> list[dict]:
@@ -198,6 +211,9 @@ def consume_packet(packet, geo, tracker, analytics_stage, stab, async_ocr):
         text = stab.confirmed_text(packet.name, track_id)
         if text:
             plate.metadata["ocr_text"] = text
+            confidence = stab.confirmed_confidence(packet.name, track_id)
+            if confidence is not None:
+                plate.metadata["ocr_confidence"] = confidence
         provisional = stab.text_for(packet.name, track_id)
         if provisional:
             plate.metadata["ocr_provisional"] = provisional
@@ -219,6 +235,17 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
         _ct.CDLL("libc.so.6").prctl(1, _sig.SIGKILL)  # PR_SET_PDEATHSIG
     except Exception:  # noqa: BLE001
         pass
+
+    if MOTION_GATE_ENABLED and os.getenv("SENTINEL_SURFACE_MOTION_GATE_ENABLED", "false").lower() in {"1", "true", "yes"}:
+        try:
+            from pipeline.surface_stream import UnsupportedSurfaceSource, run_surface_camera
+            return run_surface_camera(cam, camera_config, redis_host, redis_port, stream_key)
+        except UnsupportedSurfaceSource as exc:
+            log.warning("cam[%s] native surface motion path unsupported: %s; using BGR motion gate fallback",
+                        cam["name"], exc)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("cam[%s] native surface motion path failed: %s; using BGR motion gate fallback",
+                        cam["name"], exc)
 
     from decode import FfmpegDecoder
     from detectors.backends.openvino_detector import OpenVINOYOLODetector, shared_core
@@ -258,6 +285,7 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
         if enable_face:
             requested_devices["face detector"] = os.getenv("FACE_DETECTOR_DEVICE", "GPU")
             requested_devices["face embedder"] = os.getenv("FACE_EMBEDDER_DEVICE", "NPU")
+            requested_devices["head pose"] = os.getenv("HEAD_POSE_DEVICE", "NPU")
         if enable_reid and "transreid-ssl-v18.1" in enabled_profiles:
             requested_devices["body"] = BODY_REID_DEVICE
         if enable_reid and "gaitbase-v18.1" in enabled_profiles:
@@ -271,7 +299,7 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
     vehicle_config = ((worker_config.get("models") or {}).get("vehicle") or {})
     plate_config = ((worker_config.get("models") or {}).get("plate") or {})
     veh = OpenVINOYOLODetector(
-        openvino_model_path("vehicle"), "vehicle", device=VEHICLE_DEVICE, imgsz=640,
+        openvino_model_path("vehicle_yolo26n_fp16"), "vehicle", device=VEHICLE_DEVICE, imgsz=640,
         confidence=float(os.getenv("VEHICLE_CONF", str(vehicle_config.get("minimum_confidence", 0.3)))),
         class_ids=VEHICLE_CLASS_IDS, class_names=VEHICLE_CLASS_NAMES)
     plate = None
@@ -296,13 +324,23 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
         plate.warmup()
     if smoke_fire is not None:
         smoke_fire.warmup()
+    motion_gate = MotionGateController(
+        confirm_win=MOTION_CONFIRM_WIN,
+        confirm_need=MOTION_CONFIRM_NEED,
+        release_misses=MOTION_RELEASE_MISSES,
+        sweep_seconds=MOTION_SWEEP_SECONDS,
+        redet_every=MOTION_REDET_EVERY,
+        start_active=True,
+    ) if MOTION_GATE_ENABLED else None
     face_pipeline = None
+    face_extractor = None
     if enable_face:
         from detectors.backends.openvino_face import OpenVINOFaceExtractor
         from pipeline.face_samples import FaceSamplePipeline
         face_extractor = OpenVINOFaceExtractor(
             os.path.join(FACE_MODELS_DIR, "scrfd_500m.onnx"),
             os.path.join(FACE_MODELS_DIR, "adaface_ir101_int8.xml"),
+            os.path.join(FACE_MODELS_DIR, "best_a0_fp16.xml"),
         )
         face_extractor.warmup()
         face_pipeline = FaceSamplePipeline(
@@ -333,11 +371,42 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
             SCENE_MODEL_PATH, device=SCENE_EMBEDDER_DEVICE
         )
         scene_extractor.warmup()
+    from pipeline.runtime_telemetry import CameraTelemetry
+    telemetry_devices = {
+        "decode": "GPU/VAAPI",
+        "vehicle_person_detection": VEHICLE_DEVICE,
+    }
+    if plate is not None:
+        telemetry_devices["anpr_plate_detection"] = PLATE_DEVICE
+        telemetry_devices["anpr_ocr"] = os.getenv("OCR_DEVICE", "MULTI:GPU,NPU")
+    if smoke_fire is not None:
+        telemetry_devices["fire_smoke_detection"] = SMOKE_FIRE_DEVICE
+    if face_pipeline is not None:
+        telemetry_devices.update({
+            "face_detection": os.getenv("FACE_DETECTOR_DEVICE", "GPU"),
+            "face_embedding": os.getenv("FACE_EMBEDDER_DEVICE", "NPU"),
+            "face_pose": os.getenv("HEAD_POSE_DEVICE", "NPU"),
+        })
+    if body_extractor is not None:
+        telemetry_devices["body_embedding"] = BODY_REID_DEVICE
+    if gait_extractor is not None:
+        telemetry_devices["gait_embedding"] = GAIT_DEVICE
+    if scene_extractor is not None:
+        telemetry_devices["scene_embedding"] = SCENE_EMBEDDER_DEVICE
+    telemetry = CameraTelemetry(
+        name, target_fps=INFER_FPS, devices=telemetry_devices,
+        use_case_catalog={str(item["use_case_id"]): str(item["app"])
+                          for item in v5.get("bindings") or []},
+    )
+    if face_extractor is not None:
+        face_extractor.telemetry = telemetry
+        face_extractor._pose.telemetry = telemetry
     v5_pipeline = None
     if enable_v5:
         from pipeline.v5_events import V5EventPipeline
         v5_pipeline = V5EventPipeline(name, camera_config, scene=scene_extractor,
-                                      body=body_extractor, gait=gait_extractor)
+                                      body=body_extractor, gait=gait_extractor,
+                                      telemetry=telemetry)
 
     crossing_pipeline = None
     if "vehicle_entry_exit_counts" in runtime and not enable_v5:
@@ -346,15 +415,18 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
 
     stab = OcrStabilizer(
         min_confidence=float(os.getenv(
-            "OCR_MIN_CONFIDENCE", str(plate_config.get("ocr_min_confidence", 0.4))
+            "OCR_MIN_CONFIDENCE", str(plate_config.get("ocr_min_confidence", 0.25))
         )),
         min_plate_width=int(os.getenv(
-            "PLATE_MIN_WIDTH", str(plate_config.get("min_width", 32))
+            "PLATE_MIN_WIDTH", str(plate_config.get("min_width", 16))
         )),
         confirm_min_reads=int(os.getenv(
-            "OCR_CONFIRM_MIN_READS", str(plate_config.get("confirm_min_reads", 4))
+            "OCR_CONFIRM_MIN_READS", str(plate_config.get("confirm_min_reads", 1))
         )),
         positional_min_character_ratio=mc.lp_ocr_stable_char_ratio,
+        require_format=str(os.getenv(
+            "OCR_REQUIRE_FORMAT", str(plate_config.get("require_format", False))
+        )).lower() in {"1", "true", "yes"},
     )
     async_ocr = None
     if enable_plate:
@@ -363,7 +435,9 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
             on_result=lambda text, confidence, ud: stab.observe(
                 ud[0], ud[1], text, confidence, ud[2], plate_width=ud[3]
             ),
+            telemetry=telemetry,
         )
+        telemetry.devices["anpr_ocr"] = async_ocr.actual_device
     geo, tracker, analytics_stage = build_post_detection_stages(camera_configs, mc)
 
     sink = build_analytics_sink(worker_config, redis_host=redis_host, redis_port=redis_port,
@@ -384,6 +458,10 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
              GAIT_DEVICE if gait_extractor is not None else "disabled",
              SCENE_EMBEDDER_DEVICE if scene_extractor is not None else "disabled",
              "enabled" if v5_pipeline is not None else "disabled")
+    log.info("cam[%s] motion_gate %s confirm=%d/%d release=%d sweep=%.1fs",
+             name, "enabled" if motion_gate is not None else "disabled",
+             MOTION_CONFIRM_NEED, MOTION_CONFIRM_WIN, MOTION_RELEASE_MISSES,
+             MOTION_SWEEP_SECONDS)
     ready_dir = os.getenv("APEXFABRIC_CAMERA_READY_DIR")
     ready_path = None
     if ready_dir:
@@ -403,6 +481,7 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
     for frame in dec.frames():
         fidx += 1
         frame_received_at = time.time()
+        frame_processing_started = time.perf_counter()
         if ready_path is not None:
             temporary = ready_path.parent / f".{name}.tmp"
             temporary.write_text("ready\n", encoding="utf-8")
@@ -415,79 +494,132 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
             config_mtime_ns = _refresh_camera_config_if_changed(name, camera_config, config_mtime_ns)
             if config_mtime_ns != previous_mtime_ns and v5_pipeline is not None:
                 v5_pipeline.reconfigure(camera_config)
-        vdets = deduplicate_vehicles(
-            veh.detect(frame),
-            iou_threshold=float(os.getenv(
-                "VEHICLE_DEDUP_IOU", str(vehicle_config.get("dedup_iou", 0.55))
-            )),
-            containment_threshold=float(os.getenv(
-                "VEHICLE_DEDUP_CONTAINMENT",
-                str(vehicle_config.get("dedup_containment", 0.85)),
-            )),
-        )
-        dets = list(vdets)
-        if plate is not None:
-            for vd in vdets:
-                if vd.class_name == "pedestrian":
-                    continue
-                x1, y1, x2, y2 = vd.bbox
-                crop = frame[y1:y2, x1:x2]
-                for pd in plate.detect(crop):
-                    pd.bbox = [x1 + pd.bbox[0], y1 + pd.bbox[1], x1 + pd.bbox[2], y1 + pd.bbox[3]]
-                    plate_crop = _crop(frame, pd.bbox)
-                    if not plate_crop_is_usable(
-                        plate_crop,
-                        width=pd.bbox[2] - pd.bbox[0],
-                        height=pd.bbox[3] - pd.bbox[1],
-                        min_width=int(os.getenv(
-                            "PLATE_MIN_WIDTH", str(plate_config.get("min_width", 32))
-                        )),
-                        min_height=int(os.getenv(
-                            "PLATE_MIN_HEIGHT", str(plate_config.get("min_height", 10))
-                        )),
-                        min_sharpness=float(os.getenv(
-                            "PLATE_MIN_SHARPNESS", str(plate_config.get("min_sharpness", 20.0))
-                        )),
-                        min_aspect_ratio=float(os.getenv(
-                            "PLATE_MIN_ASPECT", str(plate_config.get("min_aspect_ratio", 1.2))
-                        )),
-                        max_aspect_ratio=float(os.getenv(
-                            "PLATE_MAX_ASPECT", str(plate_config.get("max_aspect_ratio", 8.0))
-                        )),
-                    ):
+        if motion_gate is None:
+            gate_state, gate_ran, gate_reason = "off", True, "disabled"
+        else:
+            gate_state, gate_ran, gate_reason = motion_gate.update(frame, frame_received_at, INFER_FPS)
+        telemetry.frame(inferred=gate_ran)
+
+        if not gate_ran:
+            if v5_pipeline is not None:
+                with telemetry.measure("event_policy.quiet_lifecycle"):
+                    v5_pipeline.process_quiet(frame_received_at, fidx)
+        else:
+            with telemetry.measure("detection.vehicle_person", device=VEHICLE_DEVICE):
+                raw_vdets = veh.detect(frame)
+            vdets = deduplicate_vehicles(
+                raw_vdets,
+                iou_threshold=float(os.getenv(
+                    "VEHICLE_DEDUP_IOU", str(vehicle_config.get("dedup_iou", 0.55))
+                )),
+                containment_threshold=float(os.getenv(
+                    "VEHICLE_DEDUP_CONTAINMENT",
+                    str(vehicle_config.get("dedup_containment", 0.85)),
+                )),
+            )
+            dets = list(vdets)
+            if plate is not None:
+                for vd in vdets:
+                    if vd.class_name == "pedestrian":
                         continue
-                    dets.append(pd)
-        smoke_evaluated = smoke_fire is not None and smoke_fire.should_process(fidx)
-        if smoke_evaluated:
-            dets.extend(smoke_fire.detect(frame))
-        packet = FramePacket(index=fidx, name=name, frame=frame,
-                             frame_received_at=frame_received_at)
-        packet.analytics_state["fire_smoke_evaluated"] = smoke_evaluated
-        packet.detections = dets
-        consume_packet(packet, geo, tracker, analytics_stage, stab, async_ocr)
-        if crossing_pipeline is not None:
-            crossing_pipeline.process(packet)
-        tracked_people = [
-            detection for detection in packet.detections
-            if detection.model_name == "vehicle"
-            and detection.class_name == "pedestrian"
-            and detection.metadata.get("track_id") is not None
-        ]
-        face_samples = []
-        if face_pipeline is not None:
-            face_samples = face_pipeline.process(packet, tracked_people)
-        if v5_pipeline is not None:
-            v5_pipeline.process(packet, face_samples)
-        if not enable_v5:
-            analytics.publish_packets([packet])
+                    x1, y1, x2, y2 = vd.bbox
+                    crop = frame[y1:y2, x1:x2]
+                    with telemetry.measure("anpr.plate_detection", device=PLATE_DEVICE):
+                        for pd in plate.detect(crop):
+                            pd.bbox = [x1 + pd.bbox[0], y1 + pd.bbox[1], x1 + pd.bbox[2], y1 + pd.bbox[3]]
+                            plate_crop = _crop(frame, pd.bbox)
+                            if not plate_crop_is_usable(
+                                plate_crop,
+                                width=pd.bbox[2] - pd.bbox[0],
+                                height=pd.bbox[3] - pd.bbox[1],
+                                min_width=int(os.getenv(
+                                    "PLATE_MIN_WIDTH", str(plate_config.get("min_width", 16))
+                                )),
+                                min_height=int(os.getenv(
+                                    "PLATE_MIN_HEIGHT", str(plate_config.get("min_height", 5))
+                                )),
+                                min_sharpness=float(os.getenv(
+                                    "PLATE_MIN_SHARPNESS", str(plate_config.get("min_sharpness", 0.0))
+                                )),
+                                min_aspect_ratio=float(os.getenv(
+                                    "PLATE_MIN_ASPECT", str(plate_config.get("min_aspect_ratio", 0.8))
+                                )),
+                                max_aspect_ratio=float(os.getenv(
+                                    "PLATE_MAX_ASPECT", str(plate_config.get("max_aspect_ratio", 12.0))
+                                )),
+                            ):
+                                continue
+                            dets.append(pd)
+            if smoke_fire is None:
+                smoke_evaluated = False
+                smoke_dets = []
+            else:
+                # During active processing respect the model's configured
+                # interval. An idle periodic sweep always evaluates smoke/fire
+                # so a static hazard can wake the gate.
+                smoke_evaluated = should_evaluate_fire_smoke(
+                    smoke_fire, fidx, idle_sweep=gate_reason == "sweep"
+                )
+                smoke_dets = []
+                if smoke_evaluated:
+                    try:
+                        with telemetry.measure("fire_smoke.detection", device=SMOKE_FIRE_DEVICE):
+                            smoke_dets = smoke_fire.detect(frame)
+                        dets.extend(smoke_dets)
+                    except RuntimeError as exc:
+                        smoke_evaluated = False
+                        log.warning("cam[%s] fire/smoke inference skipped: %s", name, exc)
+            if motion_gate is not None:
+                motion_gate.observe_models(
+                    bool(vdets), bool(smoke_dets),
+                    fully_evaluated=(smoke_fire is None or smoke_evaluated),
+                )
+            packet = FramePacket(index=fidx, name=name, frame=frame,
+                                 frame_observed_at=frame_received_at,
+                                 frame_received_at=frame_received_at)
+            packet.analytics_state["fire_smoke_evaluated"] = smoke_evaluated
+            packet.analytics_state["motion_gate"] = gate_state
+            packet.analytics_state["motion_gate_reason"] = gate_reason
+            packet.detections = dets
+            with telemetry.measure("tracking_geometry_and_ocr_submit"):
+                consume_packet(packet, geo, tracker, analytics_stage, stab, async_ocr)
+            if crossing_pipeline is not None:
+                crossing_pipeline.process(packet)
+            tracked_people = [
+                detection for detection in packet.detections
+                if detection.model_name == "vehicle"
+                and detection.class_name == "pedestrian"
+                and detection.metadata.get("track_id") is not None
+            ]
+            face_samples = []
+            if face_pipeline is not None:
+                with telemetry.measure("person_identity.face_pipeline"):
+                    face_samples = face_pipeline.process(packet, tracked_people)
+            if v5_pipeline is not None:
+                with telemetry.measure("event_policy.active_frame"):
+                    v5_pipeline.process(packet, face_samples)
+            if not enable_v5:
+                analytics.publish_packets([packet])
+        telemetry.observe_latency(
+            "pipeline.frame_processing_total",
+            time.perf_counter() - frame_processing_started,
+        )
         tnow = time.time()
         if fidx % 200 == 0:
             stab.prune(fidx)
+        telemetry.maybe_flush()
         report_n += 1
         if tnow - last >= 10.0:
             log.info("cam[%s] %.1f fps", name, report_n / (tnow - last))
+            if motion_gate is not None:
+                log.info("cam[%s] motion_gate state=%s switches=%d sweeps=%d skipped=%d inferred=%d motion_frames=%d",
+                         name, "TRACKING" if motion_gate.tracking else "MOTION",
+                         motion_gate.switches, motion_gate.sweeps,
+                         motion_gate.skipped_frames, motion_gate.inferred_frames,
+                         motion_gate.motion_frames)
             last = tnow
             report_n = 0
+    telemetry.close()
 
 
 def main() -> int:
@@ -508,7 +640,7 @@ def main() -> int:
     skey = os.getenv("ANALYTICS_REDIS_STREAM", "traffic:analytics")
 
     from monitor import SystemMonitor
-    SystemMonitor.from_env(interval=float(os.getenv("SYSTEM_MONITOR_INTERVAL", "5"))).start()
+    SystemMonitor.from_env(interval=float(os.getenv("SYSTEM_MONITOR_INTERVAL", "2"))).start()
 
     ctx = mp.get_context("spawn")
     def start_camera(camera):

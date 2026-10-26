@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import mimetypes
 import os
@@ -152,19 +153,11 @@ class WorkerSupervisor:
         })
         command = [sys.executable, "-u", str(self.repo_root / "services" / "worker" / "stream_fleet_openvino.py")]
         new_process = subprocess.Popen(command, cwd=str(self.repo_root), env=env)
-        expected = {f"{camera.name or camera.camera_id}.ready" for camera in desired.cameras}
-        deadline = time.monotonic() + float(os.getenv("WORKER_READY_TIMEOUT_SECONDS", "180"))
+        deadline = time.monotonic() + float(os.getenv("WORKER_SUPERVISOR_STARTUP_SECONDS", "3"))
         while time.monotonic() < deadline:
             if new_process.poll() is not None:
                 raise RuntimeError(f"new worker exited during startup with code {new_process.returncode}")
-            present = {path.name for path in ready_dir.glob("*.ready")}
-            if expected <= present:
-                break
             time.sleep(0.25)
-        else:
-            self._stop_process(new_process)
-            missing = sorted(expected - {path.name for path in ready_dir.glob("*.ready")})
-            raise RuntimeError(f"worker readiness timed out; cameras not initialized: {missing}")
         old_process = self.process
         self.process = new_process
         self._stop_process(old_process)
@@ -302,10 +295,15 @@ class RuntimeHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlsplit(self.path).path
         if parsed_path == "/healthz":
-            self._json({"ok": True})
+            self._json(_health_payload(self.runtime_state))
         elif parsed_path == "/readyz":
             snap = self.runtime_state.snapshot()
-            self._json({"ready": bool(snap["ready"]), "worker_running": bool(snap["worker_running"])}, 200 if snap["ready"] else 503)
+            payload = {
+                "ready": bool(snap["ready"]),
+                "worker_running": bool(snap["worker_running"]),
+                "per_camera_state": _per_camera_state(snap),
+            }
+            self._json(payload, 200 if snap["ready"] else 503)
         elif parsed_path == "/metrics":
             self._text(_metrics(self.runtime_state), "text/plain; version=0.0.4; charset=utf-8")
         elif parsed_path == "/events":
@@ -400,6 +398,202 @@ def _tail_jsonl(path: Path, limit: int) -> list[dict[str, Any]]:
     return payloads
 
 
+def _read_json(path: Path) -> dict[str, Any] | None:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def _timestamp_age(value: Any, now: float) -> float | None:
+    if not value:
+        return None
+    try:
+        observed = datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return max(0.0, now - observed)
+
+
+def _health_payload(state: RuntimeState) -> dict[str, Any]:
+    """Detailed diagnostics without changing the liveness status semantics."""
+    snap = state.snapshot()
+    now = time.time()
+    metrics_root = Path(os.getenv("APEXFABRIC_STATE_ROOT", "/state")) / "metrics"
+    configured = {
+        str(camera.get("camera_id"))
+        for camera in (snap.get("plan") or {}).get("cameras") or []
+        if camera.get("camera_id")
+    }
+    by_camera: dict[str, dict[str, Any]] = {}
+    for path in sorted(metrics_root.glob("runtime-camera-*.json")) if metrics_root.exists() else ():
+        payload = _read_json(path)
+        if payload is None or not payload.get("camera_id"):
+            continue
+        camera_id = str(payload["camera_id"])
+        if configured and camera_id not in configured:
+            continue
+        age = _timestamp_age(payload.get("observed_at"), now)
+        payload["sample_age_seconds"] = round(age, 3) if age is not None else None
+        payload["fresh"] = bool(age is not None and age <= max(
+            10.0, 3.0 * float(payload.get("window_seconds") or 0.0)
+        ))
+        by_camera[camera_id] = payload
+
+    for camera_id in sorted(configured - set(by_camera)):
+        by_camera[camera_id] = {
+            "camera_id": camera_id,
+            "fresh": False,
+            "status": "telemetry_pending",
+        }
+
+    health_by_camera = {
+        str(item["camera_id"]): item for item in _per_camera_state(snap)
+    }
+    for camera_id, camera in by_camera.items():
+        health = health_by_camera.get(camera_id) or {
+            "camera_id": camera_id,
+            "state": "degraded",
+            "reason": "worker_starting",
+            "last_reliable_at": None,
+            "as_of": None,
+            "retrying": True,
+        }
+        camera["camera_health"] = {
+            "state": health["state"],
+            "reason": health["reason"],
+            "last_reliable_at": health.get("last_reliable_at"),
+            "as_of": health.get("as_of"),
+            "retrying": bool(health.get("retrying")),
+        }
+
+    system = _read_json(metrics_root / "system-health.json") or {
+        "status": "telemetry_pending",
+    }
+    system_age = _timestamp_age(system.get("observed_at"), now)
+    system["sample_age_seconds"] = round(system_age, 3) if system_age is not None else None
+    system["fresh"] = bool(system_age is not None and system_age <= 15.0)
+
+    camera_values = list(by_camera.values())
+    process_cpu_cores = 0.0
+    process_rss = 0.0
+    process_pss = 0.0
+    accelerator_attributed_wall: dict[str, float] = {}
+    accelerator_calls: dict[str, int] = {}
+    for camera in camera_values:
+        process = ((camera.get("resources") or {}).get("process") or {})
+        if isinstance(process.get("cpu_cores_used"), (int, float)):
+            process_cpu_cores += float(process["cpu_cores_used"])
+        if isinstance(process.get("rss_mb"), (int, float)):
+            process_rss += float(process["rss_mb"])
+        if isinstance(process.get("pss_mb"), (int, float)):
+            process_pss += float(process["pss_mb"])
+        for device, values in (((camera.get("resources") or {}).get("accelerators") or {}).items()):
+            work = values.get("attributed_stage_wall_ms_per_second")
+            if isinstance(work, (int, float)):
+                accelerator_attributed_wall[device] = (
+                    accelerator_attributed_wall.get(device, 0.0) + float(work)
+                )
+            calls = values.get("model_calls_in_window")
+            if isinstance(calls, int):
+                accelerator_calls[device] = accelerator_calls.get(device, 0) + calls
+
+    hardware_accelerators = system.get("accelerators") or {}
+    accelerators = {}
+    for device in sorted(set(hardware_accelerators) | set(accelerator_attributed_wall)):
+        accelerators[device] = dict(hardware_accelerators.get(device) or {
+            "scope": "node_device",
+            "hardware_utilization_pct": None,
+            "hardware_measurement_status": "counter_unavailable",
+        })
+        accelerators[device]["attributed_stage_wall_ms_per_second"] = round(
+            accelerator_attributed_wall.get(device, 0.0), 3
+        )
+        accelerators[device]["attributed_model_calls_in_window"] = int(
+            accelerator_calls.get(device, 0)
+        )
+    return {
+        "ok": True,
+        "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "liveness": "alive",
+        "ready": bool(snap.get("ready")),
+        "worker_running": bool(snap.get("worker_running")),
+        "revision": snap.get("active_revision") or None,
+        "telemetry": {
+            "sample_interval_seconds": float(os.getenv(
+                "SENTINEL_TELEMETRY_INTERVAL_SECONDS", "2"
+            )),
+            "cameras": [by_camera[key] for key in sorted(by_camera)],
+            "runtime_processes": {
+                "camera_process_cpu_cores_sum": round(process_cpu_cores, 3),
+                "camera_process_rss_mb_sum": round(process_rss, 2),
+                "camera_process_pss_mb_sum": round(process_pss, 2),
+                "rss_sum_note": "RSS includes shared pages; use container_cgroup memory for pod consumption",
+            },
+            "system": system,
+            "accelerators": accelerators,
+            "measurement_notes": {
+                "fps": "rates over the latest completed telemetry window",
+                "processing_latency": "wall time inside the named edge stage",
+                "event_production_latency": "source observed_at to durable outbox persistence",
+                "accelerator_attributed_wall": "camera-attributed model-call wall time, not utilization",
+                "hardware_utilization": "node-device counter; null when no supported busy counter is available",
+                "cpu": "camera process CPU is cores used; container usage is under system.container_cgroup",
+                "stage_latency": "parent spans marked includes_child_stages must not be summed with children",
+            },
+        },
+    }
+
+
+def _per_camera_state(snap: dict[str, Any]) -> list[dict[str, Any]]:
+    plan = snap.get("plan") or {}
+    camera_ids = [
+        str(camera.get("camera_id"))
+        for camera in plan.get("cameras") or []
+        if camera.get("camera_id")
+    ]
+    latest_health: dict[str, dict[str, Any]] = {}
+    events_path = Path(os.getenv("ANALYTICS_EVENT_LOG_PATH", "/state/events/analytics.jsonl"))
+    for event in _tail_jsonl(events_path, 500):
+        if event.get("event_type") != "camera_health":
+            continue
+        camera_id = str(event.get("camera_id") or "")
+        if camera_id:
+            latest_health[camera_id] = event
+    state_root = Path(os.getenv("APEXFABRIC_STATE_ROOT", "/state"))
+    outbox_root = state_root / "sentinel_v5_2" / "outbox"
+    for camera_id in camera_ids:
+        camera_outbox = outbox_root / camera_id
+        if not camera_outbox.exists():
+            continue
+        for path in sorted(camera_outbox.glob("*.json"), key=lambda item: item.stat().st_mtime, reverse=True)[:500]:
+            try:
+                event = json.loads(path.read_text(encoding="utf-8")).get("observation") or {}
+            except (OSError, ValueError, json.JSONDecodeError):
+                continue
+            if event.get("event_type") != "camera_health":
+                continue
+            current = latest_health.get(camera_id) or {}
+            if str(event.get("observed_at") or "") >= str(current.get("observed_at") or current.get("as_of") or ""):
+                latest_health[camera_id] = event
+            break
+    states = []
+    for camera_id in camera_ids:
+        health = latest_health.get(camera_id) or {}
+        state = str(health.get("state") or "degraded")
+        reason = str(health.get("reason") or "worker_starting")
+        states.append({
+            "camera_id": camera_id,
+            "state": state,
+            "reason": reason,
+            "last_reliable_at": health.get("last_reliable_at"),
+            "as_of": health.get("as_of") or health.get("observed_at"),
+            "retrying": state != "healthy",
+        })
+    return states
+
+
 def _metrics(state: RuntimeState) -> str:
     runtime = state.metrics()
     lines = [
@@ -411,6 +605,7 @@ def _metrics(state: RuntimeState) -> str:
         f"apexfabric_runtime_revision {runtime['revision'] or 0}",
     ]
     metrics_root = Path(os.getenv("APEXFABRIC_STATE_ROOT", "/state")) / "metrics"
+    system = _read_json(metrics_root / "system-health.json") or {}
     for path in sorted(metrics_root.glob("face-*.json")) if metrics_root.exists() else ():
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
@@ -459,6 +654,92 @@ def _metrics(state: RuntimeState) -> str:
             f'vehicle_crossing_submission_failures_total{{camera_id="{camera}"}} '
             f'{int(payload.get("submission_failures", 0))}'
         )
+    for path in sorted(metrics_root.glob("runtime-camera-*.json")) if metrics_root.exists() else ():
+        payload = _read_json(path)
+        if payload is None or not payload.get("camera_id"):
+            continue
+        camera = _prometheus_label(str(payload["camera_id"]))
+        processing = payload.get("processing") or {}
+        lines.append(
+            f'sentinel_camera_decoded_fps{{camera_id="{camera}"}} '
+            f'{float(processing.get("decoded_fps", 0.0))}'
+        )
+        lines.append(
+            f'sentinel_camera_inference_fps{{camera_id="{camera}"}} '
+            f'{float(processing.get("inference_fps", 0.0))}'
+        )
+        lines.append(
+            f'sentinel_camera_output_events_per_second{{camera_id="{camera}"}} '
+            f'{float(processing.get("output_events_per_second", 0.0))}'
+        )
+        process = ((payload.get("resources") or {}).get("process") or {})
+        if isinstance(process.get("cpu_cores_used"), (int, float)):
+            lines.append(
+                f'sentinel_camera_process_cpu_cores{{camera_id="{camera}"}} '
+                f'{float(process["cpu_cores_used"])}'
+            )
+        if isinstance(process.get("rss_mb"), (int, float)):
+            lines.append(
+                f'sentinel_camera_process_rss_bytes{{camera_id="{camera}"}} '
+                f'{float(process["rss_mb"]) * 1024 * 1024}'
+            )
+        for stage, values in sorted((payload.get("use_case_processing") or {}).items()):
+            stage_label = _prometheus_label(str(stage))
+            if isinstance(values.get("avg_ms"), (int, float)):
+                lines.append(
+                    f'sentinel_use_case_latency_seconds{{camera_id="{camera}",stage="{stage_label}"}} '
+                    f'{float(values["avg_ms"]) / 1000.0}'
+                )
+        for event_type, values in sorted(
+            ((payload.get("outputs") or {}).get("by_event_type") or {}).items()
+        ):
+            event_label = _prometheus_label(str(event_type))
+            lines.append(
+                f'sentinel_events_emitted_total{{camera_id="{camera}",event_type="{event_label}"}} '
+                f'{int(values.get("total", 0))}'
+            )
+            lines.append(
+                f'sentinel_events_emitted_per_second{{camera_id="{camera}",event_type="{event_label}"}} '
+                f'{float(values.get("per_second", 0.0))}'
+            )
+        for use_case_id, values in sorted(
+            ((payload.get("outputs") or {}).get("by_use_case_id") or {}).items()
+        ):
+            use_case_label = _prometheus_label(str(use_case_id))
+            app_label = _prometheus_label(str(values.get("app") or "runtime"))
+            lines.append(
+                f'sentinel_use_case_outputs_total{{camera_id="{camera}",'
+                f'use_case_id="{use_case_label}",app="{app_label}"}} '
+                f'{int(values.get("total", 0))}'
+            )
+            lines.append(
+                f'sentinel_use_case_outputs_per_second{{camera_id="{camera}",'
+                f'use_case_id="{use_case_label}",app="{app_label}"}} '
+                f'{float(values.get("per_second", 0.0))}'
+            )
+        for device, values in sorted(
+            ((payload.get("resources") or {}).get("accelerators") or {}).items()
+        ):
+            device_label = _prometheus_label(str(device))
+            lines.append(
+                f'sentinel_accelerator_attributed_stage_wall_seconds_per_second'
+                f'{{camera_id="{camera}",device="{device_label}"}} '
+                f'{float(values.get("attributed_stage_wall_ms_per_second", 0.0)) / 1000.0}'
+            )
+    cgroup = system.get("container_cgroup") or {}
+    if isinstance(cgroup.get("cpu_cores_used"), (int, float)):
+        lines.append(f'sentinel_container_cpu_cores {float(cgroup["cpu_cores_used"])}')
+    if isinstance(cgroup.get("memory_current_mb"), (int, float)):
+        lines.append(
+            f'sentinel_container_memory_bytes {float(cgroup["memory_current_mb"]) * 1024 * 1024}'
+        )
+    for device, values in sorted((system.get("accelerators") or {}).items()):
+        utilization = values.get("hardware_utilization_pct")
+        if isinstance(utilization, (int, float)):
+            lines.append(
+                f'sentinel_accelerator_hardware_utilization_ratio'
+                f'{{device="{_prometheus_label(str(device))}"}} {float(utilization) / 100.0}'
+            )
     with _crossing_metric_lock:
         suppressed = _vehicle_crossing_sse_suppressed
     lines.append(f"vehicle_crossing_sse_suppressed_total {suppressed}")
@@ -745,7 +1026,7 @@ def _utc_timestamp(epoch: float) -> str:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run the Sentinel CV V5.2 solution image")
+    parser = argparse.ArgumentParser(description="Run the Sentinel CV V6 solution image")
     parser.add_argument("--repo-root", default=os.getenv("TRAFFIC_PILOT_ROOT", "/opt/traffic-pilot"))
     parser.add_argument("--desired-state", default=os.getenv("DESIRED_STATE_PATH", "/configs/desired_state.json"))
     parser.add_argument("--secrets-root", default=os.getenv("APEXFABRIC_SECRETS_ROOT", "/run/secrets/sentinel/cameras"))

@@ -21,7 +21,7 @@ boundary:
   bodyAndGait: candidate_association_only
   actionMatchingAndPolicyClips: deferred
   managementToEdgeRecheck: deferred
-  internalProductionPolicy: ../../V4_1_EVENT_PRODUCTION_POLICY_WORKING.md
+  internalProductionPolicy: ../../SENTINEL_V5_2_PRODUCTION_POLICY.md
 
 desiredState:
   path: /configs/desired_state.json
@@ -45,8 +45,8 @@ outputSemantics:
   presence_recovered: positive_reobservation_after_track_loss_same_or_reassociated_track_id
   presence_ended_unknown: lost_without_positive_exit_and_not_recovered
   zone_count: visible_now_total_at_as_of_not_cumulative_arrivals_or_guaranteed_occupancy
-  plate_read: confirmed_text_with_source_frame_and_plate_bbox
-  plate_outcome: unreadable_or_timed_out_without_inventing_text
+  plate_read: best_in_range_readable_text_or_material_confidence_improvement_with_source_frame_and_plate_bbox
+  plate_outcome: unreadable_when_plate_candidate_cannot_be_read_in_range
   person_feature_sample: one_selected_face_body_or_gait_artifact_set_for_a_presence
   scene_sample: selected_decoded_frame_and_matching_scene_vector
   fire_smoke_suspected: suspected_hazard_not_confirmed_incident

@@ -67,7 +67,11 @@ class OpenVINOSmokeFireDetector:
         core = shared_core(cache_dir)
         resolved = _device_with_fallback(core, device)
         model = core.read_model(model_xml)
-        self._compiled = core.compile_model(model, resolved, {"PERFORMANCE_HINT": "THROUGHPUT"})
+        # This detector is called synchronously at a bounded cadence. A
+        # THROUGHPUT hint creates a very large request pool on this Intel GPU
+        # (observed optimal request count: 1024) and makes a single infer call
+        # wait about a second. LATENCY compiles one request for this call shape.
+        self._compiled = core.compile_model(model, resolved, {"PERFORMANCE_HINT": "LATENCY"})
         self._inp = self._compiled.input(0)
         self._out = self._compiled.output(0)
         self.requested_device = device

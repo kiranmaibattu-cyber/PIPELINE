@@ -1,8 +1,6 @@
-"""Detector helpers. The active worker (stream_fleet_sdk) does detection on the
-AIPU via the Voyager SDK and OCR via backends.openvino_ocr_async; only the base
-helpers are re-exported here."""
+"""Detector helpers for the active OpenVINO worker."""
 from __future__ import annotations
 
-from .base import AXELERA, OPENVINO, openvino_model_path, resolve_backend
+from .base import OPENVINO, openvino_model_path
 
-__all__ = ["AXELERA", "OPENVINO", "openvino_model_path", "resolve_backend"]
+__all__ = ["OPENVINO", "openvino_model_path"]

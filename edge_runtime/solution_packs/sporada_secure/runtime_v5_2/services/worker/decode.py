@@ -1,6 +1,5 @@
-"""Frame decode for the all-OpenVINO worker (no Axelera SDK / GStreamer).
+"""Frame decode for the OpenVINO worker.
 
-The hybrid worker gets decode for free from the Voyager SDK's GStreamer pipeline.
 This standalone decoder drives the Intel media engine via ffmpeg `-hwaccel vaapi`
 and yields BGR frames to Python.
 

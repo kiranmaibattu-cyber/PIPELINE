@@ -36,8 +36,8 @@ class FaceMetrics:
     def emitted(self) -> None:
         self._increment("samples_emitted")
 
-    def suppressed(self, reason: str) -> None:
-        self._increment_map("samples_suppressed", reason)
+    def suppressed(self, reason: str, count: int = 1) -> None:
+        self._increment_map("samples_suppressed", reason, count)
 
     def submitted(self, outcome: str, elapsed: float) -> None:
         with self.lock:
@@ -67,9 +67,9 @@ class FaceMetrics:
             self.data[field] += 1
             self._save_locked()
 
-    def _increment_map(self, field: str, key: str) -> None:
+    def _increment_map(self, field: str, key: str, count: int = 1) -> None:
         with self.lock:
-            self.data[field][key] = self.data[field].get(key, 0) + 1
+            self.data[field][key] = self.data[field].get(key, 0) + max(0, int(count))
             self._save_locked()
 
     def _save(self) -> None:

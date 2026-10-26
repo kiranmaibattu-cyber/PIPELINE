@@ -36,6 +36,7 @@ class FramePacket:
     index: int
     name: str
     frame: np.ndarray
+    frame_observed_at: Optional[float] = None
     frame_received_at: Optional[float] = None
     detections: List[Detection] = field(default_factory=list)
     probe_counts: Dict[str, int] = field(default_factory=dict)

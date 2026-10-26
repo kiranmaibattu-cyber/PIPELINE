@@ -1,9 +1,8 @@
-"""OpenVINO YOLO detector for the all-OpenVINO worker (AIPU-less box).
+"""OpenVINO YOLO detector for the Sentinel V5.2 worker.
 
-Runs vehicle / plate detection on the Arc iGPU (or any OpenVINO device). Mirrors
-the Axelera cascade's models: yolo26s @640 vehicle, yolo26n @224 plate, both
+Runs vehicle and plate detection on the configured OpenVINO device. Models are
 exported with NMS baked in (output [1, 300, 6] = x1,y1,x2,y2,score,class in
-letterboxed-input pixel coords, rows sorted by score descending).
+letterboxed-input pixel coordinates, rows sorted by score descending).
 
 Best practices baked in (docs.openvino.ai, 2024/2025):
 - ONE shared ov.Core with CACHE_DIR, so GPU `.cl_cache` / NPU `.blob` are reused
@@ -55,7 +54,7 @@ def shared_core(cache_dir: str = "/tmp/ov_cache"):
 def letterbox(image: np.ndarray, size: int):
     """Aspect-preserving resize into a square `size` canvas padded with gray 114.
     Returns (canvas, scale, pad_x, pad_y) for un-letterboxing boxes back to frame
-    coords. Matches the Axelera cascade's letterbox preprocessing."""
+    coordinates."""
     h, w = image.shape[:2]
     s = size / max(h, w)
     nw, nh = round(w * s), round(h * s)
@@ -81,11 +80,15 @@ class OpenVINOYOLODetector:
         class_names: Optional[dict] = None,
         max_detections: Optional[int] = None,
         cache_dir: str = "/tmp/ov_cache",
+        performance_hint: str = "THROUGHPUT",
     ):
         import openvino as ov
         from openvino import Layout, Type
         from openvino.preprocess import ColorFormat, PrePostProcessor
 
+        performance_hint = performance_hint.upper()
+        if performance_hint not in {"LATENCY", "THROUGHPUT"}:
+            raise ValueError("YOLO performance_hint must be LATENCY or THROUGHPUT")
         self.model_name = model_name
         self.imgsz = int(imgsz)
         self.confidence = float(confidence)
@@ -105,7 +108,10 @@ class OpenVINOYOLODetector:
         inp.preprocess().convert_element_type(Type.f32).convert_color(ColorFormat.RGB).scale(255.0)
         model = ppp.build()
 
-        self._compiled = core.compile_model(model, device, {"PERFORMANCE_HINT": "THROUGHPUT"})
+        options = {"PERFORMANCE_HINT": performance_hint, "ALLOW_AUTO_BATCHING": False}
+        if performance_hint == "LATENCY" and device.split(".")[0] == "GPU":
+            options["NUM_STREAMS"] = "1"
+        self._compiled = core.compile_model(model, device, options)
         self._out = self._compiled.output(0)
         self.device = device
         try:

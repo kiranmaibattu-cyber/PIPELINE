@@ -10,6 +10,12 @@ models/traffic-v11/openvino/smoke_fire.xml -filter -diff -merge -text
 # repository LFS quota is unavailable.
 models/traffic-v11/openvino/vehicle.bin -filter -diff -merge -text
 models/traffic-v11/openvino/vehicle.xml -filter -diff -merge -text
+# SixDRepNet A0 FP16 is required by the V6 face-pose quality gate. These files
+# are below GitHub's regular per-file limit and remain directly cloneable while
+# the repository LFS quota is unavailable.
+models/traffic-v11/face/openvino/best_a0_fp16.bin -filter -diff -merge -text
+models/traffic-v11/face/openvino/best_a0_fp16.xml -filter -diff -merge -text
+models/traffic-v11/face/openvino/best_a0_fp16.metadata.json -filter -diff -merge -text
 state/** filter=lfs diff=lfs merge=lfs -text
 *.db filter=lfs diff=lfs merge=lfs -text
 *.sqlite filter=lfs diff=lfs merge=lfs -text

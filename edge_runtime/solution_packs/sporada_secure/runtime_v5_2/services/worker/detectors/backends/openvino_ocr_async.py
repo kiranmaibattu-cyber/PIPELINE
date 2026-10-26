@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
 from typing import Any, Callable, Tuple
 
 import cv2
@@ -56,9 +57,10 @@ def decode_logits(logits: np.ndarray) -> tuple[str, float]:
 class AsyncOCR:
     def __init__(self, model_path: str, device: str = "MULTI:GPU,NPU",
                  on_result: Callable[[str, float, Tuple], None] = None,
-                 cache_dir: str = "/tmp/ov_cache"):
+                 cache_dir: str = "/tmp/ov_cache", telemetry=None):
         self.img_w, self.img_h = 128, 64
         self.on_result = on_result
+        self.telemetry = telemetry
         import openvino as ov
 
         core = ov.Core()
@@ -128,12 +130,18 @@ class AsyncOCR:
                 self.dropped += 1
                 return
             self.submitted += 1
-            self._q.start_async({0: arr}, userdata)
+            self._q.start_async({0: arr}, (userdata, time.perf_counter()))
 
-    def _on_done(self, request, userdata: Tuple) -> None:
+    def _on_done(self, request, wrapped_userdata: Tuple) -> None:
+        userdata, started = wrapped_userdata
         try:
             logits = np.asarray(request.get_output_tensor(0).data)
             text, confidence = decode_logits(logits)
+            if self.telemetry is not None:
+                self.telemetry.observe_latency(
+                    "anpr.ocr", time.perf_counter() - started,
+                    device=self.actual_device,
+                )
             if self.on_result is not None:
                 self.on_result(text, confidence, userdata)
         except Exception:  # noqa: BLE001

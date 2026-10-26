@@ -6,6 +6,7 @@ import json
 import logging
 import math
 import os
+from dataclasses import dataclass
 from pathlib import Path
 import random
 import ssl
@@ -23,6 +24,160 @@ import numpy as np
 from .face_metrics import FaceMetrics
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _AdaptiveFaceState:
+    first_seen_at: float
+    last_seen_at: float
+    next_due_at: float
+    mode: str = "search"
+    baseline_quality: float | None = None
+    baseline_at: float = 0.0
+    candidate_quality: float = 0.0
+    selection_until: float = 0.0
+    recovery_until: float = 0.0
+
+
+class AdaptiveFaceScheduler:
+    """Bound face work per track without weakening recognition-quality gates."""
+
+    def __init__(self) -> None:
+        self.search_interval = max(0.1, float(os.getenv(
+            "FACE_ADAPTIVE_SEARCH_INTERVAL_SECONDS", "0.6"
+        )))
+        self.search_full_rate_seconds = max(0.0, float(os.getenv(
+            "FACE_ADAPTIVE_SEARCH_FULL_RATE_SECONDS", "10"
+        )))
+        self.search_backoff_after = max(self.search_full_rate_seconds, float(os.getenv(
+            "FACE_ADAPTIVE_SEARCH_BACKOFF_AFTER_SECONDS", "30"
+        )))
+        self.search_backoff_interval = max(self.search_interval, float(os.getenv(
+            "FACE_ADAPTIVE_SEARCH_BACKOFF_INTERVAL_SECONDS", "1.5"
+        )))
+        self.search_idle_interval = max(self.search_backoff_interval, float(os.getenv(
+            "FACE_ADAPTIVE_SEARCH_IDLE_INTERVAL_SECONDS", "5"
+        )))
+        self.acquired_interval = max(self.search_interval, float(os.getenv(
+            "FACE_ADAPTIVE_ACQUIRED_INTERVAL_SECONDS", "3"
+        )))
+        self.high_quality_interval = max(self.acquired_interval, float(os.getenv(
+            "FACE_ADAPTIVE_HIGH_QUALITY_INTERVAL_SECONDS", "15"
+        )))
+        self.high_quality_threshold = min(1.0, max(0.0, float(os.getenv(
+            "FACE_ADAPTIVE_HIGH_QUALITY_THRESHOLD", "0.75"
+        ))))
+        self.recovery_gap = max(self.search_interval, float(os.getenv(
+            "FACE_ADAPTIVE_RECOVERY_GAP_SECONDS", "2"
+        )))
+        self.recovery_window = max(self.search_interval, float(os.getenv(
+            "FACE_ADAPTIVE_RECOVERY_WINDOW_SECONDS", "4"
+        )))
+        self.state_ttl = max(self.recovery_gap, float(os.getenv(
+            "FACE_ADAPTIVE_STATE_TTL_SECONDS", "20"
+        )))
+        self.selection_window = 4.0
+        self.improvement_threshold = 0.15
+        self.improvement_cooldown = 5.0
+        self.states: dict[int, _AdaptiveFaceState] = {}
+
+    def configure(self, *, selection_window: float, improvement_threshold: float,
+                  improvement_cooldown: float) -> None:
+        self.selection_window = max(0.0, float(selection_window))
+        self.improvement_threshold = max(0.0, float(improvement_threshold))
+        self.improvement_cooldown = max(0.0, float(improvement_cooldown))
+
+    def due(self, track_id: int, now: float) -> bool:
+        state = self.states.get(track_id)
+        if state is None:
+            state = _AdaptiveFaceState(now, now, now)
+            self.states[track_id] = state
+        else:
+            gap = now - state.last_seen_at
+            if gap >= self.recovery_gap:
+                state.mode = "recovery"
+                state.recovery_until = now + self.recovery_window
+                state.next_due_at = now
+                state.candidate_quality = state.baseline_quality or 0.0
+                state.selection_until = (
+                    state.recovery_until if state.baseline_quality is not None else 0.0
+                )
+            state.last_seen_at = now
+        return now + 1e-9 >= state.next_due_at
+
+    def observe(self, track_id: int, now: float, quality: float | None) -> bool:
+        """Record one due attempt and return whether its face should reach V6 selection."""
+        state = self.states[track_id]
+        usable = quality is not None and math.isfinite(quality)
+
+        if state.selection_until > 0.0:
+            if usable:
+                state.candidate_quality = max(state.candidate_quality, float(quality))
+            forward = bool(usable)
+            if now + 1e-9 >= state.selection_until:
+                state.baseline_quality = max(
+                    state.baseline_quality or 0.0, state.candidate_quality
+                )
+                state.baseline_at = now
+                state.candidate_quality = 0.0
+                state.selection_until = 0.0
+                self._schedule_acquired(state, now)
+            else:
+                state.mode = "selection"
+                state.next_due_at = now + self.search_interval
+            return forward
+
+        if not usable:
+            state.next_due_at = now + self._interval_without_sample(state, now)
+            return False
+
+        value = float(quality)
+        if state.baseline_quality is None:
+            self._start_selection(state, now, value)
+            return True
+
+        cooldown_complete = now - state.baseline_at >= self.improvement_cooldown
+        materially_better = value >= state.baseline_quality + self.improvement_threshold
+        if cooldown_complete and materially_better:
+            self._start_selection(state, now, value)
+            return True
+
+        self._schedule_acquired(state, now)
+        return False
+
+    def prune(self, active_track_ids: set[int], now: float) -> None:
+        for track_id, state in list(self.states.items()):
+            if track_id not in active_track_ids and now - state.last_seen_at >= self.state_ttl:
+                self.states.pop(track_id, None)
+
+    def _start_selection(self, state: _AdaptiveFaceState, now: float, quality: float) -> None:
+        state.mode = "selection"
+        state.candidate_quality = quality
+        state.selection_until = now + self.selection_window
+        state.next_due_at = now + self.search_interval
+
+    def _schedule_acquired(self, state: _AdaptiveFaceState, now: float) -> None:
+        if (state.baseline_quality or 0.0) >= self.high_quality_threshold:
+            state.mode = "high_quality"
+            state.next_due_at = now + self.high_quality_interval
+        else:
+            state.mode = "acquired"
+            state.next_due_at = now + self.acquired_interval
+
+    def _interval_without_sample(self, state: _AdaptiveFaceState, now: float) -> float:
+        if now < state.recovery_until:
+            state.mode = "recovery"
+            return self.search_interval
+        if state.baseline_quality is not None:
+            self._schedule_acquired(state, now)
+            return max(self.search_interval, state.next_due_at - now)
+        age = now - state.first_seen_at
+        state.mode = "search"
+        if age < self.search_full_rate_seconds:
+            return self.search_interval
+        if age < self.search_backoff_after:
+            return self.search_backoff_interval
+        return self.search_idle_interval
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -336,14 +491,17 @@ class FaceSamplePipeline:
         emission = face_config.get("emission") or {}
         embedding = face_config.get("embedding") or {}
         self.cooldown = float(emission.get("cooldown_seconds", os.getenv("FACE_SAMPLE_COOLDOWN_SECONDS", "5")))
-        self.min_quality = float(emission.get("minimum_quality", os.getenv("FACE_MIN_QUALITY", "0.20")))
+        self.min_quality = float(emission.get("minimum_quality", os.getenv("FACE_MIN_QUALITY", "0.35")))
         self.preferred_quality = max(self.min_quality, float(emission.get(
             "preferred_quality", os.getenv("FACE_PREFERRED_QUALITY", "0.65")
         )))
         self.selection_window = max(0.0, float(emission.get(
-            "selection_window_seconds", os.getenv("FACE_SELECTION_WINDOW_SECONDS", "1.5")
+            "selection_window_seconds", os.getenv("FACE_SELECTION_WINDOW_SECONDS", "4.0")
         )))
         self.material_change_threshold = float(emission.get("material_change_threshold", "0.15"))
+        self.v6_improvement_threshold = max(0.0, float(os.getenv(
+            "FACE_ADAPTIVE_IMPROVEMENT_THRESHOLD", "0.10"
+        )))
         expected_model = embedding.get("model_id")
         expected_dimensions = embedding.get("dimensions")
         if expected_model and expected_model != self.extractor.model_id:
@@ -353,6 +511,17 @@ class FaceSamplePipeline:
         if expected_dimensions and int(expected_dimensions) != int(self.extractor.dimension):
             raise ValueError("configured face embedding dimensions do not match the runtime model")
         self.interval = max(1, int(os.getenv("FACE_PROCESS_INTERVAL", "3")))
+        self.adaptive_scheduler = AdaptiveFaceScheduler()
+        logger.info(
+            "adaptive face scheduling: search=%.1fs acquired=%.1fs high=%.1fs@quality>=%.2f "
+            "recovery=%.1fs selection=%.1fs",
+            self.adaptive_scheduler.search_interval,
+            self.adaptive_scheduler.acquired_interval,
+            self.adaptive_scheduler.high_quality_interval,
+            self.adaptive_scheduler.high_quality_threshold,
+            self.adaptive_scheduler.recovery_window,
+            self.selection_window,
+        )
         self.last_emitted: dict[int, float] = {}
         self.last_embeddings: dict[int, np.ndarray] = {}
         self.pending_candidates: dict[int, dict[str, Any]] = {}
@@ -390,14 +559,33 @@ class FaceSamplePipeline:
         if packet.index % self.interval:
             return []
         now = time.time()
+        self._refresh_policy()
+        self.adaptive_scheduler.configure(
+            selection_window=self.selection_window,
+            improvement_threshold=self.v6_improvement_threshold,
+            improvement_cooldown=self.cooldown,
+        )
         eligible = [person for person in people if self._eligible(person, packet.frame.shape, now)]
-        faces = self.extractor.extract(packet.frame, eligible)
+        active_track_ids = {int(person.metadata["track_id"]) for person in eligible}
+        self.adaptive_scheduler.prune(active_track_ids, now)
+        due = [person for person in eligible
+               if self.adaptive_scheduler.due(int(person.metadata["track_id"]), now)]
+        faces = self.extractor.extract(packet.frame, due)
+        if hasattr(self.extractor, "drain_suppressions"):
+            for reason, count in self.extractor.drain_suppressions().items():
+                self.metrics.suppressed(reason, count)
         self.metrics.tracks(len(faces))
+        faces_by_track = {int(face.track_id): face for face in faces}
         usable = []
-        for face in faces:
-            self._refresh_policy()
+        for person in due:
+            track_id = int(person.metadata["track_id"])
+            face = faces_by_track.get(track_id)
+            if face is None:
+                self.adaptive_scheduler.observe(track_id, now, None)
+                continue
             if face.quality < self.min_quality:
                 self.metrics.suppressed("quality")
+                self.adaptive_scheduler.observe(track_id, now, None)
                 continue
             embedding = np.asarray(face.embedding, dtype=np.float32).reshape(-1)
             if (
@@ -406,6 +594,9 @@ class FaceSamplePipeline:
                 or float(np.linalg.norm(embedding)) <= 1e-12
             ):
                 self.metrics.suppressed("invalid_embedding")
+                self.adaptive_scheduler.observe(track_id, now, None)
+                continue
+            if not self.adaptive_scheduler.observe(track_id, now, float(face.quality)):
                 continue
             usable.append(face)
             if not self.enable_legacy_delivery:
@@ -485,6 +676,8 @@ class FaceSamplePipeline:
 
     def _eligible(self, person, frame_shape, now: float) -> bool:
         if person.model_name != "vehicle" or person.class_name != "pedestrian":
+            return False
+        if person.metadata.get("predicted"):
             return False
         track_id = person.metadata.get("track_id")
         if track_id is None:

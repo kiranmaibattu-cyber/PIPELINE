@@ -8,7 +8,7 @@ from typing import Any
 
 import jsonschema
 
-CONTRACT = "sentry-v5"
+CONTRACT = "sentry-v6"
 SCHEMA_VERSION = "5.2"
 SOLUTION_PACK = "sentinel-cv-runtime"
 MAX_CAMERAS = 8
