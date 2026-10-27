@@ -1,12 +1,18 @@
 contract: sentry-v6
 schema_version: "6.0"
-wire_schema_version: "5.2"
+wire_schema_version: "6.0"
 status: published-development
-image: ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.10.26-v6-dev17
-digest: sha256:0dcc7b1b299d715b5b3d9796b97df37d8d355445dd80da009cf188da78357272
+image: ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.10.27-v6-dev18
+registry_digest: sha256:68afe451795b7cd21d2c0bf4e07d1e753cc02264ee3286961fecc1f71409a767
+local_digest: sha256:905f3870119e41dbdc8eb4fd16200cc88453ea21db78c88153e0a24289ad2b3b
+image_id: c8ed2754bb65942bd39c7358c78a5e203389d4d919e2bfb1509000e564988797
 architecture: amd64
 hardware_profile: intel-285h
 changes:
+  - true_v6_wire_payloads_and_acknowledgements
+  - v6_ingest_routes_and_v6_outbox_namespace
+  - rejects_5_2_desired_state
+  - requires_5_2_outbox_drain_before_upgrade
   - deployment_readiness_is_independent_of_individual_camera_health
   - per_camera_decode_and_recovery_are_fault_isolated
   - healthy_cameras_continue_inference_and_delivery_during_peer_camera_outages

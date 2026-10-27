@@ -1,13 +1,12 @@
-# Complete V6 CV/Management boundary contract. No released image claims conformance.
+# Complete V6 CV/Management boundary contract.
 name: sentry-v6
 schemaVersion: "6.0"
-status: draft-for-edge-and-management-review
-wireSchemaVersion: "5.2"
+status: implementation-ready
+wireSchemaVersion: "6.0"
 compatibility:
-  basedOn: sentry-v5
-  payloadFieldsChanged: false
-  newEventTypes: none
-  changedEventFields: none
+  priorWireSchemaVersion: "5.2"
+  wireCompatibleWithPrior: false
+  migrationRequirement: drain_5_2_outbox_before_v6_upgrade
   desiredStateContractMarker: sentry-v6
 hardwareProfile: intel-core-ultra-285h
 architectures: [amd64]
@@ -27,7 +26,7 @@ boundary:
   bodyAndGait: candidate_association_only
   actionMatchingAndPolicyClips: deferred
   managementToEdgeRecheck: deferred
-  internalProductionPolicy: ../../SENTINEL_V5_2_PRODUCTION_POLICY.md
+  internalProductionPolicy: ../../SENTINEL_V6_PRODUCTION_POLICY.md
 
 desiredState:
   path: /configs/desired_state.json
@@ -109,10 +108,10 @@ management:
   baseUrl: {env: SENTINEL_INGEST_BASE_URL, default: "http://sentinel-ingestor.sentinel.svc.cluster.local:8080"}
   auth: bearer_SENTINEL_EDGE_TOKEN_bound_to_deployment_contract_and_camera_allowlist
   routes:
-    - {kind: observation, POST: /api/v5/ingest/events, body: application/json, idempotencyKey: observation_id}
-    - {kind: evidence, POST: /api/v5/ingest/evidence, body: multipart_metadata_json_plus_file, idempotencyKey: evidence_id, needs: observation_ack}
-    - {kind: embedding, POST: /api/v5/ingest/embeddings, body: application/json, idempotencyKey: embedding_id, needs: observation_and_evidence_ack}
-  ack: status_created_stored_or_existing_plus_matching_id
+    - {kind: observation, POST: /api/v6/ingest/events, body: application/json, idempotencyKey: observation_id}
+    - {kind: evidence, POST: /api/v6/ingest/evidence, body: multipart_metadata_json_plus_file, idempotencyKey: evidence_id, needs: observation_ack}
+    - {kind: embedding, POST: /api/v6/ingest/embeddings, body: application/json, idempotencyKey: embedding_id, needs: observation_and_evidence_ack}
+  ack: v6_schema_version_kind_id_status_and_evidence_sha256
 runtimeEndpoints:
   port: 8080
   health:
@@ -203,5 +202,6 @@ relationalValidation:
 openBeforeRelease:
   - exact_model_weight_hashes_and_preprocessing_ids_for_face_body_gait
   - scene_rate_and_evidence_bandwidth_on_target_camera_count
-  - management_acceptance_of_new_v5_2_event_fields_and_outcomes
+  - management_acceptance_of_v6_routes_payloads_and_acknowledgements
+  - confirmed_drain_of_any_persisted_5_2_outbox_before_upgrade
   - live_and_recorded_validation_of_gates_under_separate_production_policy

@@ -154,7 +154,7 @@ bad["evidence_ids"] = []
 rejected(checks["observation.schema.json"], bad)
 
 embedding = {
-    "schema_version": "5.2",
+    "schema_version": "6.0",
     "embedding_id": "14141414-1414-4414-8414-141414141414",
     "observation_id": "88888888-8888-4888-8888-888888888888",
     "use_case_id": "person-search",
