@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentry:cv:delivery-agent-status:1.0",
+  "title": "Sentry V8 delivery-agent status",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "deployment_id", "outbox_used_bytes", "outbox_max_bytes", "states",
+    "pending_record_count", "pending_package_count", "oldest_pending_sequence",
+    "oldest_pending_age_seconds", "highest_contiguous_sequence",
+    "highest_received_sequence", "last_durable_package_at", "last_upload_at",
+    "connection_state", "last_error_code", "stream_id", "delivery_paused"
+  ],
+  "properties": {
+    "deployment_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]{1,200}$"},
+    "outbox_used_bytes": {"type": "integer", "minimum": 0},
+    "outbox_max_bytes": {"type": "integer", "minimum": 1073741824, "maximum": 2147483648},
+    "states": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pending", "acked", "dead_letter", "skip_pending", "skipped",
+        "resolved_by_remote_receipt"
+      ],
+      "properties": {
+        "pending": {"type": "integer", "minimum": 0},
+        "acked": {"type": "integer", "minimum": 0},
+        "dead_letter": {"type": "integer", "minimum": 0},
+        "skip_pending": {"type": "integer", "minimum": 0},
+        "skipped": {"type": "integer", "minimum": 0},
+        "resolved_by_remote_receipt": {"type": "integer", "minimum": 0}
+      }
+    },
+    "pending_record_count": {"type": "integer", "minimum": 0},
+    "pending_package_count": {"type": "integer", "minimum": 0},
+    "oldest_pending_sequence": {"type": ["integer", "null"], "minimum": 1},
+    "oldest_pending_age_seconds": {"type": ["number", "null"], "minimum": 0},
+    "highest_contiguous_sequence": {"type": "integer", "minimum": 0},
+    "highest_received_sequence": {"type": "integer", "minimum": 0},
+    "last_durable_package_at": {"type": ["number", "null"], "minimum": 0},
+    "last_upload_at": {"type": ["number", "null"], "minimum": 0},
+    "connection_state": {"enum": ["starting", "online", "offline", "paused"]},
+    "last_error_code": {"type": ["string", "null"], "maxLength": 256},
+    "stream_id": {"type": ["string", "null"], "format": "uuid"},
+    "delivery_paused": {"type": "boolean"}
+  }
+}

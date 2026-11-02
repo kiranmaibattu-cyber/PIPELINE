@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentry:cv:delivery-agent-error:1.0",
+  "title": "Sentry V8 delivery-agent error",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["error"],
+  "properties": {
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "retryable"],
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid_package", "invalid_multipart", "content_length_required",
+            "request_too_large", "package_id_conflict", "object_id_conflict",
+            "outbox_full", "agent_busy", "handoff_timeout", "durability_unavailable"
+          ]
+        },
+        "message": {"type": "string", "minLength": 1, "maxLength": 256},
+        "retryable": {"type": "boolean"}
+      }
+    }
+  }
+}

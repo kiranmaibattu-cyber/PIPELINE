@@ -1,0 +1,59 @@
+{
+  "manifest": {
+    "protocol_version": "1.0",
+    "package_id": "80808080-8080-4080-8080-808080808080",
+    "deployment_id": "north-yard",
+    "observation": {
+      "schema_version": "7.0",
+      "observation_id": "33333333-3333-4333-8333-333333333333",
+      "deployment_id": "north-yard",
+      "camera_id": "entrance-camera",
+      "config_revision": 17,
+      "stream_session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "use_case_id": "plate-reading",
+      "event_type": "plate_read",
+      "observed_at": "2026-10-01T10:00:02Z",
+      "source_frame_id": "entrance-camera:2416",
+      "presence_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "track_id": "17",
+      "zone_id": "parking-zone",
+      "plate_text": "KA01AB1234",
+      "partial": false,
+      "confidence": 0.91,
+      "plate_bbox_normalized": {"x1": 0.32, "y1": 0.72, "x2": 0.47, "y2": 0.78},
+      "evidence_ids": ["dddddddd-dddd-4ddd-8ddd-dddddddddddd"],
+      "supersedes_observation_id": null
+    },
+    "evidence": [{
+      "metadata": {
+        "schema_version": "7.0",
+        "evidence_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        "observation_id": "33333333-3333-4333-8333-333333333333",
+        "evidence_type": "frame",
+        "captured_at": "2026-10-01T10:00:02Z",
+        "source_frame_id": "entrance-camera:2416",
+        "source_bbox_normalized": null,
+        "content_type": "image/jpeg",
+        "width": 1920,
+        "height": 1080,
+        "size_bytes": 182400,
+        "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "part_name": "evidence_0"
+    }],
+    "embeddings": []
+  },
+  "multipart_parts": {
+    "manifest": "application/json using the manifest object above",
+    "evidence_0": "image/jpeg bytes whose size and SHA-256 match the metadata"
+  },
+  "durable_acknowledgement": {
+    "status": "durable",
+    "package_id": "80808080-8080-4080-8080-808080808080",
+    "deployment_id": "north-yard",
+    "sequences": [
+      {"sequence": 44, "object_type": "observation", "object_id": "33333333-3333-4333-8333-333333333333"},
+      {"sequence": 45, "object_type": "evidence", "object_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd"}
+    ]
+  }
+}

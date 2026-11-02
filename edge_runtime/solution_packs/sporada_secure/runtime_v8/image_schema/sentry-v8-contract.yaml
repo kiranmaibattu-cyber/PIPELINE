@@ -1,0 +1,537 @@
+# Complete V8 CV/delivery-agent boundary contract. No released image claims conformance.
+name: sentry-v8
+schemaVersion: "8.0"
+status: ready-for-cv-implementation
+wireSchemaVersion: "7.0"
+compatibility:
+  basedOn: sentry-v7
+  analyticsPayloadShapeChanged: false
+  desiredStateMarkerChanged: true
+  acknowledgementChanged: false
+  authenticationChanged: false
+  deliveryProtocolChanged: true
+  desiredStateLimitsChanged: false
+  controlPlaneIngestChanged: false
+  wireCompatibleWithV7Ingest: true
+  newEventTypes: none
+  changedEventFields: none
+  desiredStateContractMarker: sentry-v8
+hardwareProfile: intel-core-ultra-285h
+architectures: [amd64]
+imageRegistration:
+  contractVersion: "8.0"
+  capabilities: {hardware_profile: intel-285h, wire_schema_version: "7.0", multi_box_delivery: "7.0", delivery_agent_protocol: "1.0"}
+schemas:
+  desiredState: desired-state.schema.json
+  desiredStateExample: desired-state.example.json
+  observation: observation.schema.json
+  observationExamples: observation-examples.json
+  evidence: evidence.schema.json
+  embedding: embedding.schema.json
+  acknowledgement: acknowledgement.schema.json
+  multiBoxDelivery: multi-box-delivery.schema.json
+  multiBoxDeliveryExample: multi-box-delivery.example.json
+  deliveryAgentPackage: delivery-agent-package.schema.json
+  deliveryAgentAcknowledgement: delivery-agent-acknowledgement.schema.json
+  deliveryAgentStatus: delivery-agent-status.schema.json
+  deliveryAgentError: delivery-agent-error.schema.json
+  deliveryAgentExample: delivery-agent-package.example.json
+
+boundary:
+  edge: [camera_observation, camera_local_presence, zone_and_line_facts, selected_evidence, embeddings, health, delivery_agent_handoff]
+  management: [desired_state, rules, dwell_thresholds, alerts, incidents, named_face_gallery, cross_camera_association, semantic_search, retention]
+  namedRecognition: qualifying_face_only
+  bodyAndGait: candidate_association_only
+  actionMatchingAndPolicyClips: deferred
+  managementToEdgeRecheck: deferred
+  productionPolicyAuthority: this_contract_outputSemantics_and_sentry_v6_behavior_declared_unchanged_below
+
+desiredState:
+  path: /configs/desired_state.json
+  revision: strictly_increasing
+  apply: validate_whole_revision_then_atomically_apply
+  invalid: keep_last_valid_and_report_not_ready
+  source: mounted_camera_url_secret_only
+  apps: v6_app_catalog_selected_only_by_bindings
+  geometry: reusable_camera_local_polygons_and_lines
+  binding: one_use_case_id_per_app_instance_with_full_frame_or_geometry_scope
+  outputProfiles: profile_ids_enable_attempts_not_guaranteed_results
+  controls: [camera_fps, use_case_scope, object_types, scene_sample_interval_seconds, embedding_profile_ids]
+  excludes: [tracker_age, detection_confidence, reassociation_similarity, face_size_gate, crop_algorithm, model_queue_limit, alert_rule, named_person_id]
+  identity:
+    deployment_id: immutable_management_key_equal_in_desired_state_observations_token_and_acknowledgements
+    deployment_idFormat: "^[A-Za-z0-9._-]{1,200}$"
+    edge_id: deprecated_alias_that_must_equal_deployment_id
+    deployment_name: optional_UI_label_not_a_wire_or_stream_identity
+  runtimeTopology:
+    processScope: exactly_one_deployment_per_runtime_process
+    kubernetesScope: one_Pod_with_one_CV_container_and_one_delivery_agent_sidecar_plus_one_ConfigMap_one_Secret_and_one_PVC_per_deployment
+    multipleDeploymentsPerBox: separate_pods_agents_sequences_and_PVCs
+    cvRuntimeStorage: no_direct_access_to_the_delivery_PVC_or_SQLite
+
+outputSemantics:
+  object_present: confirmed_subject_presence_or_freshness_update_not_every_detection
+  zone_entry: positive_outside_to_inside_transition_only
+  zone_exit: positive_inside_to_outside_transition_only
+  line_cross: validated_directional_crossing_is_separate_from_zone_exit
+  track_lost: temporary_unobserved_not_departure
+  presence_recovered: same_presence_after_qualified_camera_local_track_reassociation
+  presence_ended_unknown: lost_without_positive_exit_and_not_recovered
+  zone_count: visible_now_total_at_as_of_not_cumulative_arrivals_or_guaranteed_occupancy
+  plate_read: confirmed_text_with_source_frame_and_plate_bbox
+  plate_outcome: unreadable_or_timed_out_without_inventing_text
+  person_feature_sample: one_selected_face_body_or_gait_artifact_set_for_a_presence
+  scene_sample: selected_decoded_frame_and_matching_scene_vector
+  fire_smoke_suspected: suspected_hazard_not_confirmed_incident
+  fire_smoke_cleared: observed_clear_of_prior_suspected_episode
+  camera_health: transition_or_freshness_heartbeat
+subjectEventOwnership:
+  eligibleApps: [vehicle_presence, person_presence, person_identity, anpr]
+  eligibility: binding_enabled_and_full_frame_or_subject_in_bound_polygon_at_first_confirmation
+  priority: presence_app_before_person_identity_or_anpr
+  tieBreak: lexicographically_smallest_use_case_id
+  selectedAt: first_confirmed_presence
+  stableWhileBindingEnabled: true
+  onOwnerDisabledByNewRevision: reselect_without_another_first_seen_event
+  useCaseIdMeaning: origin_owner_not_a_claim_of_current_zone_membership
+sceneViewChanged: view_changed_can_trigger_a_new_scene_sample_and_camera_health_reason
+sceneRegionCrop:
+  source: decoded_source_frame
+  rectangle: axis_aligned_min_max_of_polygon_vertices
+  padding: none
+  outsidePolygonMask: none
+  evidenceType: scene_region_crop
+  provenance: evidence_source_bbox_normalized_matches_crop_rectangle
+  encoding: SigLIP2_uses_that_same_region_before_model_preprocessing
+  zoneIdMeaning: configured_source_polygon_not_proof_every_visible_object_is_inside_it
+derivedDwell: management_uses_presence_zone_episode_first_and_last_positive_observation_and_unknown_state
+
+evidenceByOutput:
+  object_present: selected_subject_crop_only_not_every_freshness_update_and_optional_semantic_crop_vector
+  zone_entry: selected_context_frame
+  zone_exit: selected_context_frame
+  line_cross: crossing_context_frame
+  plate_read: source_frame_with_plate_bbox_in_event_metadata
+  plate_outcome: optional_source_frame_when_an_attempt_occurred
+  scene_sample: exact_selected_full_frame_or_region_crop_used_for_encoding
+  fire_smoke_suspected: context_frame
+  person_feature_sample: wider_original_frame_face_crop_for_face_person_crop_for_body_or_representative_frame_for_gait
+  zone_count: normally_none
+  camera_health: normally_none
+evidenceCoordinates: plate_and_crossing_boxes_are_normalized_source_frame_coordinates_management_draws_overlays
+
+embeddingProfiles:
+  - {profile_id: adaface-ir101-v18.1, kind: face, dim: 512, weightRevision: provisional}
+  - {profile_id: transreid-ssl-v18.1, kind: body, dim: 384, weightRevision: provisional}
+  - {profile_id: siglip2-base-v1, kind: semantic, dim: 768, modelId: google/siglip2-base-patch16-224, weightRevision: 75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2}
+  - {profile_id: gaitbase-v18.1, kind: gait, dim: 4096, weightRevision: provisional}
+embeddingRules:
+  - exact_profile_model_weights_preprocessing_dimension_and_normalization_required
+  - enabled_profile_does_not_imply_a_usable_face_body_or_gait_sample
+  - face_body_and_gait_samples_may_be_sent_independently_for_the_same_presence
+  - absent_modality_is_omitted_not_sent_as_a_fake_or_zero_vector
+  - semantic_on_scene_frame_has_null_presence_id_semantic_on_selected_subject_crop_has_subject_presence_id
+
+management:
+  baseUrl: {env: SENTINEL_INGEST_BASE_URL, default: "https://sentinel-ingest-tls.sentinel.svc.cluster.local"}
+  caller: delivery_agent_sidecar_only
+  cvRuntimeDirectAccess: forbidden
+  auth: bearer_SENTINEL_EDGE_TOKEN_bound_to_deployment_contract_and_camera_allowlist_is_injected_only_into_the_delivery_agent
+  routes:
+    - {kind: observation, POST: /api/v7/ingest/events, body: application/json, idempotencyKey: observation_id}
+    - {kind: evidence, POST: /api/v7/ingest/evidence, body: multipart_metadata_json_plus_file, idempotencyKey: evidence_id, needs: observation_ack}
+    - {kind: embedding, POST: /api/v7/ingest/embeddings, body: application/json, idempotencyKey: embedding_id, needs: observation_and_evidence_ack}
+    - {kind: skip, POST: /api/v7/ingest/skip, body: application/json}
+    - {kind: stream_state, GET: /api/v7/ingest/stream}
+  remoteAck: acknowledgement.schema.json
+runtimeEndpoints:
+  port: 8080
+  health:
+    route: GET /healthz
+    readyWhen: process_and_http_event_loop_are_alive
+  readiness:
+    route: GET /readyz
+    readyWhen:
+      - desired_state_is_valid
+      - shared_models_are_loaded
+      - inference_scheduler_is_running
+      - per_camera_supervisors_and_recovery_loops_are_running
+    mustNotRequire: every_configured_camera_is_healthy
+    responseIncludes:
+      - ready
+      - worker_running
+      - per_camera_state_reason_last_reliable_at_and_retrying
+  metrics: GET /metrics
+  recheck: deferred
+  healthOwnership:
+    cvRuntime: camera_configuration_models_inference_scheduler_and_per_camera_health_only
+    deliveryAgent: local_durability_outbox_usage_remote_upload_watermarks_and_delivery_errors_only
+    management: combine_but_never_treat_camera_health_as_delivery_health_or_delivery_health_as_camera_health
+runtimeAvailability:
+  cameraIsolation: one_failed_camera_must_not_stop_decode_inference_or_delivery_for_healthy_cameras
+  startup: shared_models_and_worker_start_independently_of_camera_connectivity
+  retry: failed_cameras_retry_independently_with_bounded_backoff_and_rejoin_without_process_restart
+  cameraHealth: emit_transition_and_freshness_heartbeat_per_camera
+  recovery: recovered_camera_rejoins_without_pod_restart_and_starts_a_new_stream_session
+  outageSemantics:
+    - failed_camera_tracks_become_unknown_not_departed
+    - failed_camera_counts_become_unknown_not_zero
+    - healthy_cameras_continue_events_evidence_embeddings_and_delivery
+managementCompatibility:
+  cameraHealthStates: [healthy, degraded, unavailable]
+  staleHeartbeat: surface_as_unavailable_with_reason_heartbeat_silence
+  dashboard: show_per_camera_state_reason_and_last_reliable_at
+  deploymentStatus: remain_ready_when_runtime_is_operational_even_if_one_or_more_cameras_are_unavailable
+resources:
+  recommendedMaxCameraStreams: 4
+  hardCapCameraStreams: 50
+  cpu: {request: "6", limit: "12"}
+  memory: {request: 8Gi, limit: 14Gi}
+  processUid: 10001
+  readOnlyRootFilesystem: true
+  writableMounts:
+    - {path: /plans, storage: ephemeral, purpose: generated_runtime_plans}
+    - {path: /tmp/sentinel, storage: ephemeral, purpose: generated_config_and_cache}
+    - {path: /run/sentinel-delivery, storage: shared_ephemeral, purpose: delivery_agent_Unix_socket}
+  forbiddenCvRuntimeMounts:
+    - /state
+  deliveryAgentMounts:
+    - {path: /state, storage: persistent, purpose: durable_delivery_and_evidence, exclusiveWriter: true}
+  devices: [/dev/dri, /dev/accel]
+delivery:
+  order: [observation, evidence, embedding]
+  cvRuntimeHandoff:
+    version: "1.0"
+    transport: HTTP_over_Unix_domain_socket
+    socket:
+      env: SENTINEL_DELIVERY_AGENT_SOCKET
+      value: /run/sentinel-delivery/agent.sock
+      ownerUid: 10001
+      ownerGid: 10001
+      mode: "0660"
+      requestTimeoutSeconds: 30
+      maximumRequestBytes: 67108864
+      maximumSimultaneousHandoffs: 4
+    endpoint: {POST: /v1/packages, body: multipart_manifest_JSON_plus_zero_or_more_evidence_parts}
+    statusEndpoint: {GET: /v1/status}
+    packageSchema: delivery-agent-package.schema.json
+    acknowledgementSchema: delivery-agent-acknowledgement.schema.json
+    statusSchema: delivery-agent-status.schema.json
+    errorSchema: delivery-agent-error.schema.json
+    packageDigest:
+      algorithm: SHA-256
+      manifestBytes: "json.dumps(manifest, sort_keys=True, separators=(',', ':'), ensure_ascii=True, allow_nan=False).encode('utf-8')"
+      evidenceOrder: manifest_evidence_array_order
+      input: canonical_manifest_then_for_each_evidence_NUL_UTF8_part_name_NUL_raw_evidence_bytes
+      excludes: [multipart_boundaries, multipart_headers, transport_framing]
+    ownership:
+      cvRuntime: [produce_observation_evidence_and_embeddings, choose_stable_package_id, retry_the_exact_package_until_durable]
+      deliveryAgent: [validate_package, persist_evidence, allocate_sequences, own_SQLite, upload, retry, skip, evict, report_status]
+    cvRuntimeMustNot:
+      - open_or_write_the_delivery_SQLite_database
+      - allocate_or_persist_stream_sequences
+      - call_control_plane_ingest_endpoints
+      - receive_deployment_or_box_credentials
+      - delete_durable_evidence_or_outbox_records
+    atomicPackage:
+      allocationOrder: observation_then_evidence_array_order_then_embedding_array_order
+      persist: manifest_payloads_evidence_bytes_package_digest_and_all_sequences_in_one_transaction
+      response: only_after_database_commit_evidence_fsync_and_directory_fsync
+      failure: allocate_no_sequence_and_return_no_durable_acknowledgement
+    producerCrashSemantics:
+      producedDefinition: package_is_produced_only_after_201_durable_or_200_duplicate
+      beforeDurableResponse: package_is_in_flight_not_produced
+      agentCommittedButResponseLost: agent_delivers_the_durable_package_even_if_the_CV_process_crashes
+      agentNotCommittedBeforeCrash: package_may_be_lost_and_no_sequence_was_allocated
+      producerStorage: memory_only_until_ack_no_second_disk_outbox
+    producerScheduler:
+      scope: exactly_one_shared_scheduler_per_deployment_runtime
+      perCameraRetryQueues: forbidden
+      boundedMemory: true
+      maximumInFlightHandoffs: 4
+      priorityPolicy:
+        authority: CV_production_policy
+        requiredGuarantees:
+          - optional_or_replaceable_work_must_not_starve_non_replaceable_facts
+          - coalesce_or_drop_optional_work_before_rejecting_non_replaceable_work
+          - never_cancel_an_in_flight_handoff
+          - rejected_work_is_reported_and_never_claimed_as_produced
+        tuningNotInContract: [event_tier_mapping, queue_package_limit, queue_byte_limit, reserved_capacity, coalescing_keys]
+      queueFullAction: reject_new_package_and_report_delivery_backpressure_without_claiming_it_was_produced
+      retryPolicy:
+        totalAttempts: 6
+        delaysMilliseconds: [250, 500, 1000, 2000, 4000]
+        retryOn: [network_error, request_timeout, HTTP_429_with_retryable_true, HTTP_503_with_retryable_true]
+        retryPayload: exact_same_package_id_manifest_and_evidence_bytes
+        nonRetryable: [HTTP_200_duplicate, HTTP_201_durable, HTTP_409, other_4xx, retryable_false]
+        exhaustedAction: report_delivery_handoff_exhausted_release_memory_and_do_not_claim_produced
+    idempotency:
+      key: package_id
+      samePackageAndBytes: {http: 200, status: duplicate}
+      firstDurableWrite: {http: 201, status: durable}
+      samePackageDifferentBytes: {http: 409, runtimeAction: stop_and_report_protocol_error}
+    backpressure:
+      fullOutbox: {http: 429, sequenceAllocated: false, runtimeAction: use_producerScheduler_retryPolicy}
+      unavailableAgent: {http: 503, sequenceAllocated: false, runtimeAction: use_producerScheduler_retryPolicy_without_inventing_a_sequence}
+      busyAgent: {http: 429, code: agent_busy, sequenceAllocated: false, runtimeAction: use_producerScheduler_retryPolicy}
+    errors:
+      body: delivery-agent-error.schema.json
+      conflict409: {code: package_id_conflict, retryable: false}
+      full429: {code: outbox_full, retryable: true}
+      unavailable503: {code: durability_unavailable, retryable: true}
+      boundedMessageBytes: 256
+    relationalValidation:
+      - evidence_part_names_are_unique
+      - multipart_parts_exactly_equal_manifest_part_names
+      - evidence_size_and_SHA256_match_raw_bytes
+      - every_evidence_and_embedding_belongs_to_the_package_observation
+      - every_embedding_references_package_evidence
+      - acknowledgement_entries_exactly_match_every_package_object_in_allocation_order
+    credentials: none_in_CV_runtime
+  multiBoxProtocol:
+    version: "7.0"
+    owner: delivery_agent_sidecar
+    enabledWhen: delivery_agent_receives_a_durable_local_package
+    stream:
+      identity: [deployment_id]
+      streamId: stable_server_generated_UUID_for_the_lifetime_of_the_deployment
+      writerFence: [box_id, placement_generation]
+      authority: {deployment_id: Authorization, box_id: current_assignment_and_box_credential, placement_generation: current_token_assignment_and_header}
+      receiptKey: [deployment_id, sequence]
+      sequence: {startsAt: 1, scope: permanent_deployment_stream, allocation: atomic_with_outbox_record, reuse: forbidden, renumber: forbidden, restartOnPlacementChange: false}
+      allocationOrder: [observation, evidence, embedding]
+      fencing: reject_any_token_header_or_box_credential_not_bound_to_the_current_assignment_generation_without_resetting_receipts_watermarks_or_stream_id
+    deliveryAgentEnvironment:
+      SENTINEL_EDGE_TOKEN: deployment_bearer_token
+      SENTINEL_BOX_ID: enrolled_box_uuid
+      SENTINEL_BOX_CREDENTIAL: required_only_for_remote_v7_and_never_a_protocol_selector
+      SENTINEL_DELIVERY_MODE: {allowed: [local_v7, remote_v7], missing: fail_closed}
+      SENTINEL_PLACEMENT_GENERATION: positive_integer_bound_to_token_and_assignment
+      SENTINEL_INGEST_BASE_URL: site_CA_HTTPS_control_plane_base_URL
+      SENTINEL_INGEST_CA_FILE: /run/secrets/sentinel/ingest/site-ca.crt
+      SENTINEL_OUTBOX_MAX_BYTES: {default: 2147483648, minimum: 1073741824, maximum: 2147483648}
+      SENTINEL_OUTBOX_RETENTION_DAYS: {default: 7}
+    transportSecurity:
+      scheme: HTTPS_only
+      trust: site_CA_file_plus_hostname_validation
+      systemCAs: disabled_for_the_site_ingest_connection
+      insecureHTTP: rejected
+      certificateRotation: server_certificate_rotates_under_the_same_CA_without_runtime_restart_CA_rotation_requires_an_overlapping_bundle_and_pod_restart
+    connectsToRedis: false
+    sqliteWriter:
+      owner: exactly_one_delivery_agent_process_per_deployment
+      connectionModel: one_serialized_writer_connection
+      otherContainerAccess: forbidden
+      acknowledgementPersistence: retry_local_ack_transaction_without_resending_HTTP_when_the_remote_response_is_already_known
+      oldestPendingFirst: true
+      initialMaximumInFlightRequests: 1
+    outbox:
+      path: /state/sentinel_delivery
+      database: /state/sentinel_delivery/outbox.sqlite
+      databaseRequirements:
+        engine: SQLite
+        journalMode: WAL
+        synchronous: FULL
+        foreignKeys: true
+        accessMode: ReadWriteOnce
+        storageClass: local-path
+        volumeMode: Filesystem
+        qualifiedFilesystems: [ext4, xfs]
+        networkFilesystems: prohibited_unless_separately_qualified_for_SQLite_locking_and_fsync
+        durabilityQualification: power_loss_and_node_reboot_with_WAL_recovery_on_the_release_storage_class
+      volumeScope: one_persistent_volume_per_deployment_mounted_read_write_only_by_the_delivery_agent
+      persistBeforeFirstUpload: true
+      atomicFields: [sequence, object_type, object_id, delivery_payload_sha256, payload_or_evidence_path, parent_object_id, state, attempts, next_attempt_at, last_error, outbox_created_at]
+      objectTypes: [observation, evidence, embedding]
+      states: [pending, acked, dead_letter, skip_pending, skipped, resolved_by_remote_receipt]
+      hashes:
+        observation: sha256_of_exact_application_json_request_body_bytes
+        embedding: sha256_of_exact_application_json_request_body_bytes
+        evidence:
+          content_sha256: sha256_of_raw_image_bytes
+          delivery_payload_sha256: sentry_canonical_metadata_JSON_v1_then_one_NUL_byte_then_raw_image_bytes
+          metadataCanonicalization: "UTF-8 bytes equivalent to json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True, allow_nan=False)"
+          excludes: [multipart_boundaries, multipart_headers, transport_framing]
+      offlineEviction:
+        transition: transactionally_set_skip_pending_and_reason_commit_and_fsync_then_delete_payload_bytes
+        crashRecovery: a_committed_skip_pending_record_may_temporarily_retain_bytes_but_bytes_must_never_be_deleted_without_the_marker
+        reconnect: send_skip_markers_in_sequence_order_then_set_skipped
+    requestHeaders:
+      Authorization: "Bearer ${SENTINEL_EDGE_TOKEN}"
+      X-Sentry-Delivery-Mode: "${SENTINEL_DELIVERY_MODE}"
+      X-Sentry-Box-Credential: "required only for remote_v7"
+      X-Sentry-Placement-Generation: "${SENTINEL_PLACEMENT_GENERATION}"
+      X-Sentry-Stream-Sequence: persistent_integer_for_this_deployment_stream
+    routes:
+      events: "POST /api/v7/ingest/events"
+      evidence: "POST /api/v7/ingest/evidence"
+      embeddings: "POST /api/v7/ingest/embeddings"
+      skip: "POST /api/v7/ingest/skip"
+      stream: "GET /api/v7/ingest/stream"
+    sending:
+      allocationOrder: ascending_sequence
+      maximumInFlightRequests: 1
+      concurrency: strict_sequence_order_for_the_initial_release
+      dependencyOrder: observation_ack_before_its_evidence_and_evidence_ack_before_its_embedding
+      noOvertakeWithinPackage: true
+      futureOptimization: bounded_parallel_HTTP_is_allowed_only_after_qualification_while_local_acknowledgements_and_deletion_commit_in_sequence_order
+    acknowledgement:
+      fields: [status, sequence, deployment_id, box_id, placement_generation, stream_id, highest_contiguous_sequence, highest_received_sequence]
+      status: [accepted, duplicate]
+      contiguousMeaning: largest_N_for_which_every_sequence_1_through_N_has_a_receipt_or_tombstone
+      streamResponse: {status: accepted, sequence: highest_received_sequence}
+      runtimeValidation:
+        - bootstrap_with_GET_stream_before_the_first_object_upload
+        - persist_the_first_valid_stream_id_in_the_agent_owned_SQLite
+        - stream_id_remains_stable_when_box_or_placement_generation_changes
+        - an_unexpected_stream_id_pauses_uploads_and_deletion_until_explicit_recovery
+        - deployment_id_box_id_and_placement_generation_match_the_running_process
+        - highest_contiguous_sequence_is_not_greater_than_highest_received_sequence
+        - acknowledged_sequence_is_not_greater_than_highest_received_sequence
+        - both_watermarks_are_monotonic
+    idempotency:
+      newSequence: {http: 200, status: accepted}
+      sameSequenceSamePayload: {http: 200, status: duplicate}
+      sameSequenceDifferentPayload:
+        http: 409
+        runtimeAction: store_bounded_diagnostic_metadata_query_stream_then_set_resolved_by_remote_receipt
+        sendSkip: false
+        renumber: false
+      lateRetryAtOrBelowWatermarkWithoutReceipt: {http: 200, status: duplicate}
+      missingParent: {http: 425, runtimeAction: retry}
+      validationFailure: {http: [400, 422], runtimeAction: dead_letter_then_skip}
+      unauthorized: {http: [401, 403], runtimeAction: pause_uploads_continue_capture_retain_state}
+      transient: {http: [408, 429, 5xx], networkErrors: retry, backoff: bounded_exponential_with_jitter_250ms_to_60s, retryAfterMaximumSeconds: 60}
+    skip:
+      reasons: [validation_failed, evidence_expired, object_unreadable, outbox_overflow, retention_expired]
+      effect: durable_tombstone_fills_sequence
+      receiptConflict: {http: 409}
+      sameReasonRetry: duplicate
+      cascades:
+        owner: runtime
+        requestRule: submit_one_skip_request_for_every_parent_and_child_sequence
+        observation: runtime_skips_associated_evidence_and_embeddings_with_same_reason
+        evidence: runtime_skips_associated_embeddings_with_same_reason
+        serverInference: none_because_skip_contains_no_object_or_parent_identity
+      childRetryAfterCascade: {http: 200, status: duplicate, condition: child_sequence_has_cascade_tombstone, runtimeAction: mark_skipped}
+      missingParentWithoutChildTombstone: {http: 425, runtimeAction: retry_defensively}
+      deadLetter:
+        path: /state/dead-letter
+        beforeSkipAck: payload_bytes_count_toward_outbox_cap
+        afterSkipAck: retain_metadata_only_and_count_it_toward_outbox_cap
+        metadata: [sequence, object_type, object_id, payload_sha256, reason, last_error, attempts, created_at, skipped_at]
+        cleanup: {maximumRecords: 1000, maximumAgeDays: 7, rule: whichever_first_remove_oldest}
+    recovery:
+      startup:
+        queryStreamBeforeUpload: true
+        persistStreamId: true
+        unexpectedStreamId: pause_uploads_and_deletion_require_explicit_recovery
+      placementChange:
+        streamId: unchanged
+        sequenceAndWatermarks: continue
+        serverAction: atomically_advance_writer_box_and_generation_after_current_token_authentication
+        oldWriter: rejected_by_token_assignment_and_generation_fence
+      normalRestart: resume_from_state
+      lostState:
+        queryStream: true
+        nextSequence: highest_received_sequence_plus_1
+        fillHoles: send_object_unreadable_skips_for_every_sequence_above_contiguous_through_received
+        receiptConflict409: treat_as_success
+        logLocalRecoveryEvent: true
+    deletion:
+      normal: delete_acked_skipped_or_resolved_by_remote_receipt_records_and_payloads_only_at_or_below_highest_contiguous_sequence
+      offlineLimitEviction: payload_bytes_may_be_deleted_above_watermark_but_skip_pending_marker_must_remain
+      deadLetters: metadata_removed_by_bounded_count_or_age_cleanup
+    localV7:
+      deliveryMode: local_v7
+      boxCredential: forbidden
+      sequenceHeader: required
+      placementGenerationHeader: required
+      watermark: enabled
+      allowedOnlyOn: control_plane_box
+    credentialRotation: reissued_box_credential_is_loaded_by_the_delivery_agent_from_environment_only_after_pod_restart
+    serverGuarantees:
+      transaction: authenticate_lock_stream_check_receipt_write_domain_rows_and_receipt_advance_watermarks
+      authentication: deployment_token_and_generation_matching_current_assignment_plus_box_credential_for_remote_v7
+      evidenceWriteOrder: temporary_file_hash_and_fsync_then_atomic_deterministic_rename_before_database_insert
+      evidenceOrphanRecovery: remove_stale_temporary_files_and_deterministic_files_without_a_committed_evidence_row_after_a_bounded_grace_period
+      payloadHashing: recompute_using_the_object_type_rules_above_and_never_hash_raw_multipart_framing
+      receiptConflict: same_hash_duplicate_different_hash_409
+      tombstoneBeforeParentCheck: a_child_sequence_already_filled_by_a_cascade_tombstone_returns_duplicate
+      contiguousAdvance: while_next_sequence_has_receipt_or_tombstone
+  promisedEvidence: delivery_agent_persists_the_complete_package_before_any_parent_is_submitted_and_records_an_explicit_skip_if_evicted
+  pressure: skip_new_optional_scene_jobs_before_event_creation_and_report_sampling_gap
+
+retention:
+  edgeOutbox:
+    scope: per_deployment
+    sizeBytes: {default: 2147483648, minimum: 1073741824, maximum: 2147483648}
+    ageDays: 7
+    ageMeasuredFrom: durable_outbox_created_at
+    observedAtUse: event_timeline_and_control_plane_retention_only_never_edge_outbox_expiration
+    pressureTargetFraction: 0.9
+    evictionOrder:
+      - oldest_evidence_bytes_with_evidence_expired_and_associated_embedding_skips
+      - oldest_whole_records_with_outbox_overflow_skips
+    expiredReason: retention_expired
+    uploadEvidence: immediately_when_connected
+    enforcement: delivery_agent_not_PVC
+  physicalBox:
+    admission: sum_of_deployment_caps_plus_20_percent_headroom_plus_20_GiB_free_reserve
+    continuousGuard: kubelet_DiskPressure_and_15_percent_nodefs_and_imagefs_eviction_thresholds
+    configuredMaximumCameras: 50
+    configuredMaximumAggregateFPS: 64
+  controlPlane:
+    scope: one_site_control_plane_evidence_store_shared_by_its_deployments
+    maximumBytes: 16106127360
+    maximumAgeDays: 7
+    limitRule: whichever_first
+    order: oldest_event_observed_at_first
+    deleteOrder: evidence_files_before_database_rows
+    streamWatermarks: never_delete
+
+notCovered:
+  - automatic_movement_and_state_transfer_between_boxes
+  - never_run_the_same_deployment_on_two_boxes_concurrently_even_during_operator_recovery
+  - mutual_TLS_client_certificates
+
+migration:
+  owner: control_plane_release_tooling_not_the_CV_image
+  initialReleaseScope: new_V8_deployments_only
+  newV8Deployment: no_import_required
+  existingV7PVC:
+    automaticUpgrade: forbidden
+    requiredTool: explicit_offline_importer
+    preconditions: [deployment_stopped, PVC_exclusively_mounted_by_importer]
+    steps: [backup_V7_PVC, inspect_supported_schema_version, reconcile_GET_stream, import_existing_records_without_renumbering, fsync_new_store, atomically_mark_import_complete]
+    failure: leave_V7_backup_and_original_untouched_and_do_not_start_V8_pod
+    releaseGate: importer_and_crash_recovery_tests_required_before_upgrading_any_existing_V7_deployment
+
+relationalValidation:
+  - unique_camera_geometry_and_use_case_ids_within_deployment
+  - every_binding_references_enabled_app_and_existing_compatible_geometry
+  - full_frame_has_no_geometry_ids_and_line_apps_require_a_line
+  - scene_trigger_use_case_ids_reference_other_enabled_bindings_and_only_positive_transition_events_trigger_extra_samples
+  - subject_events_have_presence_id_and_one_stream_session_id
+  - person_feature_sample_references_person_identity_binding_and_exact_profile
+  - zone_episode_id_is_stable_across_track_changes_within_the_same_confirmed_episode
+  - no_zone_exit_or_inferred_dwell_completion_on_track_loss_or_camera_failure
+  - count_zero_requires_a_fresh_healthy_observation
+  - plate_bbox_is_inside_source_frame_and_plate_read_references_frame_evidence
+  - scene_full_frame_references_frame_evidence_and_region_sample_references_scene_region_crop_from_same_source_pixels
+  - polygon_scene_region_crop_uses_unmasked_axis_aligned_vertex_bbox_without_padding
+  - embedding_profile_matches_kind_dimension_model_and_preprocessing
+  - semantic_scene_embedding_references_scene_sample_and_scene_media_subject_semantic_embedding_references_object_present_and_subject_crop
+  - face_embedding_references_wider_face_crop_while_aligned_112_chip_remains_internal
+  - referenced_evidence_is_acknowledged_before_embedding_delivery
+
+openBeforeRelease:
+  - exact_model_weight_hashes_and_preprocessing_ids_for_face_body_gait
+  - scene_rate_and_evidence_bandwidth_on_target_camera_count
+  - management_acceptance_of_v8_desired_state_with_v7_wire_payloads_and_ingest_protocol
+  - delivery_agent_single_writer_crash_recovery_for_new_V8_deployments
+  - live_and_recorded_validation_of_gates_under_separate_production_policy
+openBeforeExistingV7Upgrade:
+  - supported_source_SQLite_schema_inventory
+  - backup_restore_and_interrupted_import_recovery
+  - stream_reconciliation_without_sequence_reuse_or_fabricated_skips

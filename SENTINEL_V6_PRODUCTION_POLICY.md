@@ -9,6 +9,10 @@ This policy defines when edge observations become Management outputs. It is more
 specific than the wire contract: the contract says what can cross the boundary;
 this policy says what the edge should trust enough to send.
 
+For Sentry V8, this policy also owns the exact CV-side package scheduling,
+priority, reservation, and coalescing choices. The V8 contract defines only the
+cross-component non-starvation and reporting guarantees.
+
 ## 1. Core Rule
 
 ```text
@@ -733,7 +737,58 @@ Guardrails:
 - Optional scene jobs may be skipped before event creation under pressure.
 - Sampling gaps must be reported.
 
-## 15. V6 Implementation Status
+## 15. V8 CV-to-Agent Handoff Scheduling
+
+The V8 CV runtime has exactly one deployment-scoped in-memory handoff
+scheduler shared by all camera workers. Camera workers do not own retry queues
+or delivery-agent upload threads.
+
+Current implementation profile:
+
+| Setting | Value |
+| --- | ---: |
+| Retained packages, including in-flight/retrying | `8` |
+| Retained package bytes | `256 MiB` |
+| Simultaneous agent handoffs | `4` |
+| Replaceable package reservation limit | `4` |
+| Replaceable byte reservation limit | `128 MiB` |
+
+Priority tiers, highest first:
+
+1. Critical: fire/smoke suspected or cleared and camera-health state/reason
+   transitions.
+2. Durable facts: zone entry/exit, line crossing, plate read/outcome, presence
+   lifecycle, first/materially changed presence, and event/view-triggered scene
+   context.
+3. Identity samples: selected face, body, and gait packages.
+4. Replaceable: interval scene samples and unchanged count, presence, and
+   camera-health heartbeats.
+
+Pressure behavior:
+
+- Never cancel an in-flight handoff.
+- Optional/replaceable work cannot consume the reserved half of scheduler
+  capacity.
+- Before rejecting non-replaceable work, remove or coalesce queued replaceable
+  work that has not yet been submitted.
+- Keep only the newest queued interval scene sample for the same camera,
+  use-case, scope, and zone.
+- Keep only the newest unchanged count heartbeat for the same camera,
+  use-case, object type, and zone.
+- Keep only the newest periodic presence update for the same camera, use-case,
+  and presence.
+- Keep only the newest unchanged camera-health heartbeat for the same camera,
+  state, and reason.
+- Order remaining non-replaceable work by priority tier, `observed_at`, then
+  `package_id`.
+- A rejected or retry-exhausted package is reported in CV health/metrics and is
+  never counted as produced.
+
+These values are production-policy tuning, not desired-state inputs and not
+V8 wire-contract fields. They can be changed and requalified without changing
+the V8 package or Management ingest schemas.
+
+## 16. V6 Implementation Status
 
 Implemented:
 

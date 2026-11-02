@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentinel.apexflo.com/contracts/v7/acknowledgement.schema.json",
+  "title": "Sentry V7 per-deployment stream acknowledgement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "sequence", "deployment_id", "box_id", "placement_generation", "stream_id", "highest_contiguous_sequence", "highest_received_sequence"],
+  "properties": {
+    "status": {"enum": ["accepted", "duplicate"]},
+    "sequence": {"type": "integer", "minimum": 0},
+    "deployment_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$", "minLength": 1, "maxLength": 200},
+    "box_id": {"type": "string", "format": "uuid"},
+    "placement_generation": {"type": "integer", "minimum": 1},
+    "stream_id": {"type": "string", "format": "uuid"},
+    "highest_contiguous_sequence": {"type": "integer", "minimum": 0},
+    "highest_received_sequence": {"type": "integer", "minimum": 0}
+  }
+}

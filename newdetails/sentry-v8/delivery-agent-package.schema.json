@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentry:cv:delivery-agent-package:1.0",
+  "title": "Sentry V8 CV-to-delivery-agent package manifest",
+  "description": "Relational rules are normative: part_name values are unique; multipart has exactly those parts; every child belongs to observation; evidence IDs are listed by observation; embeddings reference package evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol_version", "package_id", "deployment_id", "observation", "evidence", "embeddings"],
+  "properties": {
+    "protocol_version": {"const": "1.0"},
+    "package_id": {"type": "string", "format": "uuid"},
+    "deployment_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]{1,200}$"},
+    "observation": {"$ref": "observation.schema.json"},
+    "evidence": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["metadata", "part_name"],
+        "properties": {
+          "metadata": {"$ref": "evidence.schema.json"},
+          "part_name": {"type": "string", "pattern": "^evidence_[0-9]{1,2}$"}
+        }
+      }
+    },
+    "embeddings": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {"$ref": "embedding.schema.json"}
+    }
+  },
+  "x-sentry-relational-constraints": [
+    "unique_evidence_part_names",
+    "multipart_parts_exactly_match_manifest",
+    "evidence_size_and_sha256_match_bytes",
+    "every_child_observation_id_matches_observation",
+    "every_evidence_id_is_listed_by_observation",
+    "every_embedding_references_package_evidence"
+  ]
+}

@@ -1,0 +1,37 @@
+contract: sentry-v8
+schema_version: "8.0"
+wire_schema_version: "7.0"
+multi_box_delivery_contract: "7.0"
+delivery_agent_protocol: "1.0"
+status: cv-image-qualified-delivery-agent-pending
+cv_image: ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.11.02-v8-dev3
+cv_digest: sha256:0e5f2243220441cd44d9d56265a01a74dcd814fe443779c7fada09592d4566b9
+delivery_agent_image: null
+delivery_agent_digest: null
+architecture: amd64
+hardware_profile: intel-285h
+capabilities:
+  hardware_profile: intel-285h
+  wire_schema_version: "7.0"
+  multi_box_delivery: "7.0"
+  delivery_agent_protocol: "1.0"
+changes:
+  - cv_runtime_hands_complete_packages_to_a_local_delivery_agent
+  - delivery_agent_is_the_only_SQLite_and_PVC_writer
+  - credentials_and_control_plane_ingest_removed_from_the_CV_container
+  - atomic_package_persistence_and_sequence_allocation
+  - strict_in_order_initial_upload
+  - independent_agent_and_PVC_per_deployment
+  - exact_package_digest_and_relational_validation
+  - stable_status_and_machine_readable_error_schemas
+  - bounded_UID_10001_Unix_socket_handoff
+  - explicit_CV_crash_before_ack_semantics
+  - V7_importer_is_separate_control_plane_release_tooling
+  - contract_requires_non_starvation_while_exact_handoff_priority_is_CV_policy
+  - edge_outbox_retention_uses_durable_acceptance_time_not_camera_observation_time
+verification:
+  static_contract: passed
+  cv_container_smoke: passed
+  delivery_agent_smoke: mock-agent-passed-real-agent-pending
+  intel_hardware_and_live_camera: passed
+  multi_deployment_one_box: pending

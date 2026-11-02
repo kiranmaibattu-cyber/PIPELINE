@@ -1,0 +1,161 @@
+ARG INTEL_TRAFFIC_RUNTIME_BASE=localhost/apexfabric-intel-traffic-runtime-base:intel-285h-2026.09.18-v2
+FROM ${INTEL_TRAFFIC_RUNTIME_BASE}
+
+USER 0:0
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/opt/traffic-pilot \
+    TRAFFIC_PILOT_ROOT=/opt/traffic-pilot \
+    SOLUTION_PACK=sentinel-cv-runtime \
+    APEXFABRIC_CONTRACT_VERSION=v8 \
+    APEXFABRIC_SECRETS_ROOT=/run/secrets/sentinel/cameras \
+    APEXFABRIC_STATE_ROOT=/tmp/sentinel/state \
+    APEXFABRIC_GENERATED_DIR=/tmp/sentinel/generated \
+    SNAPSHOT_ROOT=/tmp/sentinel/state/snapshots \
+    OPENVINO_MODELS_DIR=/models/traffic/openvino \
+    FACE_MODELS_DIR=/models/face/openvino \
+    SCENE_MODEL_PATH=/models/scene/openvino/siglip2-base-patch16-224.xml \
+    SCENE_EMBEDDER_DEVICE=GPU \
+    SMOKE_FIRE_DEVICE=NPU \
+    REID_MODELS_DIR=/models/surveillance \
+    BODY_REID_DEVICE=NPU \
+    GAIT_DEVICE=NPU \
+    FACE_DETECTOR_DEVICE=GPU \
+    FACE_EMBEDDER_DEVICE=NPU \
+    HEAD_POSE_DEVICE=NPU \
+    FACE_ADAPTIVE_SEARCH_INTERVAL_SECONDS=0.6 \
+    FACE_ADAPTIVE_SEARCH_FULL_RATE_SECONDS=10 \
+    FACE_ADAPTIVE_SEARCH_BACKOFF_AFTER_SECONDS=30 \
+    FACE_ADAPTIVE_SEARCH_BACKOFF_INTERVAL_SECONDS=1.5 \
+    FACE_ADAPTIVE_SEARCH_IDLE_INTERVAL_SECONDS=5 \
+    FACE_ADAPTIVE_ACQUIRED_INTERVAL_SECONDS=3 \
+    FACE_ADAPTIVE_HIGH_QUALITY_INTERVAL_SECONDS=15 \
+    FACE_ADAPTIVE_HIGH_QUALITY_THRESHOLD=0.75 \
+    FACE_ADAPTIVE_RECOVERY_GAP_SECONDS=2 \
+    FACE_ADAPTIVE_RECOVERY_WINDOW_SECONDS=4 \
+    FACE_ADAPTIVE_STATE_TTL_SECONDS=20 \
+    FACE_ADAPTIVE_IMPROVEMENT_THRESHOLD=0.10 \
+    SENTINEL_MOTION_GATE_ENABLED=true \
+    SENTINEL_SURFACE_MOTION_GATE_ENABLED=false \
+    SENTINEL_DELIVERY_AGENT_SOCKET=/run/sentinel-delivery/agent.sock \
+    SENTINEL_CV_HANDOFF_STATUS_PATH=/tmp/sentinel/generated/v8_handoff_status.json \
+    SENTINEL_FFMPEG_THREADS=1 \
+    SENTINEL_OPENCV_THREADS=1 \
+    APEX_API_HOST=0.0.0.0 \
+    APEX_API_PORT=8080 \
+    DESIRED_STATE_RELOAD_INTERVAL=2 \
+    HOME=/tmp/sentinel \
+    XDG_CACHE_HOME=/tmp/sentinel/cache \
+    LD_LIBRARY_PATH=/usr/local/lib/python3.12/dist-packages/openvino/libs
+
+WORKDIR /opt/traffic-pilot
+
+COPY edge_runtime/solution_packs/sporada_secure/runtime_v8/services /opt/traffic-pilot/services
+COPY edge_runtime/solution_packs/sporada_secure/runtime_v8/traffic_pilot_runtime /opt/traffic-pilot/traffic_pilot_runtime
+COPY edge_runtime/solution_packs/sporada_secure/runtime_v8/config /opt/traffic-pilot/config
+COPY models/traffic-v11/openvino /models/traffic/openvino
+COPY models/traffic-v11/vehicle_yolo26n_fp16_dynamic.xml /models/traffic/openvino/vehicle_yolo26n_fp16_dynamic.xml
+COPY models/traffic-v11/vehicle_yolo26n_fp16_dynamic.bin /models/traffic/openvino/vehicle_yolo26n_fp16_dynamic.bin
+COPY models/traffic-v11/face/openvino /models/face/openvino
+COPY models/scene/openvino /models/scene/openvino
+COPY models/surveillance/transreid_ssl_int8.xml models/surveillance/transreid_ssl_int8.bin /models/surveillance/
+COPY models/surveillance/gaitbase_int8.xml models/surveillance/gaitbase_int8.bin /models/surveillance/
+COPY edge_runtime/solution_packs/sporada_secure/runtime_v8/image_schema /opt/traffic-pilot/image_schema
+COPY newdetails/sentry-v8/observation-examples.json /opt/traffic-pilot/image_schema/observation-examples.json
+COPY newdetails/sentry-v8 /opt/traffic-pilot/contracts/sentry-v8
+COPY SENTINEL_V6_PRODUCTION_POLICY.md /opt/traffic-pilot/contracts/SENTINEL_V6_PRODUCTION_POLICY.md
+COPY native/lib /opt/finalcombo
+COPY native/ocvlib /opt/finalcombo/ocvlib
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        python3-gi python3-gst-1.0 \
+        gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0 \
+        gstreamer1.0-tools gstreamer1.0-plugins-base \
+        gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+        gstreamer1.0-libav gstreamer1.0-vaapi \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m pip install --break-system-packages --no-cache-dir jsonschema==4.23.0 \
+    && ln -sf /usr/lib/x86_64-linux-gnu/libopenvino_intel_npu_compiler_loader.so \
+        /usr/local/lib/python3.12/dist-packages/openvino/libs/libopenvino_intel_npu_compiler_loader.so \
+    && python -m py_compile traffic_pilot_runtime/*.py \
+        services/worker/stream_fleet_openvino.py \
+        services/worker/pipeline/motion_gate.py \
+        services/worker/pipeline/surface_gate.py \
+        services/worker/pipeline/surface_stream.py \
+        services/worker/pipeline/camera_state.py \
+        services/worker/pipeline/resource_metrics.py \
+        services/worker/pipeline/runtime_telemetry.py \
+        services/worker/pipeline/runtime_status.py \
+        services/worker/pipeline/shared_vehicle_inference.py \
+        services/worker/pipeline/structured_logging.py \
+        services/worker/pipeline/scene_embeddings.py \
+        services/worker/pipeline/person_reid.py \
+        services/worker/pipeline/sentinel_v8_handoff.py \
+        services/worker/pipeline/v8_events.py \
+        services/worker/detectors/backends/openvino_face.py \
+    && test -f /models/traffic/openvino/vehicle_yolo26n_fp16_dynamic.xml \
+    && test -f /models/traffic/openvino/license_plate.xml \
+    && test -f /models/traffic/openvino/ocr.xml \
+    && test -f /models/traffic/openvino/smoke_fire.xml \
+    && test -f /models/face/openvino/scrfd_500m.onnx \
+    && test -f /models/face/openvino/adaface_ir101_int8.xml \
+    && test -f /models/face/openvino/best_a0_fp16.xml \
+    && test -f /models/face/openvino/best_a0_fp16.bin \
+    && test -f /models/scene/openvino/siglip2-base-patch16-224.xml \
+    && test -f /models/surveillance/transreid_ssl_int8.xml \
+    && test -f /models/surveillance/gaitbase_int8.xml \
+    && test -f /opt/finalcombo/libgpu_motion_gate_fixed_slots.so \
+    && test -f /opt/finalcombo/libva_y_copy_bridge.so \
+    && test -f /opt/finalcombo/ocvlib/libopencv_core.so.406 \
+    && test -f /opt/traffic-pilot/image_schema/desired-state.example.json \
+    && test -f /opt/traffic-pilot/image_schema/observation-examples.json \
+    && test -f /opt/traffic-pilot/image_schema/delivery-agent-acknowledgement.schema.json \
+    && python /opt/traffic-pilot/contracts/sentry-v8/validate_contract.py \
+    && gst-inspect-1.0 tcpclientsrc >/dev/null \
+    && gst-inspect-1.0 tsdemux >/dev/null \
+    && gst-inspect-1.0 h264parse >/dev/null \
+    && test -f /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstvaapi.so \
+    && mkdir -p /tmp/sentinel/cache /tmp/sentinel/state/snapshots /tmp/sentinel/generated \
+    && chown -R apexruntime:apexruntime /tmp/sentinel \
+    && test "$(id -u apexruntime)" = "10001"
+
+# The pinned base can retain historical solution files in its /opt tree. V8
+# explicitly removes the two direct-delivery V7 modules so the CV image cannot
+# instantiate a second outbox or Management uploader.
+RUN rm -f \
+        /opt/traffic-pilot/services/worker/pipeline/sentinel_v7_delivery.py \
+        /opt/traffic-pilot/services/worker/pipeline/v7_events.py \
+    && test ! -e /opt/traffic-pilot/services/worker/pipeline/sentinel_v7_delivery.py \
+    && test ! -e /opt/traffic-pilot/services/worker/pipeline/v7_events.py
+
+ARG IMAGE_VERSION=2026.11.02-v8-dev3
+ARG INTEL_TRAFFIC_RUNTIME_BASE_DIGEST=unresolved
+ARG INTEL_TRAFFIC_RUNTIME_BASE_NAME=unresolved
+
+LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/sentry_cv" \
+      org.opencontainers.image.title="Sentinel CV Runtime" \
+      org.opencontainers.image.description="V8 CV producer with bounded deployment-wide delivery-agent handoff" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      io.apexfabric.contract.version="8.0" \
+      io.apexfabric.wire.schema.version="7.0" \
+      io.apexfabric.multi-box.delivery.version="7.0" \
+      io.apexfabric.delivery-agent.protocol.version="1.0" \
+      io.apexfabric.analytics.base-image="v6-dev39" \
+      io.apexfabric.production-policy.sha256="95f244203f6e53c949624925315c4d36ca07de040acdf03ffbdbfd831a832d03" \
+      io.apexfabric.contract.status="development" \
+      io.apexfabric.max-configured-cameras="50" \
+      io.apexfabric.logs.format="json" \
+      io.apexfabric.hardware.profile="intel-285h" \
+      io.apexfabric.image.role="cv-runtime" \
+      io.apexfabric.solution-pack="sentinel-cv-runtime" \
+      io.apexfabric.models.delivery="baked-in" \
+      io.apexfabric.identity.recognition-policy="face-only" \
+      io.apexfabric.action-context.included="false" \
+      io.apexfabric.policy-clip-capture.included="false" \
+      io.apexfabric.parent-base="${INTEL_TRAFFIC_RUNTIME_BASE_NAME}" \
+      io.apexfabric.runtime-base.digest="${INTEL_TRAFFIC_RUNTIME_BASE_DIGEST}"
+
+EXPOSE 8080
+USER 10001:10001
+CMD ["python", "-m", "traffic_pilot_runtime.solution_image_entrypoint"]
