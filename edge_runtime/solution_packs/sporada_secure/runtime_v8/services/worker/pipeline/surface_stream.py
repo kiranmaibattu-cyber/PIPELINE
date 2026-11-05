@@ -161,7 +161,9 @@ def _probe_source(uri, *, require_fixed_surface: bool = True):
          '-select_streams', 'v:0', '-show_entries', 'stream=codec_name,width,height',
          '-of', 'json', uri], capture_output=True, text=True, timeout=35)
     if result.returncode:
-        raise RuntimeError('surface source probe failed')
+        from pipeline.structured_logging import sanitize_text
+        detail = sanitize_text(result.stderr or 'no probe diagnostics', limit=1024)
+        raise RuntimeError(f'surface source probe failed: {detail}')
     streams = json.loads(result.stdout).get('streams') or []
     if not streams:
         raise RuntimeError('surface source has no video')
@@ -965,6 +967,8 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
     )
     is_rtsp = uri.startswith(('rtsp://', 'rtsps://'))
     is_tcp = uri.startswith('tcp://')
+    from pipeline.source_tls import CameraSourceTls
+    source_tls = CameraSourceTls(name, str(stream_session_id or "unknown"))
     stats = Counter()
     config_mtime = os.stat(sf.CAMERAS_FILE).st_mtime_ns if os.path.exists(sf.CAMERAS_FILE) else None
     last_config_check = 0.0
@@ -1044,7 +1048,7 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                 )
         elif is_rtsp:
             decoder = f'va{codec}dec' if dls_authoritative else f'vaapi{codec}dec'
-            src = (f'rtspsrc location={location} protocols=tcp latency=100 ! '
+            src = (f'rtspsrc name=camerasource location={location} protocols=tcp latency=100 ! '
                    f'rtp{codec}depay ! {codec}parse ! {decoder} name=decoder')
         elif Path(uri).suffix.lower() in ('.mp4', '.mov', '.m4v'):
             decoder = f'va{codec}dec' if dls_authoritative else f'vaapi{codec}dec'
@@ -1183,11 +1187,15 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                     'video/x-raw(memory:VASurface),format=NV12,width=1920,height=1080 ! '
                     f'appsink name=vasink sync=false max-buffers=1 drop={sink_drop} '
                     'wait-on-eos=false enable-last-sample=false')
-        pipeline = (
-            gst_coordinator.create_branch(name, desc)
-            if gst_coordinator is not None
-            else Gst.parse_launch(desc)
-        )
+        def configure_source(branch):
+            if uri.startswith('rtsps://'):
+                source_tls.configure(branch.get_by_name('camerasource'))
+
+        if gst_coordinator is not None:
+            pipeline = gst_coordinator.create_branch(name, desc, configure=configure_source)
+        else:
+            pipeline = Gst.parse_launch(desc)
+            configure_source(pipeline)
         if dls_authoritative and os.getenv("SENTINEL_DLS_TRACE_PROGRESS", "0") == "1":
             from pipeline.native_progress import NativeProgressTrace
             if native_trace is not None:
@@ -1337,10 +1345,10 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                 detail = sanitize_text(
                     f"{error}; {debug or ''}", limit=1024
                 )
-                raise RuntimeError(f'surface decoder error: {detail}')
+                raise RuntimeError(source_tls.describe(f'surface decoder error: {detail}'))
             if sink.get_property('eos'):
                 return None
-            raise RuntimeError('surface decoder timeout')
+            raise RuntimeError(source_tls.describe('surface decoder timeout'))
         started_pull = time.perf_counter()
         if native_trace is not None:
             native_trace.phase("await_primary_output")
@@ -1423,6 +1431,7 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
         for quiet_record in records:
             stats['frames'] += 1
             stats['quiet_frames'] += 1
+            source_tls.clear_error()
             decoder_status.frame(quiet_record.received_at)
             if v8_pipeline is not None:
                 with telemetry.measure("event_policy.quiet_lifecycle"):
@@ -1644,20 +1653,21 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                 if benchmark:
                     raise
                 from pipeline.structured_logging import sanitize_text
-                safe_error = sanitize_text(exc, limit=512)
+                safe_error = sanitize_text(source_tls.describe(str(exc)), limit=1024)
+                source_reason = source_tls.reason(str(exc))
                 if v8_pipeline is not None:
                     v8_pipeline.camera_status('unavailable', 'stream_disconnected')
                 decoder_status.increment(
                     'decoder_errors', state='unavailable',
-                    reason='stream_disconnected',
-                    retry_reason=type(exc).__name__,
+                    reason=source_reason,
+                    retry_reason=source_reason,
                     retry_backoff_seconds=1.0,
                     sanitized_stderr=safe_error,
                 )
                 decoder_status.increment(
                     'reconnects', state='retrying',
-                    reason='stream_disconnected',
-                    retry_reason=type(exc).__name__,
+                    reason=source_reason,
+                    retry_reason=source_reason,
                     retry_backoff_seconds=1.0,
                 )
                 log.warning(
@@ -1736,7 +1746,8 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                     startup_failures += 1
                     if startup_failures >= max_startup_failures:
                         raise UnsupportedSurfaceSource(
-                            f"surface decoder failed during startup after {startup_failures} attempts")
+                            f"surface decoder failed during startup after {startup_failures} attempts: "
+                            f"{safe_error}") from exc
                 time.sleep(1)
                 continue
             if dls_authoritative:
@@ -1745,6 +1756,7 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
             else:
                 fidx += 1
             stats['frames'] += 1
+            source_tls.clear_error()
             # Decoder freshness is based on when this process received a real
             # frame, not model execution or source PTS.  Motion-gated quiet
             # frames are healthy decoder progress and must not look stale.

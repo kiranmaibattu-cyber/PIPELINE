@@ -1,0 +1,192 @@
+{
+  "image": "localhost/sentry-v8-qaft-int8-tlsfix1:2026.11.05",
+  "scope": "Native TLS/RTSP connection only; synthetic server returns404 deliberately, no media accuracy/capacity claim",
+  "cases": [
+    {
+      "case": "untrusted",
+      "passed": true,
+      "result": {
+        "mode": "single",
+        "rtp_received": false,
+        "errors": [
+          "RTSPS certificate rejected: unknown_ca (flags=1); mount the trusted camera CA under /run/secrets/sentinel/camera-ca; Could not open resource for reading and writing.; ../subprojects/gst-plugins-good/gst/rtsp/gstrtspsrc.c(9105): gst_rtspsrc_retrieve_sdp (): /GstPipeline:pipeline0/GstRTSPSrc:camerasource:\nFailed to connect. (Generic error)"
+        ],
+        "validation_flags": 127,
+        "reason": "tls_unknown_ca",
+        "certificate_error_flags": 1,
+        "configured_before_source_started": true
+      },
+      "server_events": []
+    },
+    {
+      "case": "mounted-ca",
+      "passed": true,
+      "result": {
+        "mode": "single",
+        "rtp_received": false,
+        "errors": [
+          "Not found; ../subprojects/gst-plugins-good/gst/rtsp/gstrtspsrc.c(7417): gst_rtspsrc_send (): /GstPipeline:pipeline0/GstRTSPSrc:camerasource:\nNot Found (404)"
+        ],
+        "validation_flags": 127,
+        "reason": "stream_disconnected",
+        "certificate_error_flags": 0,
+        "configured_before_source_started": true
+      },
+      "server_events": [
+        "tls_accepted",
+        "OPTIONS",
+        "DESCRIBE"
+      ]
+    },
+    {
+      "case": "explicit-ca-file",
+      "passed": true,
+      "result": {
+        "mode": "single",
+        "rtp_received": false,
+        "errors": [
+          "Not found; ../subprojects/gst-plugins-good/gst/rtsp/gstrtspsrc.c(7417): gst_rtspsrc_send (): /GstPipeline:pipeline0/GstRTSPSrc:camerasource:\nNot Found (404)"
+        ],
+        "validation_flags": 127,
+        "reason": "stream_disconnected",
+        "certificate_error_flags": 0,
+        "configured_before_source_started": true
+      },
+      "server_events": [
+        "tls_accepted",
+        "OPTIONS",
+        "DESCRIBE"
+      ]
+    },
+    {
+      "case": "bad-hostname",
+      "passed": true,
+      "result": {
+        "mode": "single",
+        "rtp_received": false,
+        "errors": [
+          "RTSPS certificate rejected: bad_identity (flags=2); Could not open resource for reading and writing.; ../subprojects/gst-plugins-good/gst/rtsp/gstrtspsrc.c(9105): gst_rtspsrc_retrieve_sdp (): /GstPipeline:pipeline0/GstRTSPSrc:camerasource:\nFailed to connect. (Generic error)"
+        ],
+        "validation_flags": 127,
+        "reason": "tls_bad_identity",
+        "certificate_error_flags": 2,
+        "configured_before_source_started": true
+      },
+      "server_events": []
+    },
+    {
+      "case": "expired",
+      "passed": true,
+      "result": {
+        "mode": "single",
+        "rtp_received": false,
+        "errors": [
+          "RTSPS certificate rejected: expired (flags=8); Could not open resource for reading and writing.; ../subprojects/gst-plugins-good/gst/rtsp/gstrtspsrc.c(9105): gst_rtspsrc_retrieve_sdp (): /GstPipeline:pipeline0/GstRTSPSrc:camerasource:\nFailed to connect. (Generic error)"
+        ],
+        "validation_flags": 127,
+        "reason": "tls_expired",
+        "certificate_error_flags": 8,
+        "configured_before_source_started": true
+      },
+      "server_events": []
+    },
+    {
+      "case": "invalid-pem",
+      "passed": true,
+      "result": {
+        "mode": "single",
+        "rtp_received": false,
+        "errors": [],
+        "configuration_error": "camera CA file must contain public PEM certificates only",
+        "reason": "tls_configuration_error"
+      },
+      "server_events": []
+    },
+    {
+      "case": "shared-trusted",
+      "passed": true,
+      "result": {
+        "mode": "shared",
+        "rtp_received": false,
+        "errors": [
+          "Not found; ../subprojects/gst-plugins-good/gst/rtsp/gstrtspsrc.c(7417): gst_rtspsrc_send (): /GstPipeline:sentinel-multi-camera/GstBin:camera-bin-camera-04-1/GstRTSPSrc:camerasource:\nNot Found (404)"
+        ],
+        "validation_flags": 127,
+        "reason": "stream_disconnected",
+        "certificate_error_flags": 0,
+        "peer_progress_after_failure": 3,
+        "peer_state_playing": true,
+        "configured_before_source_started": true
+      },
+      "server_events": [
+        "tls_accepted",
+        "OPTIONS",
+        "DESCRIBE"
+      ]
+    },
+    {
+      "case": "shared-untrusted",
+      "passed": true,
+      "result": {
+        "mode": "shared",
+        "rtp_received": false,
+        "errors": [
+          "RTSPS certificate rejected: unknown_ca (flags=1); mount the trusted camera CA under /run/secrets/sentinel/camera-ca; Could not open resource for reading and writing.; ../subprojects/gst-plugins-good/gst/rtsp/gstrtspsrc.c(9105): gst_rtspsrc_retrieve_sdp (): /GstPipeline:sentinel-multi-camera/GstBin:camera-bin-camera-04-1/GstRTSPSrc:camerasource:\nFailed to connect. (Generic error)"
+        ],
+        "validation_flags": 127,
+        "reason": "tls_unknown_ca",
+        "certificate_error_flags": 1,
+        "peer_progress_after_failure": 3,
+        "peer_state_playing": true,
+        "configured_before_source_started": true
+      },
+      "server_events": []
+    },
+    {
+      "case": "bad-leader",
+      "passed": true,
+      "result": {
+        "mode": "bad-leader",
+        "rtp_received": false,
+        "errors": [],
+        "bad_leader_configuration_rejected": true,
+        "peer_progress_after_failure": 3,
+        "peer_state_playing": true,
+        "configured_before_source_started": true
+      },
+      "server_events": []
+    },
+    {
+      "case": "unauthorized",
+      "passed": true,
+      "result": {
+        "mode": "single",
+        "rtp_received": false,
+        "errors": [
+          "Unauthorized; ../subprojects/gst-plugins-good/gst/rtsp/gstrtspsrc.c(7421): gst_rtspsrc_send (): /GstPipeline:pipeline0/GstRTSPSrc:camerasource:\nUnauthorized (401)"
+        ],
+        "validation_flags": 127,
+        "reason": "source_authentication_failed",
+        "certificate_error_flags": 0,
+        "configured_before_source_started": true
+      },
+      "server_events": [
+        "tcp_accepted",
+        "OPTIONS"
+      ]
+    },
+    {
+      "case": "public-with-extra-ca",
+      "passed": true,
+      "result": {
+        "mode": "single",
+        "rtp_received": true,
+        "errors": [],
+        "validation_flags": 127,
+        "certificate_error_flags": 0,
+        "configured_before_source_started": true
+      },
+      "server_events": []
+    }
+  ]
+}

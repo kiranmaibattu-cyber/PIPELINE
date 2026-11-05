@@ -1,0 +1,43 @@
+..............................F.........................F............... [ 82%]
+...............                                                          [100%]
+=================================== FAILURES ===================================
+_______________ test_v8_desired_state_and_plan_have_no_cv_outbox _______________
+
+tmp_path = PosixPath('/tmp/pytest-of-apexruntime/pytest-0/test_v8_desired_state_and_plan0')
+
+>   ???
+
+/home/admin1/Documents/sentry_cv/edge_runtime/solution_packs/sporada_secure/runtime_v8/tests/test_v8_runtime.py:792: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/lib/python3.12/pathlib.py:1029: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/image_schema/desired-state.example.json'), mode = 'r'
+buffering = -1, encoding = 'utf-8', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+E       FileNotFoundError: [Errno 2] No such file or directory: '/image_schema/desired-state.example.json'
+
+/usr/lib/python3.12/pathlib.py:1015: FileNotFoundError
+_________ test_row_parallel_background_preserves_emitted_gait_packages _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7045e8d01ca0>
+
+    def test_row_parallel_background_preserves_emitted_gait_packages(monkeypatch):
+>       from pipeline import person_reid, parallel_background
+E       ImportError: cannot import name 'parallel_background' from 'pipeline' (/opt/traffic-pilot/services/worker/pipeline/__init__.py)
+
+/tests/test_gait_worker.py:81: ImportError
+=========================== short test summary info ============================
+FAILED ../../tests/test_v8_runtime.py::test_v8_desired_state_and_plan_have_no_cv_outbox
+FAILED ../../tests/test_gait_worker.py::test_row_parallel_background_preserves_emitted_gait_packages
+2 failed, 85 passed in 2.27s

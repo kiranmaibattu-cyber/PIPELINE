@@ -1,0 +1,41 @@
+{
+  "image": "localhost/sentry-v8-qaft-int8-tlsfix1:2026.11.05",
+  "scope": "Native TLS/RTSP connection only; synthetic server returns404 deliberately, no media accuracy/capacity claim",
+  "cases": [
+    {
+      "case": "untrusted",
+      "passed": true,
+      "result": {
+        "mode": "single",
+        "rtp_received": false,
+        "errors": [
+          "RTSPS certificate rejected: unknown_ca (flags=1); mount the trusted camera CA under /run/secrets/sentinel/camera-ca; Could not open resource for reading and writing.; ../subprojects/gst-plugins-good/gst/rtsp/gstrtspsrc.c(9105): gst_rtspsrc_retrieve_sdp (): /GstPipeline:pipeline0/GstRTSPSrc:camerasource:\nFailed to connect. (Generic error)"
+        ],
+        "validation_flags": 127,
+        "reason": "tls_unknown_ca",
+        "certificate_error_flags": 1,
+        "configured_before_source_started": true
+      },
+      "server_events": []
+    },
+    {
+      "case": "mounted-ca",
+      "passed": false,
+      "result": {
+        "mode": "single",
+        "rtp_received": false,
+        "errors": [
+          "Could not open resource for reading.; ../subprojects/gst-plugins-good/gst/rtsp/gstrtspsrc.c(7567): gst_rtspsrc_parse_methods (): /GstPipeline:pipeline0/GstRTSPSrc:camerasource:\nServer does not support SETUP."
+        ],
+        "validation_flags": 127,
+        "reason": "stream_disconnected",
+        "certificate_error_flags": 0,
+        "configured_before_source_started": true
+      },
+      "server_events": [
+        "tls_accepted",
+        "OPTIONS"
+      ]
+    }
+  ]
+}

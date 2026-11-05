@@ -1,0 +1,155 @@
+{
+  "scope": "Synthetic self-signed localhost TLS/RTSP server. Returns404 deliberately; reachingRTSP404 proves handshake completion, not video decoding. Private test key deleted with tempdir. No production TLS relaxation.",
+  "results": [
+    {
+      "image": "dev3",
+      "ffmpeg_transport": {
+        "returncode": 8,
+        "stderr": "[rtsp @ 0x576cd10ea100] method OPTIONS failed: 404 Not Found\n[in#0 @ 0x576cd10ea000] Error opening input: Server returned 404 Not Found\nError opening input file rtsps://127.0.0.1:41975/synthetic-test.\nError opening input files: Server returned 404 Not Found\n"
+      },
+      "probe_returncode": 0,
+      "probe_records": [
+        {
+          "tls_backend": "GTlsBackendGnutls",
+          "supports_tls": true
+        },
+        {
+          "source": "synthetic-test",
+          "ffprobe_default": {
+            "returncode": 1,
+            "seconds": 0.15,
+            "stdout": "{\n\n}\n",
+            "stderr": "[rtsp @ 0x63f12f15d940] method OPTIONS failed: 404 Not Found\nrtsps://127.0.0.1:41975/synthetic-test: Server returned 404 Not Found\n"
+          },
+          "ffprobe_verified": {
+            "returncode": 1,
+            "seconds": 0.16,
+            "stdout": "{\n\n}\n",
+            "stderr": "[rtsp @ 0x649ae6909980] method OPTIONS failed: 404 Not Found\nrtsps://127.0.0.1:41975/synthetic-test: Server returned 404 Not Found\n"
+          },
+          "gstreamer_default_verified": {
+            "received_video_rtp": false,
+            "seconds": 0.021,
+            "certificate_rejections": [
+              {
+                "validation_errors": 1
+              }
+            ],
+            "errors": [
+              {
+                "message": "Could not open resource for reading and writing.",
+                "debug": "../gst/rtsp/gstrtspsrc.c(8442): gst_rtspsrc_retrieve_sdp (): /GstPipeline:pipeline0/GstRTSPSrc:src:\nFailed to connect. (Generic error)",
+                "domain": "gst-resource-error-quark",
+                "code": 7
+              }
+            ],
+            "warnings": []
+          }
+        }
+      ],
+      "stderr": "",
+      "server_events": [
+        {
+          "phase": "tls_accepted"
+        },
+        {
+          "phase": "rtsp_request",
+          "method": "OPTIONS"
+        },
+        {
+          "phase": "tls_accepted"
+        },
+        {
+          "phase": "rtsp_request",
+          "method": "OPTIONS"
+        },
+        {
+          "phase": "tls_accepted"
+        },
+        {
+          "phase": "rtsp_request",
+          "method": "OPTIONS"
+        },
+        {
+          "phase": "connection_closed",
+          "type": "ConnectionResetError"
+        }
+      ]
+    },
+    {
+      "image": "qaft",
+      "ffmpeg_transport": {
+        "returncode": 8,
+        "stderr": "[rtsp @ 0x6015136d3100] method OPTIONS failed: 404 Not Found\n[in#0 @ 0x6015136d3000] Error opening input: Server returned 404 Not Found\nError opening input file rtsps://127.0.0.1:41975/synthetic-test.\nError opening input files: Server returned 404 Not Found\n"
+      },
+      "probe_returncode": 0,
+      "probe_records": [
+        {
+          "tls_backend": "GTlsBackendGnutls",
+          "supports_tls": true
+        },
+        {
+          "source": "synthetic-test",
+          "ffprobe_default": {
+            "returncode": 1,
+            "seconds": 0.15,
+            "stdout": "{\n\n}\n",
+            "stderr": "[rtsp @ 0x58f5028c0940] method OPTIONS failed: 404 Not Found\nrtsps://127.0.0.1:41975/synthetic-test: Server returned 404 Not Found\n"
+          },
+          "ffprobe_verified": {
+            "returncode": 1,
+            "seconds": 0.16,
+            "stdout": "{\n\n}\n",
+            "stderr": "[rtsp @ 0x5887a5600980] method OPTIONS failed: 404 Not Found\nrtsps://127.0.0.1:41975/synthetic-test: Server returned 404 Not Found\n"
+          },
+          "gstreamer_default_verified": {
+            "received_video_rtp": false,
+            "seconds": 0.024,
+            "certificate_rejections": [
+              {
+                "validation_errors": 1
+              }
+            ],
+            "errors": [
+              {
+                "message": "Could not open resource for reading and writing.",
+                "debug": "../subprojects/gst-plugins-good/gst/rtsp/gstrtspsrc.c(9105): gst_rtspsrc_retrieve_sdp (): /GstPipeline:pipeline0/GstRTSPSrc:src:\nFailed to connect. (Generic error)",
+                "domain": "gst-resource-error-quark",
+                "code": 7
+              }
+            ],
+            "warnings": []
+          }
+        }
+      ],
+      "stderr": "",
+      "server_events": [
+        {
+          "phase": "tls_accepted"
+        },
+        {
+          "phase": "rtsp_request",
+          "method": "OPTIONS"
+        },
+        {
+          "phase": "tls_accepted"
+        },
+        {
+          "phase": "rtsp_request",
+          "method": "OPTIONS"
+        },
+        {
+          "phase": "tls_accepted"
+        },
+        {
+          "phase": "rtsp_request",
+          "method": "OPTIONS"
+        },
+        {
+          "phase": "connection_closed",
+          "type": "ConnectionResetError"
+        }
+      ]
+    }
+  ]
+}

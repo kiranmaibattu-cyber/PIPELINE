@@ -57,6 +57,8 @@ ENV PYTHONUNBUFFERED=1 \
     SENTINEL_DELIVERY_AGENT_SOCKET=/run/sentinel-delivery/agent.sock \
     SENTINEL_CV_HANDOFF_STATUS_PATH=/tmp/sentinel/generated/v8_handoff_status.json \
     SENTINEL_FFMPEG_THREADS=1 \
+    SENTINEL_CAMERA_CA_DIR=/run/secrets/sentinel/camera-ca \
+    SENTINEL_CAMERA_TLS_MODE=legacy-compatible \
     SENTINEL_OPENCV_THREADS=1 \
     OPENCV_OPENCL_RUNTIME=disabled \
     APEX_API_HOST=0.0.0.0 \
@@ -78,7 +80,7 @@ WORKDIR /opt/traffic-pilot
 # sources so normal runtime fixes do not reinstall the media stack.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        ca-certificates wget gnupg \
+        ca-certificates glib-networking wget gnupg \
         python3-gi python3-gst-1.0 \
         gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0 \
         gstreamer1.0-tools gstreamer1.0-plugins-base \
@@ -150,6 +152,7 @@ RUN python -m py_compile traffic_pilot_runtime/*.py \
         services/worker/pipeline/surface_vehicle.py \
         services/worker/pipeline/zero_copy_shadow.py \
         services/worker/pipeline/structured_logging.py \
+        services/worker/pipeline/source_tls.py \
         services/worker/pipeline/scene_embeddings.py \
         services/worker/pipeline/person_reid.py \
         services/worker/pipeline/sentinel_v8_handoff.py \

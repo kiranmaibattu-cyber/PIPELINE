@@ -1,0 +1,20 @@
+FILE /opt/traffic-pilot/services/worker/stream_fleet_openvino.py
+330:    # ffmpeg decoders they own — never orphan and keep hogging the GPU/media engine.
+346:    if MOTION_GATE_ENABLED and os.getenv("SENTINEL_SURFACE_MOTION_GATE_ENABLED", "false").lower() in {"1", "true", "yes"}:
+599:    publish_camera_state(name, camera_config, "ffmpeg")
+625:                publish_camera_state(name, camera_config, "ffmpeg")
+FILE /opt/traffic-pilot/services/worker/decode.py
+3:This standalone decoder drives the Intel media engine via ffmpeg `-hwaccel vaapi`
+38:    ffmpeg decoder never orphans (even if the worker is SIGKILLed). Linux-only."""
+57:def _network_input_options(uri: str, *, probe: bool) -> list[str]:
+125:def _ffmpeg_cmd(uri: str, fps: int, is_stream: bool) -> list[str]:
+129:        "ffmpeg", "-nostdin", "-loglevel", "error",
+201:            _ffmpeg_cmd(self.uri, self.fps, self.is_stream),
+206:            target=self._drain_stderr, name=f"ffmpeg-stderr-{self.name}", daemon=True
+210:            "decoder_starts", state="connecting", reason="ffmpeg_started",
+211:            decoder_pid=self._proc.pid, last_ffmpeg_exit_code=None,
+218:            ffmpeg_threads=_FFMPEG_THREADS, opencv_threads=_OPENCV_THREADS,
+264:                        last_ffmpeg_exit_code=exit_code, sanitized_stderr=stderr,
+271:                    last_ffmpeg_exit_code=exit_code, retry_reason="stream_disconnected",
+278:                    ffmpeg_exit_code=exit_code, sanitized_stderr=stderr,
+FILE /opt/traffic-pilot/services/worker/pipeline/processor_config.py

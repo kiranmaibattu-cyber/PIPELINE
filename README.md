@@ -5,9 +5,11 @@
 On `sentry_cv_multi`, the latest published candidate is:
 
 ```text
-ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.11.05-v8-qaft-int8-candidate
-registry digest: sha256:53105b8a0c0654b9b50be6c6b7380223ac4f65588076c0c9ea9e32d6ecc1bd28
+ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.11.05-v8-qaft-int8-tlsfix2
+registry digest: sha256:b5a5dc68db4cba9e2b18ec28c61175686189161b25f605b298c1241dbc4957fc
 ```
+
+RTSPS defaults to the user-selected legacy-compatible behavior, matching dev3: encrypted connections without server-certificate verification. Strict mode remains available. See the [RTSPS repair and deployment instructions](model_updates/2026-11-05-rtsps-compatibility-fix/DEPLOYMENT.md) and [repair tests](model_updates/2026-11-05-rtsps-compatibility-fix/REPAIR_REPORT.md).
 
 This is a tested development candidate with unresolved numerical fidelity,
 absolute timestamp, thermal and memory findings. Read the

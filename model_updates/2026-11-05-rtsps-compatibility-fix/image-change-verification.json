@@ -1,0 +1,25 @@
+{
+  "base_image_id": "d035cb44df82a66cbcdaa29e3ca22177f7bfdbf080009d6a27bf6633e5eb2127",
+  "repair_image_id": "dbaeacc92973fc5d1e41521e3200cd64151aaa53a472404a79f87833bade3ef5",
+  "changed_files": [
+    "/opt/traffic-pilot/services/worker/pipeline/multi_camera_gst.py",
+    "/opt/traffic-pilot/services/worker/pipeline/surface_stream.py"
+  ],
+  "added_files": [
+    "/opt/traffic-pilot/services/worker/pipeline/source_tls.py"
+  ],
+  "models_unchanged": true,
+  "model_files_checked": 33,
+  "contract_and_policy_unchanged": true,
+  "environment_changes": {
+    "SENTINEL_CAMERA_TLS_MODE": {
+      "before": null,
+      "after": "legacy-compatible"
+    },
+    "SENTINEL_CAMERA_CA_DIR": {
+      "before": null,
+      "after": "/run/secrets/sentinel/camera-ca"
+    }
+  },
+  "no_opt80_added": true
+}

@@ -1,0 +1,11 @@
+{"case": "untrusted", "passed": true, "reason": "tls_unknown_ca", "certificate_flags": 1}
+{"case": "mounted-ca", "passed": false, "reason": "stream_disconnected", "certificate_flags": 0}
+Traceback (most recent call last):
+  File "/home/admin1/Documents/sentry_cv/scripts/isolated_validation/camera_tls_qualification.py", line 149, in <module>
+    main()
+  File "/home/admin1/Documents/sentry_cv/scripts/isolated_validation/camera_tls_qualification.py", line 135, in main
+    run("mounted-ca", mounted=trust)
+  File "/home/admin1/Documents/sentry_cv/scripts/isolated_validation/camera_tls_qualification.py", line 132, in run
+    assert passed, record
+           ^^^^^^
+AssertionError: {'case': 'mounted-ca', 'passed': False, 'result': {'mode': 'single', 'rtp_received': False, 'errors': ['Not found; ../subprojects/gst-plugins-good/gst/rtsp/gstrtspsrc.c(7417): gst_rtspsrc_send (): /GstPipeline:pipeline0/GstRTSPSrc:camerasource:\nNot Found (404)'], 'validation_flags': 127, 'reason': 'stream_disconnected', 'certificate_error_flags': 0, 'configured_before_source_started': True}, 'server_events': ['tls_accepted', 'OPTIONS']}

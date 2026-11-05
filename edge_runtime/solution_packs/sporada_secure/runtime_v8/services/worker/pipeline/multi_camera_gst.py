@@ -109,7 +109,7 @@ class MultiCameraGstPipeline:
         )
         self._bus_thread.start()
 
-    def create_branch(self, camera_id: str, description: str) -> CameraBranch:
+    def create_branch(self, camera_id: str, description: str, *, configure=None) -> CameraBranch:
         Gst = self.Gst
         camera_id = str(camera_id)
         with self._condition:
@@ -139,11 +139,21 @@ class MultiCameraGstPipeline:
             # shared Intel model registry. Keep construction and parent
             # attachment under one process-local lock; camera decode remains
             # parallel after the graph is PLAYING.
-            branch_bin = Gst.parse_bin_from_description(description, False)
-            if branch_bin is None:
-                raise RuntimeError(
-                    f"could not parse GStreamer branch for {camera_id}"
-                )
+            try:
+                branch_bin = Gst.parse_bin_from_description(description, False)
+                if branch_bin is None:
+                    raise RuntimeError(
+                        f"could not parse GStreamer branch for {camera_id}"
+                    )
+                # A running parent can start a newly attached source at once.
+                # Install TLS trust/callbacks before attachment or state sync.
+                if configure is not None:
+                    configure(branch_bin)
+            except Exception:
+                if not self._started and self._startup_owner == camera_id:
+                    self._startup_owner = None
+                self._condition.notify_all()
+                raise
             previous = self._branches.get(camera_id)
             if previous is not None:
                 self._remove_locked(previous)
