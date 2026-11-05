@@ -1,31 +1,30 @@
-"""All-OpenVINO fleet worker.
+"""OpenVINO/DL Streamer fleet worker.
 
-Runs the full ALPR cascade — vehicle detect -> plate detect -> OCR — entirely on
-OpenVINO (Intel iGPU/NPU/CPU). It also runs the fire/smoke detector as a side
-OpenVINO model and feeds all detections into the existing analytics/output path.
+The production topology uses bounded native-graph workers.  Each worker process
+owns one parent :class:`Gst.Pipeline` containing up to a small bounded number of
+camera bins.  Those bins share process-local, stateless DL Streamer model
+instances while retaining camera-local decoder, tracker, presence, zone, dwell,
+ANPR, identity and event-policy state.
 
-Architecture: ISOLATED CAMERA STATE + SHARED INFERENCE — one process per camera
-owns decode, tracking, policy, evidence and delivery.  The mandatory
-vehicle/person detector is compiled once in the fleet parent and served through a
-fair OpenVINO AsyncInferQueue.  Each camera writes its 640x640 model canvas to a
-private mmap slot, so image pixels are not serialized through a manager proxy.
-This preserves camera fault isolation and all V7 event semantics while keeping
-multiple GPU requests in flight across cameras.
-
-Why processes, not threads: the per-frame consume work (YOLO postprocess, tracking,
-analytics, payload build) is CPU-bound Python. The GIL serializes it, so a thread-
-per-camera design saturates ~1 core of Python work and stalls far below target
-(measured: 4 cams capped ~7 fps/cam with cores only ~45% busy — the classic GIL
-wall). Processes give each camera its own interpreter. This is the same reason the
-OpenVINO has no single-cascade-stream limit, so there is no dispatcher funnel and
-no crop IPC. Each process is fully independent.
+The bound is deliberate.  A single process for all deployment cameras shares the
+native model efficiently but serializes Python policy work under one GIL and
+creates an unnecessarily large failure domain.  One process per camera avoids
+the GIL but duplicates model pools.  Bounded graph workers preserve native model
+sharing and VA-memory inference while allowing policy work to run in multiple
+Python interpreters.  Detection results still enter the existing tracker and V8
+production policy with their original camera, stream-session, frame and source
+timestamp identities.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from pathlib import Path
+import queue
+import signal
 import sys
+import threading
 import time
 from typing import Any
 import uuid
@@ -75,6 +74,40 @@ SHARED_VEHICLE_INFERENCE = os.getenv(
     "SENTINEL_SHARED_VEHICLE_INFERENCE", "true"
 ).lower() in {"1", "true", "yes", "on"}
 SHARED_VEHICLE_REQUESTS = int(os.getenv("SENTINEL_SHARED_VEHICLE_REQUESTS", "4"))
+SHARED_VEHICLE_MAX_BATCH = int(os.getenv("SENTINEL_SHARED_VEHICLE_MAX_BATCH", "1"))
+SHARED_VEHICLE_BATCH_WAIT_MS = float(os.getenv(
+    "SENTINEL_SHARED_VEHICLE_BATCH_WAIT_MS", "8"
+))
+SHARED_SCENE_INFERENCE = os.getenv(
+    "SENTINEL_SHARED_SCENE_INFERENCE", "false"
+).lower() in {"1", "true", "yes", "on"}
+SHARED_SCENE_REQUESTS = int(os.getenv("SENTINEL_SHARED_SCENE_REQUESTS", "2"))
+DLS_SECONDARIES = os.getenv(
+    "SENTINEL_DLSTREAMER_SECONDARIES", "false"
+).lower() in {"1", "true", "yes", "on"}
+SHARED_DLS_CAMERA_PROCESSES = os.getenv(
+    "SENTINEL_SHARED_DLSTREAMER_CAMERA_PROCESSES", "false"
+).lower() in {"1", "true", "yes", "on"}
+REQUESTED_SHARED_DLS_GROUP_SIZE = max(1, int(os.getenv(
+    "SENTINEL_SHARED_DLSTREAMER_GROUP_SIZE", "50"
+)))
+NATIVE_GRAPH_MAX_CAMERAS_PER_PROCESS = max(1, int(os.getenv(
+    "SENTINEL_NATIVE_GRAPH_MAX_CAMERAS_PER_PROCESS", "20"
+)))
+# Deployment capacity and process-local execution capacity are different
+# controls.  The desired state may contain 50 cameras; the runtime partitions
+# those cameras into bounded workers so Python policy processing is not forced
+# through one interpreter and one native failure domain.
+SHARED_DLS_GROUP_SIZE = min(
+    REQUESTED_SHARED_DLS_GROUP_SIZE,
+    NATIVE_GRAPH_MAX_CAMERAS_PER_PROCESS,
+)
+
+
+def camera_groups(cameras: list[dict], group_size: int) -> list[list[dict]]:
+    """Partition cameras into bounded model-sharing/failure domains."""
+    size = max(1, int(group_size))
+    return [cameras[index:index + size] for index in range(0, len(cameras), size)]
 
 
 def require_accelerator_device(label: str, requested: str) -> None:
@@ -159,6 +192,14 @@ class SharedVehicleDetectorClient:
     @property
     def scheduler_device_inference_seconds(self) -> float:
         return self._transport.last_device_inference_seconds
+
+    @property
+    def batch_collection_seconds(self) -> float:
+        return self._transport.last_batch_collection_seconds
+
+    @property
+    def last_batch_size(self) -> int:
+        return self._transport.last_batch_size
 
 
 def load_cameras() -> list[dict]:
@@ -316,24 +357,36 @@ def consume_packet(packet, geo, tracker, analytics_stage, stab, async_ocr):
         analytics_stage.process([packet])
 
 
-def _camera_proc_impl(cam: dict, camera_config: dict, redis_host: str, redis_port: int,
-                      stream_key: str, vehicle_channel=None,
-                      vehicle_execution_devices: str | None = None,
-                      delivery_channel=None) -> None:
-    """Child process: owns ONE camera end to end. Builds its own Core, detectors,
-    OCR, tracker/analytics stages, decoder and analytics publisher - no shared state."""
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    stream_session_id = str(uuid.uuid4())
-    set_log_context(cam.get("name"), stream_session_id)
-    os.environ.setdefault("OPENVINO_MODELS_DIR", OPENVINO_MODELS_DIR)
-    # Die if the parent worker dies (even on SIGKILL), so camera processes — and the
-    # ffmpeg decoders they own — never orphan and keep hogging the GPU/media engine.
+def _configure_camera_child_process() -> None:
+    """Install the native-runtime-safe process boundary once per child."""
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
         import ctypes as _ct
         import signal as _sig
         _ct.CDLL("libc.so.6").prctl(1, _sig.SIGKILL)  # PR_SET_PDEATHSIG
     except Exception:  # noqa: BLE001
         pass
+
+
+def _camera_proc_impl(cam: dict, camera_config: dict, redis_host: str, redis_port: int,
+                      stream_key: str, vehicle_channel=None,
+                      vehicle_execution_devices: str | None = None,
+                      scene_channel=None,
+                      scene_execution_devices: str | None = None,
+                      delivery_channel=None, *, configure_process: bool = True,
+                      on_ready=None, gst_coordinator=None) -> None:
+    """Child process: owns ONE camera end to end. Builds its own Core, detectors,
+    OCR, tracker/analytics stages, decoder and analytics publisher - no shared state."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    stream_session_id = str(uuid.uuid4())
+    set_log_context(cam.get("name"), stream_session_id)
+    if configure_process:
+        # Container runtimes may deliver the stop signal to every process in
+        # the cgroup. The fleet parent owns termination and uses SIGKILL after
+        # stopping admission, so native inference callbacks are not unwound.
+        _configure_camera_child_process()
+    os.environ.setdefault("OPENVINO_MODELS_DIR", OPENVINO_MODELS_DIR)
 
     from pipeline.sentinel_v8_handoff import V8HandoffClient
     v8_config = (
@@ -348,12 +401,25 @@ def _camera_proc_impl(cam: dict, camera_config: dict, redis_host: str, redis_por
             from pipeline.surface_stream import UnsupportedSurfaceSource, run_surface_camera
             return run_surface_camera(
                 cam, camera_config, redis_host, redis_port, stream_key,
+                scene_channel=scene_channel,
+                scene_execution_devices=scene_execution_devices,
+                stream_session_id=stream_session_id,
                 handoff_client=handoff_client,
+                on_ready=on_ready,
+                gst_coordinator=gst_coordinator,
             )
         except UnsupportedSurfaceSource as exc:
+            if os.getenv("SENTINEL_DLSTREAMER_REQUIRED", "false").lower() in {
+                "1", "true", "yes", "on"
+            }:
+                raise
             log.warning("cam[%s] native surface motion path unsupported: %s; using BGR motion gate fallback",
                         cam["name"], exc)
         except Exception as exc:  # noqa: BLE001
+            if os.getenv("SENTINEL_DLSTREAMER_REQUIRED", "false").lower() in {
+                "1", "true", "yes", "on"
+            }:
+                raise
             log.warning("cam[%s] native surface motion path failed: %s; using BGR motion gate fallback",
                         cam["name"], exc)
 
@@ -416,7 +482,7 @@ def _camera_proc_impl(cam: dict, camera_config: dict, redis_host: str, redis_por
     ))
     if vehicle_channel is None:
         veh = OpenVINOYOLODetector(
-            openvino_model_path("vehicle_yolo26n_fp16_dynamic"), "vehicle",
+            openvino_model_path("vehicle_person_qaft_int8/model"), "vehicle",
             device=VEHICLE_DEVICE, imgsz=640, confidence=vehicle_confidence,
             class_ids=VEHICLE_CLASS_IDS, class_names=VEHICLE_CLASS_NAMES,
         )
@@ -490,10 +556,16 @@ def _camera_proc_impl(cam: dict, camera_config: dict, redis_host: str, redis_por
             gait_extractor.warmup()
     scene_extractor = None
     if enable_scene:
-        from pipeline.scene_embeddings import OpenVINOSceneExtractor
-        scene_extractor = OpenVINOSceneExtractor(
-            SCENE_MODEL_PATH, device=SCENE_EMBEDDER_DEVICE
-        )
+        if scene_channel is not None:
+            from pipeline.shared_scene_inference import SharedSceneExtractorClient
+            scene_extractor = SharedSceneExtractorClient(
+                scene_channel, scene_execution_devices or SCENE_EMBEDDER_DEVICE
+            )
+        else:
+            from pipeline.scene_embeddings import OpenVINOSceneExtractor
+            scene_extractor = OpenVINOSceneExtractor(
+                SCENE_MODEL_PATH, device=SCENE_EMBEDDER_DEVICE
+            )
         scene_extractor.warmup()
     from pipeline.runtime_telemetry import CameraTelemetry
     telemetry_devices = {
@@ -683,6 +755,15 @@ def _camera_proc_impl(cam: dict, camera_config: dict, redis_host: str, redis_por
                     "detection.vehicle_person.device_inference",
                     veh.scheduler_device_inference_seconds,
                 )
+                telemetry.observe_latency(
+                    "detection.vehicle_person.batch_collection_wait",
+                    veh.batch_collection_seconds,
+                )
+                telemetry.count(
+                    "vehicle_inference_batch_frames",
+                    veh.last_batch_size,
+                )
+                telemetry.count("vehicle_inference_batches")
             telemetry.inference_succeeded()
             vdets = deduplicate_vehicles(
                 raw_vdets,
@@ -826,6 +907,8 @@ def _camera_proc_impl(cam: dict, camera_config: dict, redis_host: str, redis_por
 def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: int,
                  stream_key: str, vehicle_channel=None,
                  vehicle_execution_devices: str | None = None,
+                 scene_channel=None,
+                 scene_execution_devices: str | None = None,
                  delivery_channel=None) -> None:
     """Run one camera while preserving the real Python failure in structured logs.
 
@@ -838,7 +921,8 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
     try:
         _camera_proc_impl(
             cam, camera_config, redis_host, redis_port, stream_key,
-            vehicle_channel, vehicle_execution_devices, delivery_channel,
+            vehicle_channel, vehicle_execution_devices,
+            scene_channel, scene_execution_devices, delivery_channel,
         )
     except BaseException as exc:  # noqa: BLE001 - child-process failure boundary
         log.exception(
@@ -852,6 +936,191 @@ def _camera_proc(cam: dict, camera_config: dict, redis_host: str, redis_port: in
             sys.stdout.flush()
             sys.stderr.flush()
         finally:
+            os._exit(70)
+
+
+def _camera_group_proc(
+    group_index: int,
+    cameras: list[dict],
+    camera_configs: dict[str, dict[str, Any]],
+    redis_host: str,
+    redis_port: int,
+    stream_key: str,
+    delivery_channels: dict[str, Any],
+) -> None:
+    """Run one bounded native graph with process-local shared GVA models.
+
+    Each thread owns camera-local tracker and production-policy state while the
+    process owns exactly one parent GStreamer pipeline. Stateless model instances
+    are shared by the camera branches; trackers and policy state never cross a
+    camera boundary.
+    """
+    _configure_camera_child_process()
+    os.environ["SENTINEL_CAMERA_GROUP_MODE"] = "true"
+    os.environ["SENTINEL_DLSTREAMER_MODEL_SHARE_SCOPE"] = f"group-{group_index}"
+    # One worker is already bounded to the validated process-local capacity, so
+    # all of its camera bins intentionally share one detector instance/request
+    # pool.  A larger deployment gets another process and another parent graph.
+    model_shard_size = len(cameras)
+    model_shards = {
+        camera["name"]: index // model_shard_size
+        for index, camera in enumerate(cameras)
+    }
+    os.environ["SENTINEL_DLSTREAMER_CAMERA_MODEL_SHARDS"] = json.dumps(
+        model_shards, separators=(",", ":"), sort_keys=True
+    )
+    registry = f"/tmp/surface-registry-group-{group_index}-{os.getpid()}.bin"
+    os.environ["GST_REGISTRY"] = registry
+    try:
+        Path(registry).unlink(missing_ok=True)
+    except OSError:
+        pass
+
+    # Initialize process-global OpenVINO/GStreamer state before camera threads
+    # race to create their first shared model instance.
+    from detectors.backends.openvino_detector import shared_core
+    shared_core()
+    import gi
+    gi.require_version("Gst", "1.0")
+    from gi.repository import Gst
+    Gst.init([])
+
+    from pipeline.multi_camera_gst import MultiCameraGstPipeline
+    gst_coordinator = MultiCameraGstPipeline(
+        [camera["name"] for camera in cameras],
+        # Bootstrap one complete branch, then attach peers serially. Intel's
+        # shared GVA output path can deadlock when several appsinks preroll in
+        # the same parent state transition.
+        startup_camera_count=1,
+        startup_timeout_seconds=float(os.getenv(
+            "SENTINEL_MULTI_CAMERA_GST_STARTUP_TIMEOUT_SECONDS", "90"
+        )),
+    )
+
+    failures: queue.Queue[tuple[str, BaseException | None]] = queue.Queue()
+    threads: list[threading.Thread] = []
+
+    def run_camera_thread(camera: dict, ready: threading.Event) -> None:
+        name = camera["name"]
+        try:
+            _camera_proc_impl(
+                camera,
+                camera_configs[name],
+                redis_host,
+                redis_port,
+                stream_key,
+                delivery_channel=delivery_channels[name],
+                configure_process=False,
+                on_ready=ready.set,
+                gst_coordinator=gst_coordinator,
+            )
+            failures.put((name, None))
+        except BaseException as exc:  # noqa: BLE001 - thread/native boundary
+            log.exception(
+                "camera thread failed inside shared DL Streamer group",
+                extra={
+                    "event": "camera_thread_unhandled_exception",
+                    "camera_id": name,
+                    "exception_type": type(exc).__name__,
+                    "dlstreamer_group": group_index,
+                },
+            )
+            failures.put((name, exc))
+
+    # All branches must register before the parent GstPipeline can transition
+    # to PLAYING.  Start every camera thread without waiting for a first frame;
+    # a small bounded stagger avoids simultaneous secondary-model warm-up.
+    startup_wait = max(0.0, float(os.getenv(
+        "SENTINEL_SHARED_DLSTREAMER_STARTUP_STAGGER_SECONDS", "1"
+    )))
+    camera_by_name = {camera["name"]: camera for camera in cameras}
+    ready_by_name: dict[str, threading.Event] = {}
+    thread_by_name: dict[str, threading.Thread] = {}
+    restart_count: dict[str, int] = {name: 0 for name in camera_by_name}
+
+    def start_camera(camera: dict) -> None:
+        name = camera["name"]
+        ready = threading.Event()
+        ready_by_name[name] = ready
+        thread = threading.Thread(
+            target=run_camera_thread,
+            args=(camera, ready),
+            name=f"camera-{name}",
+            daemon=False,
+        )
+        thread.start()
+        threads.append(thread)
+        thread_by_name[name] = thread
+
+    startup_ready_timeout = float(os.getenv(
+        "SENTINEL_MULTI_CAMERA_GST_STARTUP_TIMEOUT_SECONDS", "90"
+    ))
+    for index, camera in enumerate(cameras):
+        start_camera(camera)
+        # Start the first shared model cohort together. Then wait for each new
+        # cohort's first camera to become operational before another model pool
+        # is initialized. This avoids concurrent Intel GPU pool compilation.
+        cohort_end = min(len(cameras), model_shard_size)
+        if index + 1 == cohort_end:
+            deadline = time.monotonic() + startup_ready_timeout
+            for first_camera in cameras[:cohort_end]:
+                remaining = max(0.0, deadline - time.monotonic())
+                if not ready_by_name[first_camera["name"]].wait(remaining):
+                    break
+        elif index >= cohort_end:
+            ready_by_name[camera["name"]].wait(startup_ready_timeout)
+        if startup_wait and index + 1 < len(cameras):
+            time.sleep(startup_wait)
+
+    log_event(
+        log,
+        logging.INFO,
+        "shared_dlstreamer_group_started",
+        "shared DL Streamer camera group started",
+        dlstreamer_group=group_index,
+        camera_ids=[camera["name"] for camera in cameras],
+        camera_count=len(cameras),
+        model_share_scope=os.environ["SENTINEL_DLSTREAMER_MODEL_SHARE_SCOPE"],
+        model_shard_size=model_shard_size,
+        model_shard_count=max(model_shards.values(), default=0) + 1,
+        gst_architecture="single-parent-pipeline-with-camera-bins",
+    )
+
+    try:
+        while True:
+            try:
+                name, failure = failures.get(timeout=1.0)
+            except queue.Empty:
+                continue
+            restart_count[name] += 1
+            delay = min(30.0, float(2 ** min(restart_count[name] - 1, 4)))
+            log_event(
+                log,
+                logging.WARNING,
+                "multi_camera_branch_restart",
+                "camera branch failed; peers remain active and branch will restart",
+                camera_id=name,
+                dlstreamer_group=group_index,
+                restart_count=restart_count[name],
+                retry_backoff_seconds=delay,
+                exception_type=(type(failure).__name__ if failure else "returned"),
+            )
+            time.sleep(delay)
+            start_camera(camera_by_name[name])
+    except BaseException as exc:  # noqa: BLE001 - process supervision boundary
+        log.exception(
+            "shared DL Streamer camera group failed",
+            extra={
+                "event": "shared_dlstreamer_group_failed",
+                "dlstreamer_group": group_index,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        try:
+            sys.stdout.flush()
+            sys.stderr.flush()
+        finally:
+            gst_coordinator.close()
             os._exit(70)
 
 
@@ -876,6 +1145,18 @@ def main() -> int:
     SystemMonitor.from_env(interval=float(os.getenv("SYSTEM_MONITOR_INTERVAL", "2"))).start()
 
     ctx = mp.get_context("spawn")
+    stop_requested = False
+    stop_via_marker = False
+    worker_stop_file = Path(os.getenv(
+        "APEXFABRIC_WORKER_STOP_FILE", "/tmp/sentinel/generated/worker.stop"
+    ))
+
+    def request_stop(signum, frame):
+        nonlocal stop_requested
+        stop_requested = True
+
+    signal.signal(signal.SIGTERM, request_stop)
+    signal.signal(signal.SIGINT, request_stop)
     from pipeline.sentinel_v8_handoff import (
         V8HandoffScheduler,
         create_handoff_channels,
@@ -894,10 +1175,16 @@ def main() -> int:
             "/tmp/sentinel/generated/v8_handoff_status.json",
         ),
     ).start()
+    grouped_dlstreamer = bool(
+        SHARED_DLS_CAMERA_PROCESSES
+        and os.getenv("SENTINEL_DLSTREAMER_ENABLED", "true").lower()
+        in {"1", "true", "yes", "on"}
+    )
     vehicle_channels = {}
     vehicle_slot_owners = []
     vehicle_scheduler = None
-    if SHARED_VEHICLE_INFERENCE and VEHICLE_DEVICE.split(".")[0] == "GPU":
+    if (not grouped_dlstreamer and SHARED_VEHICLE_INFERENCE
+            and VEHICLE_DEVICE.split(".")[0] == "GPU"):
         from detectors.base import openvino_model_path
         from pipeline.shared_vehicle_inference import (
             SharedVehicleInferenceScheduler,
@@ -915,13 +1202,15 @@ def main() -> int:
             ctx, [camera["name"] for camera in cams]
         )
         vehicle_scheduler = SharedVehicleInferenceScheduler(
-            openvino_model_path("vehicle_yolo26n_fp16_dynamic"),
+            openvino_model_path("vehicle_person_qaft_int8/model"),
             vehicle_confidence,
             vehicle_channels,
             device=VEHICLE_DEVICE,
             class_ids=VEHICLE_CLASS_IDS,
             class_names=VEHICLE_CLASS_NAMES,
             requests=SHARED_VEHICLE_REQUESTS,
+            max_batch_size=SHARED_VEHICLE_MAX_BATCH,
+            batch_wait_seconds=SHARED_VEHICLE_BATCH_WAIT_MS / 1000.0,
         ).start()
         log_event(
             log, logging.INFO, "shared_vehicle_inference_started",
@@ -929,106 +1218,266 @@ def main() -> int:
             execution_devices=vehicle_scheduler.execution_devices,
             camera_count=len(cams), input_size=640,
             async_requests=vehicle_scheduler.requests,
+            maximum_batch_size=vehicle_scheduler.max_batch_size,
+            maximum_batch_wait_ms=round(
+                vehicle_scheduler.batch_wait_seconds * 1000.0, 3
+            ),
             scheduling="fair_round_robin",
         )
 
-    def start_camera(camera):
-        channel = vehicle_channels.get(camera["name"])
-        process = ctx.Process(target=_camera_proc, name=f"cam-{camera['name']}", daemon=False,
-                              args=(camera, build_camera_config(camera), rhost, rport, skey,
-                                    channel,
-                                    vehicle_scheduler.execution_devices
-                                    if vehicle_scheduler is not None else None,
-                                    delivery_child_channels[camera["name"]]))
-        process.start()
-        increment_supervisor_status(
-            camera["name"], "process_starts", state="starting",
-            camera_process_pid=process.pid, retrying=False,
+    scene_channels = {}
+    scene_slot_owners = []
+    scene_scheduler = None
+    scene_camera_ids = [
+        camera["name"] for camera in cams
+        if "scene_embeddings" in build_camera_config(camera)["runtime_analytics"]
+    ]
+    if SHARED_SCENE_INFERENCE and scene_camera_ids and not DLS_SECONDARIES:
+        from pipeline.shared_scene_inference import (
+            SharedSceneInferenceScheduler,
+            create_scene_channels,
+            destroy_scene_channels,
         )
+
+        scene_channels, scene_slot_owners = create_scene_channels(
+            ctx, scene_camera_ids
+        )
+        scene_scheduler = SharedSceneInferenceScheduler(
+            SCENE_MODEL_PATH,
+            scene_channels,
+            device=SCENE_EMBEDDER_DEVICE,
+            requests=SHARED_SCENE_REQUESTS,
+        ).start()
+        log_event(
+            log, logging.INFO, "shared_scene_inference_started",
+            "shared-memory asynchronous SigLIP2 scheduler started",
+            execution_devices=scene_scheduler.execution_devices,
+            camera_count=len(scene_camera_ids),
+            async_requests=scene_scheduler.requests,
+            input_shape=[1, 3, 224, 224],
+            scheduling="fair_round_robin",
+        )
+
+    unit_cameras = (
+        camera_groups(cams, SHARED_DLS_GROUP_SIZE)
+        if grouped_dlstreamer else [[camera] for camera in cams]
+    )
+
+    def start_unit(unit_index: int, cameras: list[dict]):
+        if grouped_dlstreamer:
+            configs = {
+                camera["name"]: build_camera_config(camera)
+                for camera in cameras
+            }
+            channels = {
+                camera["name"]: delivery_child_channels[camera["name"]]
+                for camera in cameras
+            }
+            process = ctx.Process(
+                target=_camera_group_proc,
+                name=f"dls-group-{unit_index}",
+                daemon=False,
+                args=(
+                    unit_index, cameras, configs, rhost, rport, skey, channels,
+                ),
+            )
+        else:
+            camera = cameras[0]
+            channel = vehicle_channels.get(camera["name"])
+            scene_channel = scene_channels.get(camera["name"])
+            process = ctx.Process(
+                target=_camera_proc,
+                name=f"cam-{camera['name']}",
+                daemon=False,
+                args=(
+                    camera, build_camera_config(camera), rhost, rport, skey,
+                    channel,
+                    vehicle_scheduler.execution_devices
+                    if vehicle_scheduler is not None else None,
+                    scene_channel,
+                    scene_scheduler.execution_devices
+                    if scene_scheduler is not None else None,
+                    delivery_child_channels[camera["name"]],
+                ),
+            )
+        process.start()
+        for camera in cameras:
+            increment_supervisor_status(
+                camera["name"], "process_starts", state="starting",
+                camera_process_pid=process.pid, retrying=False,
+                process_group=f"dls-group-{unit_index}"
+                if grouped_dlstreamer else None,
+            )
         return process
 
-    procs = [start_camera(camera) for camera in cams]
-    restart_delays = {camera["name"]: 5.0 for camera in cams}
-    next_restart = {camera["name"]: 0.0 for camera in cams}
-    restart_scheduled = {camera["name"]: False for camera in cams}
-    process_started = {camera["name"]: time.monotonic() for camera in cams}
+    units = []
+    for unit_index, cameras in enumerate(unit_cameras):
+        units.append({
+            "index": unit_index,
+            "cameras": cameras,
+            "process": start_unit(unit_index, cameras),
+            "restart_delay": 5.0,
+            "next_restart": 0.0,
+            "restart_scheduled": False,
+            "started": time.monotonic(),
+        })
     log_event(
         log, logging.INFO, "camera_process_fleet_started",
         "camera process fleet started",
-        camera_count=len(procs), architecture="isolated-camera-processes",
+        camera_count=len(cams), camera_process_count=len(units),
+        architecture=(
+            "bounded-native-graph-workers"
+            if grouped_dlstreamer else "isolated-camera-processes"
+        ),
+        shared_dlstreamer_model_instances=grouped_dlstreamer,
+        shared_dlstreamer_group_size=(
+            SHARED_DLS_GROUP_SIZE if grouped_dlstreamer else 1
+        ),
+        requested_shared_dlstreamer_group_size=(
+            REQUESTED_SHARED_DLS_GROUP_SIZE if grouped_dlstreamer else 1
+        ),
+        native_graph_max_cameras_per_process=(
+            NATIVE_GRAPH_MAX_CAMERAS_PER_PROCESS if grouped_dlstreamer else 1
+        ),
         shared_vehicle_inference=vehicle_scheduler is not None,
         shared_vehicle_transport="mmap+bounded-token-queues"
         if vehicle_scheduler is not None else "disabled",
         shared_vehicle_async_requests=(
             vehicle_scheduler.requests if vehicle_scheduler is not None else 0
         ),
-        openvino_core_per_camera=vehicle_scheduler is None,
+        shared_vehicle_max_batch=(
+            vehicle_scheduler.max_batch_size if vehicle_scheduler is not None else 0
+        ),
+        shared_vehicle_batch_wait_ms=(
+            round(vehicle_scheduler.batch_wait_seconds * 1000.0, 3)
+            if vehicle_scheduler is not None else 0.0
+        ),
+        shared_scene_inference=scene_scheduler is not None,
+        shared_scene_async_requests=(
+            scene_scheduler.requests if scene_scheduler is not None else 0
+        ),
+        openvino_core_per_camera=(
+            not grouped_dlstreamer and vehicle_scheduler is None
+        ),
     )
 
     try:
-        while True:
+        while not stop_requested:
             time.sleep(1.0)
+            if worker_stop_file.is_file():
+                stop_requested = True
+                stop_via_marker = True
+                continue
             if vehicle_scheduler is not None and not vehicle_scheduler.alive:
                 raise RuntimeError(
                     "shared vehicle scheduler stopped: "
                     f"{vehicle_scheduler.failure or 'unknown failure'}"
                 )
+            if scene_scheduler is not None and not scene_scheduler.alive:
+                raise RuntimeError(
+                    "shared scene scheduler stopped: "
+                    f"{scene_scheduler.failure or 'unknown failure'}"
+                )
             if not delivery_scheduler.alive:
                 raise RuntimeError("shared V8 delivery handoff scheduler stopped")
             now = time.monotonic()
-            for index, process in enumerate(procs):
+            for unit in units:
+                process = unit["process"]
                 if process.is_alive():
+                    if now - unit["started"] >= 30:
+                        unit["restart_delay"] = 5.0
                     continue
-                camera = cams[index]
-                name = camera["name"]
-                decoder_status = read_decoder_status(name)
-                if not restart_scheduled[name]:
-                    log_event(
-                        log, logging.ERROR, "camera_process_exited",
-                        "camera process exited; restart scheduled",
-                        camera_id=name, camera_process_pid=process.pid,
-                        stream_session_id=decoder_status.get("stream_session_id"),
-                        exit_code=process.exitcode, retry_reason="camera_process_exited",
-                        retry_backoff_seconds=restart_delays[name],
-                    )
-                    increment_supervisor_status(
-                        name, "process_exits", state="process_exited",
-                        camera_process_pid=process.pid, exit_code=process.exitcode,
-                        retrying=True, retry_reason="camera_process_exited",
-                        retry_backoff_seconds=restart_delays[name],
-                    )
+                if not unit["restart_scheduled"]:
+                    for camera in unit["cameras"]:
+                        name = camera["name"]
+                        decoder_status = read_decoder_status(name)
+                        log_event(
+                            log, logging.ERROR, "camera_process_exited",
+                            "camera process exited; restart scheduled",
+                            camera_id=name, camera_process_pid=process.pid,
+                            stream_session_id=decoder_status.get("stream_session_id"),
+                            exit_code=process.exitcode,
+                            retry_reason="camera_process_exited",
+                            retry_backoff_seconds=unit["restart_delay"],
+                            affected_camera_count=len(unit["cameras"]),
+                        )
+                        increment_supervisor_status(
+                            name, "process_exits", state="process_exited",
+                            camera_process_pid=process.pid,
+                            exit_code=process.exitcode,
+                            retrying=True,
+                            retry_reason="camera_process_exited",
+                            retry_backoff_seconds=unit["restart_delay"],
+                        )
                     process.join(timeout=0)
-                    next_restart[name] = now + restart_delays[name]
-                    restart_delays[name] = min(restart_delays[name] * 2, 60.0)
-                    restart_scheduled[name] = True
+                    unit["next_restart"] = now + unit["restart_delay"]
+                    unit["restart_delay"] = min(
+                        unit["restart_delay"] * 2, 60.0
+                    )
+                    unit["restart_scheduled"] = True
                     continue
-                if now < next_restart[name]:
+                if now < unit["next_restart"]:
                     continue
-                procs[index] = start_camera(camera)
-                process_started[name] = now
-                restart_scheduled[name] = False
-                log_event(
-                    log, logging.INFO, "camera_process_restarted",
-                    "camera process restarted", camera_id=name,
-                    stream_session_id=decoder_status.get("stream_session_id"),
-                    camera_process_pid=procs[index].pid,
+                unit["process"] = start_unit(
+                    unit["index"], unit["cameras"]
                 )
-            for index, camera in enumerate(cams):
-                name = camera["name"]
-                if procs[index].is_alive() and now - process_started[name] >= 30:
-                    restart_delays[name] = 5.0
+                unit["started"] = now
+                unit["restart_scheduled"] = False
+                for camera in unit["cameras"]:
+                    name = camera["name"]
+                    decoder_status = read_decoder_status(name)
+                    log_event(
+                        log, logging.INFO, "camera_process_restarted",
+                        "camera process restarted", camera_id=name,
+                        stream_session_id=decoder_status.get("stream_session_id"),
+                        camera_process_pid=unit["process"].pid,
+                        affected_camera_count=len(unit["cameras"]),
+                    )
     finally:
-        for p in procs:
+        # DL Streamer/OpenVINO owns native inference threads. Sending SIGTERM
+        # into each Python camera process can enter unsafe native teardown and
+        # flood logs with glibc longjmp failures. Stop new producers with
+        # SIGKILL, then allow already-admitted delivery packages to drain.
+        processes = [unit["process"] for unit in units]
+        for p in processes:
             if p.is_alive():
-                p.terminate()
-        for p in procs:
+                p.kill()
+        for p in processes:
             p.join(timeout=3)
+        drain_deadline = time.monotonic() + max(0.0, float(os.getenv(
+            "SENTINEL_SHUTDOWN_HANDOFF_DRAIN_SECONDS", "3"
+        )))
+        while time.monotonic() < drain_deadline:
+            with delivery_scheduler.condition:
+                pending = int(delivery_scheduler.retained_count)
+            if pending == 0:
+                break
+            time.sleep(0.05)
+        if stop_requested and not stop_via_marker:
+            # Do not run Python/OpenVINO/GStreamer object destructors during an
+            # orchestrator-requested stop.  Intel's native stacks can execute
+            # teardown callbacks on inference threads after their owning
+            # Python frames have already unwound, producing thousands of
+            # glibc "longjmp causes uninitialized stack frame" messages.  All
+            # camera producers are dead and admitted handoffs were given their
+            # bounded drain window above, so an immediate worker exit is the
+            # deterministic shutdown boundary.  The PID-1 supervisor reaps
+            # this worker and reports a normal container exit.
+            try:
+                sys.stdout.flush()
+                sys.stderr.flush()
+            finally:
+                os._exit(0)
         if vehicle_scheduler is not None:
             vehicle_scheduler.close()
         if vehicle_channels:
             destroy_vehicle_channels(vehicle_channels, vehicle_slot_owners)
+        if scene_scheduler is not None:
+            scene_scheduler.close()
+        if scene_channels:
+            destroy_scene_channels(scene_channels, scene_slot_owners)
         delivery_scheduler.close()
-    return 1
+    return 0 if stop_requested else 1
 
 
 if __name__ == "__main__":

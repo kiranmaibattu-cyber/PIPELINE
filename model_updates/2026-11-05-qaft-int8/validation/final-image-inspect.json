@@ -1,0 +1,753 @@
+{
+  "Id": "d035cb44df82a66cbcdaa29e3ca22177f7bfdbf080009d6a27bf6633e5eb2127",
+  "Digest": "sha256:3a6fce5944495bed10d870b57489dee73e7e87bde531dbba9bdc84b512fe1f64",
+  "RepoTags": [
+    "localhost/sentry-v8-qaft-int8-model-candidate:2026.11.05"
+  ],
+  "RepoDigests": [
+    "localhost/sentry-v8-qaft-int8-model-candidate@sha256:3a6fce5944495bed10d870b57489dee73e7e87bde531dbba9bdc84b512fe1f64"
+  ],
+  "Parent": "19ac0cd0ff993d616d47dbd9a0b590c078182ac42ac294590619390ad054fe54",
+  "Comment": "",
+  "Created": "2026-11-05T07:09:38.296208219Z",
+  "Config": {
+    "User": "10001:10001",
+    "ExposedPorts": {
+      "8080/tcp": {}
+    },
+    "Env": [
+      "DEBIAN_FRONTEND=noninteractive",
+      "PIP_BREAK_SYSTEM_PACKAGES=1",
+      "SENTINEL_V7_REQUIRE_DELIVERY=true",
+      "PYTHONUNBUFFERED=1",
+      "PYTHONFAULTHANDLER=1",
+      "PYTHONPATH=/opt/traffic-pilot:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python",
+      "TRAFFIC_PILOT_ROOT=/opt/traffic-pilot",
+      "SOLUTION_PACK=sentinel-cv-runtime",
+      "APEXFABRIC_CONTRACT_VERSION=v8",
+      "APEXFABRIC_SECRETS_ROOT=/run/secrets/sentinel/cameras",
+      "APEXFABRIC_STATE_ROOT=/tmp/sentinel/state",
+      "APEXFABRIC_GENERATED_DIR=/tmp/sentinel/generated",
+      "SNAPSHOT_ROOT=/tmp/sentinel/state/snapshots",
+      "OPENVINO_MODELS_DIR=/models/traffic/openvino",
+      "FACE_MODELS_DIR=/models/face/openvino",
+      "SCENE_MODEL_PATH=/models/scene/openvino/siglip2-base-patch16-224.xml",
+      "SCENE_EMBEDDER_DEVICE=GPU",
+      "SMOKE_FIRE_DEVICE=NPU",
+      "REID_MODELS_DIR=/models/surveillance",
+      "BODY_REID_DEVICE=NPU",
+      "GAIT_DEVICE=NPU",
+      "FACE_DETECTOR_DEVICE=GPU",
+      "FACE_EMBEDDER_DEVICE=NPU",
+      "HEAD_POSE_DEVICE=NPU",
+      "FACE_ADAPTIVE_SEARCH_INTERVAL_SECONDS=0.6",
+      "FACE_ADAPTIVE_SEARCH_FULL_RATE_SECONDS=10",
+      "FACE_ADAPTIVE_SEARCH_BACKOFF_AFTER_SECONDS=30",
+      "FACE_ADAPTIVE_SEARCH_BACKOFF_INTERVAL_SECONDS=1.5",
+      "FACE_ADAPTIVE_SEARCH_IDLE_INTERVAL_SECONDS=5",
+      "FACE_ADAPTIVE_ACQUIRED_INTERVAL_SECONDS=3",
+      "FACE_ADAPTIVE_HIGH_QUALITY_INTERVAL_SECONDS=15",
+      "FACE_ADAPTIVE_HIGH_QUALITY_THRESHOLD=0.75",
+      "FACE_ADAPTIVE_RECOVERY_GAP_SECONDS=2",
+      "FACE_ADAPTIVE_RECOVERY_WINDOW_SECONDS=4",
+      "FACE_ADAPTIVE_STATE_TTL_SECONDS=20",
+      "FACE_ADAPTIVE_IMPROVEMENT_THRESHOLD=0.10",
+      "SENTINEL_MOTION_GATE_ENABLED=true",
+      "SENTINEL_SURFACE_MOTION_GATE_ENABLED=true",
+      "SENTINEL_DLSTREAMER_ENABLED=true",
+      "SENTINEL_DLSTREAMER_REQUIRED=true",
+      "SENTINEL_DLSTREAMER_SECONDARIES=true",
+      "SENTINEL_GVA_TRACKER_TYPE=zero-term",
+      "SENTINEL_GVA_NIREQ=8",
+      "SENTINEL_GVA_FACE_INTERVAL=3",
+      "SENTINEL_GVA_FACE_NIREQ=4",
+      "SENTINEL_ZERO_COPY_VEHICLE=false",
+      "SENTINEL_ZERO_COPY_SHADOW=false",
+      "SENTINEL_SHARED_VEHICLE_INFERENCE=false",
+      "SENTINEL_SHARED_DLSTREAMER_CAMERA_PROCESSES=true",
+      "SENTINEL_SHARED_DLSTREAMER_GROUP_SIZE=50",
+      "SENTINEL_NATIVE_GRAPH_MAX_CAMERAS_PER_PROCESS=20",
+      "SENTINEL_SHARED_DLSTREAMER_STARTUP_STAGGER_SECONDS=1",
+      "SENTINEL_MULTI_CAMERA_GST_STARTUP_TIMEOUT_SECONDS=90",
+      "SENTINEL_SHARED_SCENE_INFERENCE=true",
+      "SENTINEL_DELIVERY_AGENT_SOCKET=/run/sentinel-delivery/agent.sock",
+      "SENTINEL_CV_HANDOFF_STATUS_PATH=/tmp/sentinel/generated/v8_handoff_status.json",
+      "SENTINEL_FFMPEG_THREADS=1",
+      "SENTINEL_OPENCV_THREADS=1",
+      "OPENCV_OPENCL_RUNTIME=disabled",
+      "APEX_API_HOST=0.0.0.0",
+      "APEX_API_PORT=8080",
+      "DESIRED_STATE_RELOAD_INTERVAL=2",
+      "HOME=/tmp/sentinel",
+      "XDG_CACHE_HOME=/tmp/sentinel/cache",
+      "XDG_RUNTIME_DIR=/tmp/sentinel/runtime",
+      "GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0",
+      "GST_PLUGIN_PATH=/opt/sentinel-gst-plugins:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0",
+      "LIBVA_DRIVER_NAME=iHD",
+      "LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri",
+      "PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/opt/opencv:/opt/finalcombo/ocvlib:/usr/local/lib/python3.12/dist-packages/openvino/libs:/usr/lib:/usr/local/lib",
+      "PLATE_DEVICE=NPU",
+      "SENTINEL_GVA_VEHICLE_MODEL=/models/traffic/openvino/vehicle_person_qaft_int8/model_static_b1.xml"
+    ],
+    "Cmd": [
+      "python",
+      "-m",
+      "traffic_pilot_runtime.solution_image_entrypoint"
+    ],
+    "WorkingDir": "/opt/traffic-pilot",
+    "Labels": {
+      "io.apexfabric.action-context.included": "false",
+      "io.apexfabric.analytics.base-image": "v6-dev39",
+      "io.apexfabric.contract.status": "development",
+      "io.apexfabric.contract.version": "8.0",
+      "io.apexfabric.delivery-agent.protocol.version": "1.0",
+      "io.apexfabric.detector.active-batch": "1",
+      "io.apexfabric.detector.checkpoint.sha256": "8fa716bf26f92037522256a50a38fa6fb1de830277bf6f440c02146f8beae000",
+      "io.apexfabric.detector.profile": "vehicle-person-qaft-int8",
+      "io.apexfabric.hardware.profile": "intel-285h",
+      "io.apexfabric.identity.recognition-policy": "face-only",
+      "io.apexfabric.image.role": "cv-runtime",
+      "io.apexfabric.logs.format": "json",
+      "io.apexfabric.max-configured-cameras": "50",
+      "io.apexfabric.models.delivery": "baked-in",
+      "io.apexfabric.multi-box.delivery.version": "7.0",
+      "io.apexfabric.parent-base": "localhost/apexfabric-intel-traffic-runtime-base:intel-285h-2026.09.18-v2",
+      "io.apexfabric.policy-clip-capture.included": "false",
+      "io.apexfabric.production-policy.sha256": "95f244203f6e53c949624925315c4d36ca07de040acdf03ffbdbfd831a832d03",
+      "io.apexfabric.runtime-base.digest": "sha256:e9cd281e24864bb01b5fb715a651ae09731e6a12a15518f0ac8e626b9d2ac243",
+      "io.apexfabric.solution-pack": "sentinel-cv-runtime",
+      "io.apexfabric.wire.schema.version": "7.0",
+      "io.buildah.version": "1.33.7",
+      "org.opencontainers.image.description": "V8 CV producer with bounded deployment-wide delivery-agent handoff",
+      "org.opencontainers.image.source": "https://github.com/kiranmaibattu-cyber/sentry_cv",
+      "org.opencontainers.image.title": "Sentinel CV Runtime",
+      "org.opencontainers.image.version": "2026.11.05-v8-qaft-int8-model-candidate",
+      "sentinel.optimization.experiment": "qaft-int8-model-swap-unqualified"
+    }
+  },
+  "Version": "",
+  "Author": "",
+  "Architecture": "amd64",
+  "Os": "linux",
+  "Size": 3510789524,
+  "VirtualSize": 3510789524,
+  "GraphDriver": {
+    "Name": "overlay",
+    "Data": {
+      "LowerDir": "/home/admin1/.local/share/containers/storage/overlay/a8847befc1bd6b325f6512d205d15e946bdcdedb9cd7adde39b1d04f47cdc954/diff:/home/admin1/.local/share/containers/storage/overlay/62f77def5283f24841d64f5b733b4751acf8baeee3885bddea1f6cf430325080/diff:/home/admin1/.local/share/containers/storage/overlay/4e81f617c6fe2c3d50fdec4dd5584618632298a5927002ce1dc642113f0103e2/diff:/home/admin1/.local/share/containers/storage/overlay/8418ba64dec84798b76137b6b53680a1e0b6beb17c728c9bc1ca6d51083d0c2e/diff:/home/admin1/.local/share/containers/storage/overlay/9ef369a25bbc31ae84436c41bbfd71ae9f93783d199ae049f5f475a9ab8af95e/diff:/home/admin1/.local/share/containers/storage/overlay/06630a59926e74e5302eaa07b5d7936c6749f4081ff46b70a95e663f80ae02c4/diff:/home/admin1/.local/share/containers/storage/overlay/dced971eea69ab7039f8c8a7c7c14924c85f9d0b01acf88439d485a3947f164b/diff:/home/admin1/.local/share/containers/storage/overlay/f07873e155d36ee4f5cd89a2e1d39740fecbaf64cd058ccd2d716582644e0f61/diff:/home/admin1/.local/share/containers/storage/overlay/88721de8a0eabddd512346c7e17f092fd99ddcb43acd8dfed74aedb378a8ccf4/diff:/home/admin1/.local/share/containers/storage/overlay/68881c49c9e6722a5941d7467e3a946ceff37551b5446aa088027bf678ab4ceb/diff:/home/admin1/.local/share/containers/storage/overlay/f78aca047f88e944c136b4c316fceab3b99b25e56f33d5d6fd85e3487d2aee1c/diff:/home/admin1/.local/share/containers/storage/overlay/6efeabd7aa894febb4b565e1fc7129aada46f5869de2ca64b15f6bab80040159/diff:/home/admin1/.local/share/containers/storage/overlay/9e6c473da635784b2426b91881a170d4a5cb8d64110a191d624ebb2e7ab5e53a/diff:/home/admin1/.local/share/containers/storage/overlay/0f9bf185f5cd5177893866a3bc796f60b4532470796bef6733cc540dc14e8d93/diff:/home/admin1/.local/share/containers/storage/overlay/77f8248c75f240b925c647dba4a70491a1bd33000015450eb0a623bc1c1be036/diff:/home/admin1/.local/share/containers/storage/overlay/fc108a602641430984f077fb6861d3a4e49ea6b465a33694dc2fec5a8f7475fc/diff:/home/admin1/.local/share/containers/storage/overlay/b3b6af0d8dea6607b6e8c72f176ced6d9acfeeea081b0041d5eb5f64aede3200/diff:/home/admin1/.local/share/containers/storage/overlay/b00db5f08eb4371f70a8c36948c38eb5090229dbc7ecf17fc6acbf72683062eb/diff:/home/admin1/.local/share/containers/storage/overlay/ce50ea63cc3e1d8f5834faee505a07f5ca52d6b728d4fa9c9cdfcd2735660d95/diff:/home/admin1/.local/share/containers/storage/overlay/942a0b530f5780b8605adf7f6a68f38926fcf0b61ce28036b3fb5ae4161827ca/diff:/home/admin1/.local/share/containers/storage/overlay/2ea17ce257bab1527d0ab33c6ad664eeac8919584fde639e7fef0bba5b855d26/diff:/home/admin1/.local/share/containers/storage/overlay/efab578aedc77e9ccc3c3cbab2fb976184fd948a27161fd01c526c0389da8f46/diff:/home/admin1/.local/share/containers/storage/overlay/577a7242c086effa02c1ccd2b29d34d97f7e5c824f6f3bc98b68e537d3061c88/diff:/home/admin1/.local/share/containers/storage/overlay/ddde80ab756898036cfe633ff204f4e9835416e3f64a45cc7b54327d942d2db7/diff:/home/admin1/.local/share/containers/storage/overlay/6fd8e7c55e28f001476884554dfa0a0100fe983fba0944ec01e8081ac2f3fc67/diff:/home/admin1/.local/share/containers/storage/overlay/9aa786d71ceb62acfd1684df963d3ce4fb341bd1ca4b77d169d3622fb247e92e/diff:/home/admin1/.local/share/containers/storage/overlay/ef0f51bfc17f6b0837b3d653a09b226209547024dca3df53af81a7b3b0d40113/diff:/home/admin1/.local/share/containers/storage/overlay/a441fa32b8183d0cb076506869f14c36d511d837ee7219b9df9d43c6bc93775f/diff:/home/admin1/.local/share/containers/storage/overlay/3924c66a2245486d13a90256dcbb016088609851e1ea0f0d19f721db8d29f485/diff:/home/admin1/.local/share/containers/storage/overlay/3809e2813bab582cedf5a787fead1864e5c96ced7730dab89f8a8f9eabc5bb9f/diff:/home/admin1/.local/share/containers/storage/overlay/25e9ed3662fc5d8ff4a8542cbcd2645325a29b3b9c8e33d5b992764667d0c0be/diff:/home/admin1/.local/share/containers/storage/overlay/a7e6f8e776e28d7fccf10f6525af7bd541eac4de00865c97a7665716c2292a39/diff:/home/admin1/.local/share/containers/storage/overlay/4cf920742624610130bfdb411ab6830e0db3fcb8d6c32a7a6508f91dc10a2258/diff:/home/admin1/.local/share/containers/storage/overlay/a05cb2b5916feb325eebd92e48fd04131ac39b7a04d3477a5368afba307cd4dc/diff:/home/admin1/.local/share/containers/storage/overlay/d6ab1f741734cc63f77199308ec951e05a12287b5def2277854819f99527a509/diff:/home/admin1/.local/share/containers/storage/overlay/703b72970ed8548b27b0b5237475650a17046eaec8004b603eb92792f62b751a/diff:/home/admin1/.local/share/containers/storage/overlay/fb0d588642d83e78bbe7b6ce64432b5e5f527ccf70d42d03adeb2bbb57a1a5bf/diff:/home/admin1/.local/share/containers/storage/overlay/6f1f13f38c0b7bdfdac63e024a94f4aa288d41629f939130b8eb80e68a99e2fc/diff:/home/admin1/.local/share/containers/storage/overlay/2908c03c4db863a8bc7afa56f8dab376f2df98436195f2013e7864e6703d6b88/diff:/home/admin1/.local/share/containers/storage/overlay/3b50cc4bb51f01e1b05bbd3082a3cef77e453e0e533e891acfc48af110b68895/diff:/home/admin1/.local/share/containers/storage/overlay/5d59e70de11a7d2f21bbbbb1f30eac42b2994492bc8e0d1910ff55b7949b9cf4/diff:/home/admin1/.local/share/containers/storage/overlay/d3954ced48200a145a7cecb04cabe043a42ea04907985dbc35ec791694fbae67/diff:/home/admin1/.local/share/containers/storage/overlay/8fd32317e22e1fb2811c9fa61bb3c9c2f5b4dcce3ee21de13a8128c8b998711d/diff:/home/admin1/.local/share/containers/storage/overlay/2ece5b6b294b8600049a00a7b3b678db94a76ccba126e38330b4babea181b3f4/diff:/home/admin1/.local/share/containers/storage/overlay/302932abf58a7f22848edee93d146e69078c37bf0eb035119e5b95d86bf2f798/diff:/home/admin1/.local/share/containers/storage/overlay/ce5cdd320ebdf99dfe30190d39999e301f07ca6d096d54eb52b3ee5339181a22/diff:/home/admin1/.local/share/containers/storage/overlay/fe80e6c366d0f4cce6700480559ae736364d9b0033d74cce5b4b4eeb532bf0d2/diff:/home/admin1/.local/share/containers/storage/overlay/8f7ec1355242df436170f3af1765e7f462d246191c9b59c16754ae07fe15293a/diff:/home/admin1/.local/share/containers/storage/overlay/42724e448bf499ec7d4b3c21d6cc68fe665ef677ed393c3dbb5357394e89ff91/diff",
+      "UpperDir": "/home/admin1/.local/share/containers/storage/overlay/cad14dd1cb3922f026ce871554076bb6aff2d6760987dbab92edd9fc6bd6b939/diff",
+      "WorkDir": "/home/admin1/.local/share/containers/storage/overlay/cad14dd1cb3922f026ce871554076bb6aff2d6760987dbab92edd9fc6bd6b939/work"
+    }
+  },
+  "RootFS": {
+    "Type": "layers",
+    "Layers": [
+      "sha256:42724e448bf499ec7d4b3c21d6cc68fe665ef677ed393c3dbb5357394e89ff91",
+      "sha256:9b735ee5bb819c36536d43a7050473dec7580f3fc66c453cb8fe836dde839fc7",
+      "sha256:dd78c0f8f435b9f3e62b87ae5566f44b2ba9433db1d8dedf4602c2ba836e6fd7",
+      "sha256:c51c3a73a29681ef7ffd933c2ce47bb8d9c592c0e5a2bdecbc17356b12b8b7b3",
+      "sha256:8893fb0fddf96a11fe27a5cb419e63b3fe241d96c00f5701b6be0b84b7857064",
+      "sha256:8ecbce2f8474cb7b6ce58f15de8f0e85eb44ae3186850e0781ae612ca207de5d",
+      "sha256:3fc6c98c573ab899e5c5e755830149009613f0f77ac2d040c7932c8da97fad4d",
+      "sha256:12ce821f1e5c3e8d93066b95fcbe9054133a0a7a0e7f6dda1e9c9a844149c0dc",
+      "sha256:f267bf9ab4f1dd7ecc9f3a5a439e61fb9785a28e5352d94bf7038f1f21773c0a",
+      "sha256:28cd568edd3bed330dad75b92b5751d0342340c6688bc3d415679f728d449405",
+      "sha256:56263195239b507cf85cb82d3ed57c436304a332c6f385cf468aba9f2c4cb160",
+      "sha256:4cf5095f40c5430fc467660b80a9800fc5d9dbf319385ae665138d0f09623e49",
+      "sha256:177078f4cd2e1cdd1105d7de228a8045b75bd18215b490dc750d99636ce5a72a",
+      "sha256:3e531018194779e6c5118a8685030eb8dd2d06576414b8a1f01fd987521c61fc",
+      "sha256:ea4d7754638cdd33ff512b24a208290a13ed257e90931fc6ba263522a49014dd",
+      "sha256:b29b1065ea62e25e4b2623263ae1b3b0eb0764c853fdfb2c0d992cc8a25a12ef",
+      "sha256:1df6a58d007e05318c83458c96ff540f877441d95bd58ec8c7879d728838e735",
+      "sha256:a6a73efaf7c9e2ffbf007213cf3e873169dc1968ef7163ff7fabafd40145722a",
+      "sha256:17ae830d9da1d7758ce33215683b3fd52f170e03530cab81829addbb0eb1e6df",
+      "sha256:d941b8bcc2c04d59855a2baddd7e00e4450ed23f6128148a7c1f5c2f997cf93f",
+      "sha256:7221068f491a0973403a310156256d9d94768bd06473a27f445f572483452af9",
+      "sha256:04586ef25c4716982c075231cdeacb739113a1ae355b16a06047c4dd914c0ab2",
+      "sha256:ef9107ac00b5c33907919bdfba9a01339f91a94f70b239a4199ac8ca75343fd3",
+      "sha256:1989997eb84e08fcd3ef9aeefa8972ce089dd28652efc2a6eb689f2ad4138c4a",
+      "sha256:5066ff286f51b9ce1420a28d686516bb8f8900f871112315a65ff7db5d9d6ae3",
+      "sha256:95f330f482265f1f496ca05ec31e0e84490a88df724b536b4a80412ed8c887f5",
+      "sha256:659758d156bcf15da434a2eea6f10de51d43553d8a635ff2dc2cc0b3130fb735",
+      "sha256:c3858853cc87e52b910817575436b9e43c46b8de564f7f7e7b3606a6c0bd7301",
+      "sha256:9891e95ee3f272a3eafbdde2df3db0a7e7f0e869a1d345fe2dacd04bc77401cc",
+      "sha256:ae4c28657684747a29cc99daa98b36e0eee64d75c7ba391b26e6681067a67ded",
+      "sha256:e98b6816705e24dfdf60d91c5e07dcdb282e23b2307147778cc3eb62f80d4115",
+      "sha256:4227aef461d78dd4fea97962a09bed07e37dd7839a114dfc323c9eff9ca28505",
+      "sha256:53b02092d18770347d9c29dd023139afab85961e797e1df04730b8bbc9dd2e44",
+      "sha256:219fc1ff135f36bc6e9445ed7afec4aae5469517acbf129ea4d49bc361019a42",
+      "sha256:87686538d189a6b9e772f9afcf70088fdb76956b95a600a0c76ce40db9b4bad4",
+      "sha256:c66223664a64a70c437a3df494cb6d0c620a0cce4628d94ee22ef55e5d2e91c1",
+      "sha256:90bf92be3876980495d87686dae74656da75ea4c6be826f180ff6ae6fde624d0",
+      "sha256:c11e7f953b4119f6fb7792fa04858dcf3a65414a0909b48002af079f98469c65",
+      "sha256:340ae5dfbefebe8286da3ab45d8da457cf882bf9ffaf6c691daa315a267ad90a",
+      "sha256:5b3ce2181a6480f2439c341043073b7ed0f1a83dcd32702226b9fde17dfd3f64",
+      "sha256:0a91a3aca27010d29b23fe1f12d2e52d22f9002fa173c9aa109f640d6e1ef5bf",
+      "sha256:6074374e5a802a65d358d43fce3e034c34a01009d0a031f840ae94529f60f6f5",
+      "sha256:86f23aebb93b383290d9189e007eaf11b670a3c3ea41a5675ade1082647c1549",
+      "sha256:7cad980cba004a556965042f014592cc697741189daf512a8127ccb17d2ed0eb",
+      "sha256:08b243f561400d447ecc89488f7e7ac10ddd1494a926a37b9adb118dd04d6a86",
+      "sha256:af0dbb9e80010ff2bf015f2f7f6e5e6b0653eff273624f959c1e18daf3680022",
+      "sha256:c77d27ebfc976eaed790aa2183c48be296b183a956d7a5f667d60e8bb5ad2ea5",
+      "sha256:13b012e3abf94cb5c41fef023ac730cc4c3925a179afd58c2b4786561252b62f",
+      "sha256:1f0b39311113f8dde8f6d3f4b810f71ee65ecd4b337cc668f7c267523d1043aa",
+      "sha256:67c3e47671e4574dfd8df0d89d0e5102e9566c49f525960e725bcf64d24340ca"
+    ]
+  },
+  "Labels": {
+    "io.apexfabric.action-context.included": "false",
+    "io.apexfabric.analytics.base-image": "v6-dev39",
+    "io.apexfabric.contract.status": "development",
+    "io.apexfabric.contract.version": "8.0",
+    "io.apexfabric.delivery-agent.protocol.version": "1.0",
+    "io.apexfabric.detector.active-batch": "1",
+    "io.apexfabric.detector.checkpoint.sha256": "8fa716bf26f92037522256a50a38fa6fb1de830277bf6f440c02146f8beae000",
+    "io.apexfabric.detector.profile": "vehicle-person-qaft-int8",
+    "io.apexfabric.hardware.profile": "intel-285h",
+    "io.apexfabric.identity.recognition-policy": "face-only",
+    "io.apexfabric.image.role": "cv-runtime",
+    "io.apexfabric.logs.format": "json",
+    "io.apexfabric.max-configured-cameras": "50",
+    "io.apexfabric.models.delivery": "baked-in",
+    "io.apexfabric.multi-box.delivery.version": "7.0",
+    "io.apexfabric.parent-base": "localhost/apexfabric-intel-traffic-runtime-base:intel-285h-2026.09.18-v2",
+    "io.apexfabric.policy-clip-capture.included": "false",
+    "io.apexfabric.production-policy.sha256": "95f244203f6e53c949624925315c4d36ca07de040acdf03ffbdbfd831a832d03",
+    "io.apexfabric.runtime-base.digest": "sha256:e9cd281e24864bb01b5fb715a651ae09731e6a12a15518f0ac8e626b9d2ac243",
+    "io.apexfabric.solution-pack": "sentinel-cv-runtime",
+    "io.apexfabric.wire.schema.version": "7.0",
+    "io.buildah.version": "1.33.7",
+    "org.opencontainers.image.description": "V8 CV producer with bounded deployment-wide delivery-agent handoff",
+    "org.opencontainers.image.source": "https://github.com/kiranmaibattu-cyber/sentry_cv",
+    "org.opencontainers.image.title": "Sentinel CV Runtime",
+    "org.opencontainers.image.version": "2026.11.05-v8-qaft-int8-model-candidate",
+    "sentinel.optimization.experiment": "qaft-int8-model-swap-unqualified"
+  },
+  "Annotations": {
+    "org.opencontainers.image.base.digest": "sha256:03d82a6c021781484c4d476aeb229dc08bbb9068467fba701d2c157bc19e8cfa",
+    "org.opencontainers.image.base.name": "localhost/sentry-v8-opt79-shared-gait-background:latest"
+  },
+  "ManifestType": "application/vnd.oci.image.manifest.v1+json",
+  "User": "10001:10001",
+  "History": [
+    {
+      "created": "2026-07-31T20:37:20.566091566Z",
+      "created_by": "/bin/sh -c #(nop)  ARG RELEASE",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-07-31T20:37:20.607780961Z",
+      "created_by": "/bin/sh -c #(nop)  ARG LAUNCHPAD_BUILD_ARCH",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-07-31T20:37:20.637763076Z",
+      "created_by": "/bin/sh -c #(nop)  LABEL org.opencontainers.image.version=24.04",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-07-31T20:37:22.831844788Z",
+      "created_by": "/bin/sh -c #(nop) ADD file:d938ff3d4eee15d8600de84bf85eac6ecd0f20bc92dfe305dafbff0bdc974c0f in / "
+    },
+    {
+      "created": "2026-07-31T20:37:23.365889685Z",
+      "created_by": "/bin/sh -c #(nop)  CMD [\"/bin/bash\"]",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-08-19T05:06:30.694364938Z",
+      "created_by": "/bin/sh -c #(nop) ARG INTEL_NPU_DRIVER_VERSION",
+      "comment": "FROM docker.io/library/ubuntu:24.04",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-08-20T04:27:00.91777219Z",
+      "created_by": "/bin/sh -c #(nop) ARG INTEL_NPU_DRIVER_VERSION TARGETARCH",
+      "comment": "FROM 9da129542a8b",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-08-20T04:27:00.992510098Z",
+      "created_by": "/bin/sh -c #(nop) ENV DEBIAN_FRONTEND=noninteractive     PIP_BREAK_SYSTEM_PACKAGES=1     PYTHONUNBUFFERED=1",
+      "comment": "FROM b6080b8a1de4",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-08-20T04:29:49.763331181Z",
+      "created_by": "|2 INTEL_NPU_DRIVER_VERSION=1.33.0.20260529-26625960453 TARGETARCH=amd64 /bin/sh -c test \"$TARGETARCH\" = \"amd64\"     && apt-get update     && apt-get install -y --no-install-recommends         ca-certificates         gnupg         wget     && wget -qO- https://repositories.intel.com/gpu/intel-graphics.key         | gpg --dearmor --yes -o /usr/share/keyrings/intel-graphics.gpg     && echo \"deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu noble unified\"         > /etc/apt/sources.list.d/intel-gpu-noble.list     && apt-get update     && apt-get install -y --no-install-recommends         ffmpeg         intel-igc-cm         intel-media-va-driver-non-free         intel-ocloc         intel-opencl-icd         libtbb12         libva2         libva-drm2         libglib2.0-0         libgl1         libgomp1         libigdgmm12         libze-intel-gpu1         libze1         python3         python3-pip         python3-venv         vainfo     && wget -q \"https://github.com/intel/linux-npu-driver/releases/download/v1.33.0/linux-npu-driver-v${INTEL_NPU_DRIVER_VERSION}-ubuntu2404.tar.gz\"         -O /tmp/intel-npu-driver.tar.gz     && mkdir -p /tmp/intel-npu-driver     && tar -xzf /tmp/intel-npu-driver.tar.gz -C /tmp/intel-npu-driver     && apt-get install -y --no-install-recommends /tmp/intel-npu-driver/intel-level-zero-npu_${INTEL_NPU_DRIVER_VERSION}~ubuntu24.04_amd64.deb         /tmp/intel-npu-driver/intel-driver-compiler-npu_${INTEL_NPU_DRIVER_VERSION}~ubuntu24.04_amd64.deb     && rm -rf /var/lib/apt/lists/*         /tmp/intel-npu-driver         /tmp/intel-npu-driver.tar.gz     && ln -sf /usr/bin/python3 /usr/local/bin/python     && ln -sf /usr/bin/pip3 /usr/local/bin/pip",
+      "comment": "FROM 42d7947f6e3f"
+    },
+    {
+      "created": "2026-08-24T09:21:14.015277878Z",
+      "created_by": "/bin/sh -c #(nop) COPY file:915dfd2e591fc9877c691774151ae0d65006b1a689f06d1fcda48abac2cf9d0d in /opt/apexfabric/requirements.traffic-base.lock ",
+      "comment": "FROM localhost/pipeline-ubuntu-python:24.04"
+    },
+    {
+      "created": "2026-08-24T09:21:45.932239449Z",
+      "created_by": "|2 INTEL_NPU_DRIVER_VERSION=1.33.0.20260529-26625960453 TARGETARCH=amd64 /bin/sh -c pip install --no-cache-dir -r /opt/apexfabric/requirements.traffic-base.lock     && useradd --uid 10001 --create-home --shell /usr/sbin/nologin apexruntime     && mkdir -p /plans /tmp/apexfabric /state /run/secrets/apexfabric     && chown -R apexruntime:apexruntime /plans /tmp/apexfabric /state",
+      "comment": "FROM e087235a1e01"
+    },
+    {
+      "created": "2026-09-10T05:11:37.504015502Z",
+      "created_by": "/bin/sh -c #(nop) LABEL org.opencontainers.image.source=\"https://github.com/kiranmaibattu-cyber/PIPELINE\"       org.opencontainers.image.title=\"ApexFabric Intel Traffic Runtime Base\"       org.opencontainers.image.description=\"Pinned Intel GPU/NPU, VAAPI, OpenVINO, and Python runtime\"       org.opencontainers.image.version=\"intel-285h-2026.08.24-v1\"       io.apexfabric.image.role=\"runtime-base\"       io.apexfabric.hardware.profile=\"intel-285h\"",
+      "comment": "FROM 51b625feda3c",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-09-18T04:30:47.541104612Z",
+      "created_by": "/bin/sh -c python -c \"import cv2, numpy, openvino; assert hasattr(cv2, 'estimateAffinePartial2D')\"     && test \"$(id -u apexruntime)\" = \"10001\"",
+      "comment": "FROM localhost/apexfabric-intel-traffic-runtime-base:intel-285h-2026.08.24-v1"
+    },
+    {
+      "created": "2026-09-18T04:30:47.657886179Z",
+      "created_by": "/bin/sh -c #(nop) LABEL org.opencontainers.image.title=\"ApexFabric Intel Multi-Analytics Runtime Base\"       org.opencontainers.image.description=\"Pinned Intel GPU/NPU, VAAPI, OpenVINO, OpenCV, and Python runtime for traffic and face extraction\"       org.opencontainers.image.version=\"intel-285h-2026.09.18-v2\"       io.apexfabric.image.role=\"runtime-base\"       io.apexfabric.hardware.profile=\"intel-285h\"       io.apexfabric.parent-base=\"apexfabric-intel-traffic-runtime-base:intel-285h-2026.08.24-v1\"",
+      "comment": "FROM 932bf2d0dc5b",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-10-12T12:26:01.942665381Z",
+      "created_by": "/bin/sh -c #(nop) USER 0:0",
+      "comment": "FROM localhost/apexfabric-intel-traffic-runtime-base:intel-285h-2026.09.18-v2",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-10-30T06:17:32.585254731Z",
+      "created_by": "/bin/sh -c #(nop) ENV PYTHONUNBUFFERED=1     PYTHONPATH=/opt/traffic-pilot     TRAFFIC_PILOT_ROOT=/opt/traffic-pilot     SOLUTION_PACK=sentinel-cv-runtime     APEXFABRIC_CONTRACT_VERSION=v7     APEXFABRIC_SECRETS_ROOT=/run/secrets/sentinel/cameras     APEXFABRIC_STATE_ROOT=/state     APEXFABRIC_GENERATED_DIR=/tmp/sentinel/generated     SNAPSHOT_ROOT=/state/snapshots     OPENVINO_MODELS_DIR=/models/traffic/openvino     FACE_MODELS_DIR=/models/face/openvino     SCENE_MODEL_PATH=/models/scene/openvino/siglip2-base-patch16-224.xml     SCENE_EMBEDDER_DEVICE=GPU     SMOKE_FIRE_DEVICE=NPU     REID_MODELS_DIR=/models/surveillance     BODY_REID_DEVICE=NPU     GAIT_DEVICE=NPU     FACE_DETECTOR_DEVICE=GPU     FACE_EMBEDDER_DEVICE=NPU     HEAD_POSE_DEVICE=NPU     FACE_ADAPTIVE_SEARCH_INTERVAL_SECONDS=0.6     FACE_ADAPTIVE_SEARCH_FULL_RATE_SECONDS=10     FACE_ADAPTIVE_SEARCH_BACKOFF_AFTER_SECONDS=30     FACE_ADAPTIVE_SEARCH_BACKOFF_INTERVAL_SECONDS=1.5     FACE_ADAPTIVE_SEARCH_IDLE_INTERVAL_SECONDS=5     FACE_ADAPTIVE_ACQUIRED_INTERVAL_SECONDS=3     FACE_ADAPTIVE_HIGH_QUALITY_INTERVAL_SECONDS=15     FACE_ADAPTIVE_HIGH_QUALITY_THRESHOLD=0.75     FACE_ADAPTIVE_RECOVERY_GAP_SECONDS=2     FACE_ADAPTIVE_RECOVERY_WINDOW_SECONDS=4     FACE_ADAPTIVE_STATE_TTL_SECONDS=20     FACE_ADAPTIVE_IMPROVEMENT_THRESHOLD=0.10     SENTINEL_MOTION_GATE_ENABLED=true     SENTINEL_SURFACE_MOTION_GATE_ENABLED=false     SENTINEL_V7_REQUIRE_DELIVERY=true     SENTINEL_FFMPEG_THREADS=1     SENTINEL_OPENCV_THREADS=1     APEX_API_HOST=0.0.0.0     APEX_API_PORT=8080     DESIRED_STATE_RELOAD_INTERVAL=2     HOME=/tmp/sentinel     XDG_CACHE_HOME=/tmp/sentinel/cache     LD_LIBRARY_PATH=/usr/local/lib/python3.12/dist-packages/openvino/libs",
+      "comment": "FROM 0708afb50aad",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-10-30T06:17:32.760138028Z",
+      "created_by": "/bin/sh -c #(nop) WORKDIR /opt/traffic-pilot",
+      "comment": "FROM e5b90a54bf70",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-10-30T09:26:12.151875027Z",
+      "created_by": "/bin/sh -c #(nop) COPY dir:c61f39ec691e565e63a4d0874813998eb49415023fbeae446f4c6826f829fd0e in /opt/traffic-pilot/services ",
+      "comment": "FROM 84306709c429"
+    },
+    {
+      "created": "2026-11-02T07:23:04.202852509Z",
+      "created_by": "/bin/sh -c #(nop) USER 0:0",
+      "comment": "FROM localhost/apexfabric-intel-traffic-runtime-base:intel-285h-2026.09.18-v2",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-03T19:38:16.18905129Z",
+      "created_by": "/bin/sh -c #(nop) ENV PYTHONUNBUFFERED=1     PYTHONFAULTHANDLER=1     PYTHONPATH=/opt/traffic-pilot:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python     TRAFFIC_PILOT_ROOT=/opt/traffic-pilot     SOLUTION_PACK=sentinel-cv-runtime     APEXFABRIC_CONTRACT_VERSION=v8     APEXFABRIC_SECRETS_ROOT=/run/secrets/sentinel/cameras     APEXFABRIC_STATE_ROOT=/tmp/sentinel/state     APEXFABRIC_GENERATED_DIR=/tmp/sentinel/generated     SNAPSHOT_ROOT=/tmp/sentinel/state/snapshots     OPENVINO_MODELS_DIR=/models/traffic/openvino     FACE_MODELS_DIR=/models/face/openvino     SCENE_MODEL_PATH=/models/scene/openvino/siglip2-base-patch16-224.xml     SCENE_EMBEDDER_DEVICE=GPU     SMOKE_FIRE_DEVICE=NPU     REID_MODELS_DIR=/models/surveillance     BODY_REID_DEVICE=NPU     GAIT_DEVICE=NPU     FACE_DETECTOR_DEVICE=GPU     FACE_EMBEDDER_DEVICE=NPU     HEAD_POSE_DEVICE=NPU     FACE_ADAPTIVE_SEARCH_INTERVAL_SECONDS=0.6     FACE_ADAPTIVE_SEARCH_FULL_RATE_SECONDS=10     FACE_ADAPTIVE_SEARCH_BACKOFF_AFTER_SECONDS=30     FACE_ADAPTIVE_SEARCH_BACKOFF_INTERVAL_SECONDS=1.5     FACE_ADAPTIVE_SEARCH_IDLE_INTERVAL_SECONDS=5     FACE_ADAPTIVE_ACQUIRED_INTERVAL_SECONDS=3     FACE_ADAPTIVE_HIGH_QUALITY_INTERVAL_SECONDS=15     FACE_ADAPTIVE_HIGH_QUALITY_THRESHOLD=0.75     FACE_ADAPTIVE_RECOVERY_GAP_SECONDS=2     FACE_ADAPTIVE_RECOVERY_WINDOW_SECONDS=4     FACE_ADAPTIVE_STATE_TTL_SECONDS=20     FACE_ADAPTIVE_IMPROVEMENT_THRESHOLD=0.10     SENTINEL_MOTION_GATE_ENABLED=true     SENTINEL_SURFACE_MOTION_GATE_ENABLED=true     SENTINEL_DLSTREAMER_ENABLED=true     SENTINEL_DLSTREAMER_REQUIRED=true     SENTINEL_DLSTREAMER_SECONDARIES=true     SENTINEL_GVA_TRACKER_TYPE=zero-term-imageless     SENTINEL_GVA_NIREQ=8     SENTINEL_GVA_FACE_INTERVAL=3     SENTINEL_GVA_FACE_NIREQ=4     SENTINEL_ZERO_COPY_VEHICLE=false     SENTINEL_ZERO_COPY_SHADOW=false     SENTINEL_SHARED_VEHICLE_INFERENCE=false     SENTINEL_SHARED_DLSTREAMER_CAMERA_PROCESSES=true     SENTINEL_SHARED_DLSTREAMER_GROUP_SIZE=50     SENTINEL_NATIVE_GRAPH_MAX_CAMERAS_PER_PROCESS=20     SENTINEL_SHARED_DLSTREAMER_STARTUP_STAGGER_SECONDS=1     SENTINEL_MULTI_CAMERA_GST_STARTUP_TIMEOUT_SECONDS=90     SENTINEL_SHARED_SCENE_INFERENCE=true     SENTINEL_DELIVERY_AGENT_SOCKET=/run/sentinel-delivery/agent.sock     SENTINEL_CV_HANDOFF_STATUS_PATH=/tmp/sentinel/generated/v8_handoff_status.json     SENTINEL_FFMPEG_THREADS=1     SENTINEL_OPENCV_THREADS=1     OPENCV_OPENCL_RUNTIME=disabled     APEX_API_HOST=0.0.0.0     APEX_API_PORT=8080     DESIRED_STATE_RELOAD_INTERVAL=2     HOME=/tmp/sentinel     XDG_CACHE_HOME=/tmp/sentinel/cache     XDG_RUNTIME_DIR=/tmp/sentinel/runtime     GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0     GST_PLUGIN_PATH=/opt/sentinel-gst-plugins:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0     LIBVA_DRIVER_NAME=iHD     LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri     PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin     LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/opt/opencv:/opt/finalcombo/ocvlib:/usr/local/lib/python3.12/dist-packages/openvino/libs:/usr/lib:/usr/local/lib",
+      "comment": "FROM ab6ef7ad9ed0",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-03T19:38:16.269807507Z",
+      "created_by": "/bin/sh -c #(nop) WORKDIR /opt/traffic-pilot",
+      "comment": "FROM edb755b06105",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-03T19:39:02.11870204Z",
+      "created_by": "/bin/sh -c apt-get update     && apt-get install -y --no-install-recommends         ca-certificates wget gnupg         python3-gi python3-gst-1.0         gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0         gstreamer1.0-tools gstreamer1.0-plugins-base         gstreamer1.0-plugins-good gstreamer1.0-plugins-bad         gstreamer1.0-libav gstreamer1.0-vaapi libprotobuf32t64     && wget -qO /usr/share/keyrings/dls-key.gpg         https://apt.repos.intel.com/edgeai/dlstreamer/GPG-PUB-KEY-INTEL-DLS.gpg     && wget -qO /tmp/intel-openvino-key.pub         https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB     && gpg --dearmor --yes --output /usr/share/keyrings/intel-openvino.gpg         /tmp/intel-openvino-key.pub     && echo \"deb [signed-by=/usr/share/keyrings/dls-key.gpg] https://apt.repos.intel.com/edgeai/dlstreamer/ubuntu24 ubuntu24 main\"         > /etc/apt/sources.list.d/intel-dlstreamer.list     && echo \"deb [signed-by=/usr/share/keyrings/intel-openvino.gpg] https://apt.repos.intel.com/openvino ubuntu24 main\"         > /etc/apt/sources.list.d/intel-openvino.list     && apt-get update     && apt-get install -y --no-install-recommends intel-dlstreamer     && mkdir -p /opt/sentinel-gst-plugins     && ln -sf /opt/intel/dlstreamer/lib/libgstvideoanalytics.so         /opt/sentinel-gst-plugins/libgstvideoanalytics.so     && rm -rf /var/lib/apt/lists/*     && python -m pip install --break-system-packages --no-cache-dir jsonschema==4.23.0     && ln -sf /usr/lib/x86_64-linux-gnu/libopenvino_intel_npu_compiler_loader.so         /usr/local/lib/python3.12/dist-packages/openvino/libs/libopenvino_intel_npu_compiler_loader.so",
+      "comment": "FROM f80d6d51034a"
+    },
+    {
+      "created": "2026-11-03T21:09:01.160552035Z",
+      "created_by": "/bin/sh -c #(nop) ENV SENTINEL_GVA_TRACKER_TYPE=zero-term",
+      "comment": "FROM 843ece55c2fc",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-03T21:09:01.412648569Z",
+      "created_by": "/bin/sh -c #(nop) COPY dir:ffbc20cec2c2f52aa875e7efbc7e048effd65e3444c3cb6ad283bc97edc831d3 in /opt/traffic-pilot/services ",
+      "comment": "FROM b633af460960"
+    },
+    {
+      "created": "2026-11-03T21:09:01.692103712Z",
+      "created_by": "/bin/sh -c #(nop) COPY dir:c1f598917be941de41c509d3ad3b26076beac07c4ccb976dec12219240ab590e in /opt/traffic-pilot/traffic_pilot_runtime ",
+      "comment": "FROM 0c6d4481e090"
+    },
+    {
+      "created": "2026-11-03T21:09:01.905869897Z",
+      "created_by": "/bin/sh -c #(nop) COPY dir:fe2d41678593a6a05e063326118ae245cb80ebe9f5c35338753ad74de93380ce in /opt/traffic-pilot/config ",
+      "comment": "FROM be75f34d37b2"
+    },
+    {
+      "created": "2026-11-03T21:09:02.259958334Z",
+      "created_by": "/bin/sh -c #(nop) COPY dir:4d3f768aa4c305c7efb2c84d71d0712bed0be2519539fdb552abe5849831e7db in /models/traffic/openvino ",
+      "comment": "FROM 6c1920e4c02f"
+    },
+    {
+      "created": "2026-11-03T21:09:02.601970009Z",
+      "created_by": "/bin/sh -c #(nop) COPY file:18eba4a237b96215c8cfebaefe8739ea5525cb4c9cf84957487553af730be4c9 in /models/traffic/openvino/vehicle_yolo26n_fp16_dynamic.xml ",
+      "comment": "FROM 7b3fcf78096d"
+    },
+    {
+      "created": "2026-11-03T21:09:02.807378646Z",
+      "created_by": "/bin/sh -c #(nop) COPY file:b5147f9187bda5d59b7c8f39201922dde70b0ca2b8e51a65d0a773d95bbbf6e1 in /models/traffic/openvino/vehicle_yolo26n_fp16_dynamic.bin ",
+      "comment": "FROM 40d274b8a404"
+    },
+    {
+      "created": "2026-11-03T21:09:03.559883067Z",
+      "created_by": "/bin/sh -c #(nop) COPY dir:b2f0cfec18d6cb44a1ecc525dfa3742fab29bdf753e936faeebb3429e9d9a311 in /models/face/openvino ",
+      "comment": "FROM 281d03839f3e"
+    },
+    {
+      "created": "2026-11-03T21:09:04.390427604Z",
+      "created_by": "/bin/sh -c #(nop) COPY dir:59342a3af8a6c3bf52168452c4a2e91870a6bb0a3422b29abd328e425429d3ea in /models/face/openvino/dlstreamer ",
+      "comment": "FROM ac065729ba91"
+    },
+    {
+      "created": "2026-11-03T21:09:06.525604718Z",
+      "created_by": "/bin/sh -c #(nop) COPY dir:4a5f87e027c42ddd0e2638dc0f3540d27f2ba8e48ce86409ed7f160c84523e70 in /models/scene/openvino ",
+      "comment": "FROM e2d6220fe74b"
+    },
+    {
+      "created": "2026-11-03T21:09:10.043256772Z",
+      "created_by": "/bin/sh -c #(nop) COPY multi:80f827c0d83e1b82ba6f09d12b5080b94feb07bf32d26b414f9b23667c1d19e8 in /models/surveillance/ ",
+      "comment": "FROM 5972f403315b"
+    },
+    {
+      "created": "2026-11-03T21:09:10.369934147Z",
+      "created_by": "/bin/sh -c #(nop) COPY multi:b774190cc5cb161ea7fec360c30bcc7f1144e5820d589164740c9de3c48698fb in /models/surveillance/ ",
+      "comment": "FROM 0bfcfa64b185"
+    },
+    {
+      "created": "2026-11-03T21:09:10.811351145Z",
+      "created_by": "/bin/sh -c #(nop) COPY multi:06857824a1fd9aaca47ad63c6630ce6a2782193cd221f93fd763b381ddc2cee0 in /models/surveillance/ ",
+      "comment": "FROM 6cd6bdb9fdb5"
+    },
+    {
+      "created": "2026-11-03T21:09:11.151628081Z",
+      "created_by": "/bin/sh -c #(nop) COPY dir:c4561237cae6914e64264ea834ed56b46283598e909a3c6ab33dc6d5efd0e49f in /opt/traffic-pilot/image_schema ",
+      "comment": "FROM fdbcaa4af1e7"
+    },
+    {
+      "created": "2026-11-03T21:09:11.415519679Z",
+      "created_by": "/bin/sh -c #(nop) COPY file:71ffa0ff081065843cddd402510da2908d0f205e51f50d5977fc147bbad83ec3 in /opt/traffic-pilot/image_schema/observation-examples.json ",
+      "comment": "FROM 7500318661a3"
+    },
+    {
+      "created": "2026-11-03T21:09:11.746148157Z",
+      "created_by": "/bin/sh -c #(nop) COPY dir:c4561237cae6914e64264ea834ed56b46283598e909a3c6ab33dc6d5efd0e49f in /opt/traffic-pilot/contracts/sentry-v8 ",
+      "comment": "FROM 9aa80ab6e1b1"
+    },
+    {
+      "created": "2026-11-03T21:09:12.032802304Z",
+      "created_by": "/bin/sh -c #(nop) COPY file:b89e0de67c1ec586f869af4de3842b568b286df115ffe206cb45ecc04b4ff009 in /opt/traffic-pilot/contracts/SENTINEL_V6_PRODUCTION_POLICY.md ",
+      "comment": "FROM cac5d4ad16a3"
+    },
+    {
+      "created": "2026-11-03T21:09:12.309359849Z",
+      "created_by": "/bin/sh -c #(nop) COPY dir:a8d4f82b53d29db12ecba0d6817bbb2ebbc3b1a74794f5dc5a894c0b096ffee7 in /opt/finalcombo ",
+      "comment": "FROM 9960195d2693"
+    },
+    {
+      "created": "2026-11-03T21:09:12.620723984Z",
+      "created_by": "/bin/sh -c #(nop) COPY dir:a34495b6177121946c3e88a179c85609bf1330d7ec0c3bebb4f08ca2b4f3c6d5 in /opt/finalcombo/ocvlib ",
+      "comment": "FROM c6a6c7aec8e3"
+    },
+    {
+      "created": "2026-11-03T21:09:13.809644389Z",
+      "created_by": "/bin/sh -c python -m py_compile traffic_pilot_runtime/*.py         services/worker/stream_fleet_openvino.py         services/worker/pipeline/motion_gate.py         services/worker/pipeline/surface_gate.py         services/worker/pipeline/surface_stream.py         services/worker/pipeline/multi_camera_gst.py         services/worker/pipeline/dlstreamer_bridge.py         services/worker/pipeline/dls_secondary.py         services/worker/pipeline/camera_state.py         services/worker/pipeline/resource_metrics.py         services/worker/pipeline/runtime_telemetry.py         services/worker/pipeline/runtime_status.py         services/worker/pipeline/shared_vehicle_inference.py         services/worker/pipeline/shared_scene_inference.py         services/worker/pipeline/surface_vehicle.py         services/worker/pipeline/zero_copy_shadow.py         services/worker/pipeline/structured_logging.py         services/worker/pipeline/scene_embeddings.py         services/worker/pipeline/person_reid.py         services/worker/pipeline/sentinel_v8_handoff.py         services/worker/pipeline/v8_events.py         services/worker/detectors/backends/openvino_face.py     && test -f /models/traffic/openvino/vehicle_yolo26n_fp16_dynamic.xml     && test -f /models/traffic/openvino/vehicle_yolo26n_fp16_static_b1.xml     && test -f /models/traffic/openvino/vehicle_yolo26n_fp16_static_b1.bin     && test -f /models/traffic/openvino/license_plate.xml     && test -f /models/traffic/openvino/ocr.xml     && test -f /models/traffic/openvino/smoke_fire.xml     && test -f /models/face/openvino/scrfd_500m.onnx     && test -f /models/face/openvino/adaface_ir101_int8.xml     && test -f /models/face/openvino/best_a0_fp16.xml     && test -f /models/face/openvino/best_a0_fp16.bin     && test -f /models/face/openvino/dlstreamer/scrfd_top1x_u8.xml     && test -f /models/face/openvino/dlstreamer/face_align_u8.xml     && test -f /models/scene/openvino/siglip2-base-patch16-224.xml     && test -f /models/scene/openvino/siglip2-base-patch16-224-static.xml     && test -f /models/scene/openvino/siglip2-base-patch16-224-static.bin     && test -f /models/surveillance/transreid_ssl_int8.xml     && test -f /models/surveillance/gaitbase_int8.xml     && test -f /models/surveillance/gaitbase_dlstreamer_montage.xml     && test -f /models/surveillance/gaitbase_dlstreamer_montage.bin     && test -f /opt/traffic-pilot/config/body_reid_model_proc.json     && test -f /opt/traffic-pilot/config/plate_raw_model_proc.json     && test -f /opt/traffic-pilot/config/ocr_raw_model_proc.json     && test -f /opt/traffic-pilot/config/scene_siglip_model_proc.json     && test -f /opt/traffic-pilot/config/gait_montage_model_proc.json     && test -f /opt/finalcombo/libgpu_motion_gate_fixed_slots.so     && test -f /opt/finalcombo/libva_y_copy_bridge.so     && test -f /opt/finalcombo/libva_surface_vehicle.so     && ! ldd /opt/finalcombo/libgpu_motion_gate_fixed_slots.so | grep -q \"not found\"     && ! ldd /opt/finalcombo/libva_surface_vehicle.so | grep -q \"not found\"     && test -f /opt/finalcombo/ocvlib/libopencv_core.so.406     && test -f /opt/traffic-pilot/image_schema/desired-state.example.json     && test -f /opt/traffic-pilot/image_schema/observation-examples.json     && test -f /opt/traffic-pilot/image_schema/delivery-agent-acknowledgement.schema.json     && python /opt/traffic-pilot/contracts/sentry-v8/validate_contract.py",
+      "comment": "FROM 88f5b3c1a529"
+    },
+    {
+      "created": "2026-11-03T21:09:14.696116617Z",
+      "created_by": "/bin/sh -c rm -f /tmp/gstreamer-registry.bin     && export GST_REGISTRY=/tmp/gstreamer-registry.bin     && gst-inspect-1.0 tcpclientsrc >/dev/null     && gst-inspect-1.0 tsdemux >/dev/null     && gst-inspect-1.0 h264parse >/dev/null     && test -f /opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/libgstva.so     && ! ldd /opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/libgstva.so | grep -q \"not found\"     && gst-inspect-1.0 gvadetect >/dev/null     && gst-inspect-1.0 gvainference >/dev/null     && gst-inspect-1.0 gvaclassify >/dev/null     && gst-inspect-1.0 gvatrack >/dev/null     && gst-inspect-1.0 gvamotiondetect >/dev/null     && python -c 'import gstgva; assert gstgva.VideoFrame'     && mkdir -p /tmp/sentinel/cache /tmp/sentinel/runtime /tmp/sentinel/state/snapshots /tmp/sentinel/generated     && chown -R apexruntime:apexruntime /tmp/sentinel     && chmod 700 /tmp/sentinel/runtime     && test \"$(id -u apexruntime)\" = \"10001\"",
+      "comment": "FROM 7e5b83b266f0"
+    },
+    {
+      "created": "2026-11-03T21:09:15.021238822Z",
+      "created_by": "/bin/sh -c rm -f         /opt/traffic-pilot/services/worker/pipeline/sentinel_v7_delivery.py         /opt/traffic-pilot/services/worker/pipeline/v7_events.py     && test ! -e /opt/traffic-pilot/services/worker/pipeline/sentinel_v7_delivery.py     && test ! -e /opt/traffic-pilot/services/worker/pipeline/v7_events.py",
+      "comment": "FROM 64c2542a3578"
+    },
+    {
+      "created": "2026-11-03T21:09:15.25073079Z",
+      "created_by": "/bin/sh -c #(nop) ARG IMAGE_VERSION",
+      "comment": "FROM 9aabd30db0ae",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-03T21:09:15.320026324Z",
+      "created_by": "/bin/sh -c #(nop) ARG IMAGE_VERSION INTEL_TRAFFIC_RUNTIME_BASE_DIGEST",
+      "comment": "FROM e1d7af96884f",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-03T21:09:15.480174021Z",
+      "created_by": "/bin/sh -c #(nop) ARG IMAGE_VERSION INTEL_TRAFFIC_RUNTIME_BASE_DIGEST INTEL_TRAFFIC_RUNTIME_BASE_NAME",
+      "comment": "FROM 5b4678363a68",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-03T21:09:15.625602493Z",
+      "created_by": "/bin/sh -c #(nop) LABEL org.opencontainers.image.source=\"https://github.com/kiranmaibattu-cyber/sentry_cv\"       org.opencontainers.image.title=\"Sentinel CV Runtime\"       org.opencontainers.image.description=\"V8 CV producer with bounded deployment-wide delivery-agent handoff\"       org.opencontainers.image.version=\"${IMAGE_VERSION}\"       io.apexfabric.contract.version=\"8.0\"       io.apexfabric.wire.schema.version=\"7.0\"       io.apexfabric.multi-box.delivery.version=\"7.0\"       io.apexfabric.delivery-agent.protocol.version=\"1.0\"       io.apexfabric.analytics.base-image=\"v6-dev39\"       io.apexfabric.production-policy.sha256=\"95f244203f6e53c949624925315c4d36ca07de040acdf03ffbdbfd831a832d03\"       io.apexfabric.contract.status=\"development\"       io.apexfabric.max-configured-cameras=\"50\"       io.apexfabric.logs.format=\"json\"       io.apexfabric.hardware.profile=\"intel-285h\"       io.apexfabric.image.role=\"cv-runtime\"       io.apexfabric.solution-pack=\"sentinel-cv-runtime\"       io.apexfabric.models.delivery=\"baked-in\"       io.apexfabric.identity.recognition-policy=\"face-only\"       io.apexfabric.action-context.included=\"false\"       io.apexfabric.policy-clip-capture.included=\"false\"       io.apexfabric.parent-base=\"localhost/apexfabric-intel-traffic-runtime-base:intel-285h-2026.09.18-v2\"       io.apexfabric.runtime-base.digest=\"sha256:e9cd281e24864bb01b5fb715a651ae09731e6a12a15518f0ac8e626b9d2ac243\"",
+      "comment": "FROM b1838ebe8191",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-03T21:09:15.753915358Z",
+      "created_by": "/bin/sh -c #(nop) EXPOSE 8080",
+      "comment": "FROM 0308dbc04f64",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-03T21:09:15.866257411Z",
+      "created_by": "/bin/sh -c #(nop) USER 10001:10001",
+      "comment": "FROM 1e9da0de35ec",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-03T21:09:15.957989884Z",
+      "created_by": "/bin/sh -c #(nop) CMD [\"python\", \"-m\", \"traffic_pilot_runtime.solution_image_entrypoint\"]",
+      "comment": "FROM f63d6b0443fe",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T06:04:58.506673547Z",
+      "created_by": "/bin/sh -c #(nop) COPY multi:2a1e7fa3f96c4281aac93adfa08fbcb069bc6e7a57058c962a4462c1c0c1ea62 in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.11.04-v8-opt57-zero-term"
+    },
+    {
+      "created": "2026-11-04T06:04:58.630191831Z",
+      "created_by": "/bin/sh -c #(nop) LABEL sentinel.optimization.experiment=\"bounded-plate-lanes\"",
+      "comment": "FROM 5e54ccd6a267",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T06:14:00.007202333Z",
+      "created_by": "/bin/sh -c #(nop) COPY file:db4b86e4daf3ce2a212c33ddd9fb84e6ec07ac8fc6efe5aae96687aa5f4de958 in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt60-plate-lanes:latest"
+    },
+    {
+      "created": "2026-11-04T06:14:00.183679699Z",
+      "created_by": "/bin/sh -c #(nop) LABEL sentinel.optimization.experiment=\"rate-gate-diagnostics\"",
+      "comment": "FROM 7cb688564941",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T06:43:43.062459195Z",
+      "created_by": "/bin/sh -c #(nop) COPY multi:7ba83a93c80e8c18cba087dff11568d0d491c31fabd56d83c525101194f9fcb4 in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt61-rate-trace:latest"
+    },
+    {
+      "created": "2026-11-04T06:43:43.24730237Z",
+      "created_by": "/bin/sh -c #(nop) LABEL sentinel.optimization.experiment=\"native-stage-progress\"",
+      "comment": "FROM c4d8b42b1a91",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T06:48:02.643731237Z",
+      "created_by": "/bin/sh -c #(nop) COPY multi:59ce36fd5b2abc4de8c1db0566dba48420290db86a72b16a22c73846d0214ec5 in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt62-progress:latest"
+    },
+    {
+      "created": "2026-11-04T06:48:02.829624139Z",
+      "created_by": "/bin/sh -c #(nop) LABEL sentinel.optimization.experiment=\"tcp-media-timestamp-preservation\"",
+      "comment": "FROM c3df8d847667",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T06:58:08.276782317Z",
+      "created_by": "/bin/sh -c #(nop) COPY multi:4f499579b3bb16b615a0a2f5d28b51e12a9ecb88fcd2207dec9c5a0264172f4a in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt63-tcp-timing:latest"
+    },
+    {
+      "created": "2026-11-04T06:58:08.488047397Z",
+      "created_by": "/bin/sh -c #(nop) LABEL sentinel.optimization.experiment=\"reserved-native-output-capacity\"",
+      "comment": "FROM 39cfc4795ea4",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T07:06:44.75679533Z",
+      "created_by": "/bin/sh -c #(nop) COPY multi:d7032b3569a27888dfe6393ed41e0d98e073e93d4a70ab58c07d65654c9438a7 in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt64-reserved-output:latest"
+    },
+    {
+      "created": "2026-11-04T07:06:44.891422693Z",
+      "created_by": "/bin/sh -c #(nop) LABEL sentinel.optimization.experiment=\"bounded-nonleaky-tcp-transport\"",
+      "comment": "FROM f69d2e7575c8",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T07:58:30.562642795Z",
+      "created_by": "/bin/sh -c #(nop) COPY file:da9dfc06fcd0cf7cb53cb61a58cda318d0d9f9c3ed783a999aca07de56e25491 in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt65-transport:latest"
+    },
+    {
+      "created": "2026-11-04T07:58:30.724549995Z",
+      "created_by": "/bin/sh -c #(nop) LABEL sentinel.optimization.experiment=\"independent-camera-telemetry\"",
+      "comment": "FROM c26fe4ff722f",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T08:14:11.523612252Z",
+      "created_by": "/bin/sh -c #(nop) COPY file:d096217c21575dc0b929677327bcbe02e3e22735b29c9315e907f1fa72588689 in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt66-telemetry:latest"
+    },
+    {
+      "created": "2026-11-04T08:14:11.698692936Z",
+      "created_by": "/bin/sh -c #(nop) ENV PLATE_DEVICE=NPU",
+      "comment": "FROM 62f755cf7b75",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T08:14:11.821333719Z",
+      "created_by": "/bin/sh -c #(nop) LABEL org.opencontainers.image.version=\"2026.11.04-v8-opt67-npu-plate-candidate\" sentinel.optimization.experiment=\"npu-plate-placement-candidate\"",
+      "comment": "FROM 0ac493a0b845",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T10:11:52.002950398Z",
+      "created_by": "/bin/sh -c #(nop) COPY multi:b8073e3b1382539036c0ebb25841d0481cb5ee1b079692625bc4aeee83ec2048 in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt67-npu-plate-candidate:latest"
+    },
+    {
+      "created": "2026-11-04T10:11:52.18133488Z",
+      "created_by": "/bin/sh -c #(nop) LABEL org.opencontainers.image.version=\"2026.11.04-v8-opt71-policy-work-reuse\"",
+      "comment": "FROM cd3753ad10d0",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T11:06:23.898496005Z",
+      "created_by": "/bin/sh -c #(nop) COPY multi:baeb825a4bd227812a576de587fbd661c778100707c62c909594c5226d6826fe in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt71-policy-work-reuse:latest"
+    },
+    {
+      "created": "2026-11-04T11:06:24.090277916Z",
+      "created_by": "/bin/sh -c #(nop) LABEL org.opencontainers.image.version=\"2026.11.04-v8-opt72-gait-telemetry\"",
+      "comment": "FROM 06a17bd700fb",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T11:20:21.083273645Z",
+      "created_by": "/bin/sh -c #(nop) COPY multi:624f9104e79985ba85efd64eb245dbd4acf1547c7aed75b256fdbaf9e2e00b72 in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt72-gait-telemetry:latest"
+    },
+    {
+      "created": "2026-11-04T11:20:21.240055936Z",
+      "created_by": "/bin/sh -c #(nop) LABEL org.opencontainers.image.version=\"2026.11.04-v8-opt73-gait-morphology\"",
+      "comment": "FROM 81166142c847",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T11:33:05.813885566Z",
+      "created_by": "/bin/sh -c #(nop) COPY multi:7defc1ee05d68f90303e9ad4d7a78a8e7392638432ad4e9421072f6fadd5ad5e in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt73-gait-morphology:latest"
+    },
+    {
+      "created": "2026-11-04T11:33:05.97176686Z",
+      "created_by": "/bin/sh -c #(nop) LABEL org.opencontainers.image.version=\"2026.11.04-v8-opt74-secondary-profile\"",
+      "comment": "FROM b190bc10ac41",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T11:39:49.877073811Z",
+      "created_by": "/bin/sh -c #(nop) COPY file:8eb54c03e07468ae554416100993a6c5c7d8f6a42c6cd25a3d2bd0fed097f9dd in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt74-secondary-profile:latest"
+    },
+    {
+      "created": "2026-11-04T11:39:50.249692844Z",
+      "created_by": "/bin/sh -c #(nop) LABEL org.opencontainers.image.version=\"2026.11.04-v8-opt75-body-prefetch-candidate\"",
+      "comment": "FROM c2d80545d1a4",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T11:45:25.321553301Z",
+      "created_by": "/bin/sh -c #(nop) COPY file:1bd3cdbcc9cfe8a699b7ca67bdcb04a1a1bbbf47d307057e189cae2902ebf86d in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt75-body-prefetch-candidate:latest"
+    },
+    {
+      "created": "2026-11-04T11:45:25.46251386Z",
+      "created_by": "/bin/sh -c #(nop) LABEL org.opencontainers.image.version=\"2026.11.04-v8-opt76-body-prefetch\"",
+      "comment": "FROM 010c06fffed9",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T14:27:01.817006818Z",
+      "created_by": "/bin/sh -c #(nop) COPY file:93b69cd28f4c40f816e7a1bcc92cc6238690b19112eac957eb4a1b2afff7344e in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt76-body-prefetch:latest"
+    },
+    {
+      "created": "2026-11-04T14:27:01.971918155Z",
+      "created_by": "/bin/sh -c #(nop) LABEL org.opencontainers.image.version=\"2026.11.04-v8-opt77-gait-profile\"",
+      "comment": "FROM daf0f5bcaaa7",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T14:39:26.805735991Z",
+      "created_by": "/bin/sh -c #(nop) COPY file:6f3c1a33e72fd826956875459389c9ddfc71ed7a8992a25c0d3248e755eac5e8 in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt77-gait-profile:latest"
+    },
+    {
+      "created": "2026-11-04T14:39:27.024054625Z",
+      "created_by": "/bin/sh -c #(nop) LABEL org.opencontainers.image.version=\"2026.11.04-v8-opt78-gait-worker-candidate\"",
+      "comment": "FROM 647f90a82deb",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-04T18:56:48.888781869Z",
+      "created_by": "/bin/sh -c #(nop) COPY multi:cddc2e916f0d20de806889463d51a2a31334172614212a532a78ef744b4f3dd3 in /opt/traffic-pilot/services/worker/pipeline/ ",
+      "comment": "FROM localhost/sentry-v8-opt78-gait-worker-candidate:latest"
+    },
+    {
+      "created": "2026-11-04T18:56:49.055061832Z",
+      "created_by": "/bin/sh -c #(nop) LABEL org.opencontainers.image.version=\"2026.11.05-v8-opt79-shared-gait-background\"",
+      "comment": "FROM 724b8fda0d1b",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-05T07:09:36.077508568Z",
+      "created_by": "/bin/sh -c #(nop) USER 0:0",
+      "comment": "FROM localhost/sentry-v8-opt79-shared-gait-background:latest",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-05T07:09:36.347722476Z",
+      "created_by": "/bin/sh -c #(nop) COPY file:0b1b68ae328cc8fd7e3dbc506a861cb6ee5bff709253294c7ac2efdceaf6d2ba in /opt/traffic-pilot/services/worker/pipeline/surface_stream.py ",
+      "comment": "FROM fcd0491d6630"
+    },
+    {
+      "created": "2026-11-05T07:09:36.660589267Z",
+      "created_by": "/bin/sh -c #(nop) COPY file:a45b86187da2b462c12029b5b650752d9a49ad0f39d0abf4daaa895993f91130 in /opt/traffic-pilot/services/worker/stream_fleet_openvino.py ",
+      "comment": "FROM 1c820dff06e3"
+    },
+    {
+      "created": "2026-11-05T07:09:36.982102993Z",
+      "created_by": "/bin/sh -c #(nop) COPY file:17188e6d08ea94fe13acdd71dbda87f38560e5cc18eeff2cd1062ecc48828a6d in /opt/traffic-pilot/config/worker.json ",
+      "comment": "FROM a10fcbe8276f"
+    },
+    {
+      "created": "2026-11-05T07:09:37.474159903Z",
+      "created_by": "/bin/sh -c #(nop) COPY multi:523519588cf5a6d66cc5317835424a1201b010a52c0587136ffd7d06d07efbdd in /models/traffic/openvino/vehicle_person_qaft_int8/ ",
+      "comment": "FROM 8022b2d73e9a"
+    },
+    {
+      "created": "2026-11-05T07:09:37.857147174Z",
+      "created_by": "/bin/sh -c rm -f /models/traffic/openvino/vehicle_yolo26n_fp16_dynamic.xml /models/traffic/openvino/vehicle_yolo26n_fp16_dynamic.bin /models/traffic/openvino/vehicle_yolo26n_fp16_static_b1.xml /models/traffic/openvino/vehicle_yolo26n_fp16_static_b1.bin     && python3 -m py_compile /opt/traffic-pilot/services/worker/pipeline/surface_stream.py /opt/traffic-pilot/services/worker/stream_fleet_openvino.py",
+      "comment": "FROM 394c2b2be18f"
+    },
+    {
+      "created": "2026-11-05T07:09:38.010032104Z",
+      "created_by": "/bin/sh -c #(nop) ENV SENTINEL_GVA_VEHICLE_MODEL=/models/traffic/openvino/vehicle_person_qaft_int8/model_static_b1.xml",
+      "comment": "FROM 73111ef305a3",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-05T07:09:38.121095807Z",
+      "created_by": "/bin/sh -c #(nop) LABEL org.opencontainers.image.version=\"2026.11.05-v8-qaft-int8-model-candidate\"       sentinel.optimization.experiment=\"qaft-int8-model-swap-unqualified\"       io.apexfabric.detector.profile=\"vehicle-person-qaft-int8\"       io.apexfabric.detector.active-batch=\"1\"       io.apexfabric.detector.checkpoint.sha256=\"8fa716bf26f92037522256a50a38fa6fb1de830277bf6f440c02146f8beae000\"",
+      "comment": "FROM 49d6a48d7ebd",
+      "empty_layer": true
+    },
+    {
+      "created": "2026-11-05T07:09:38.301542966Z",
+      "created_by": "/bin/sh -c #(nop) USER 10001:10001",
+      "comment": "FROM 19ac0cd0ff99",
+      "empty_layer": true
+    }
+  ],
+  "NamesHistory": [
+    "localhost/sentry-v8-qaft-int8-model-candidate:2026.11.05"
+  ]
+}

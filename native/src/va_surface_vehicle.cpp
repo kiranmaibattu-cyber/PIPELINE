@@ -1,7 +1,7 @@
-// VA-surface vehicle detector: OpenVINO reads the VA surface directly
-// (remote tensor), VPP scales 1920x1080 -> 640x360 on-chip, PPP pads to
-// 640x640 letterbox (140px top/bottom, gray 114) - the exact geometry of
-// OpenVINOYOLODetector.letterbox, so boxes compare 1:1 with the BGR path.
+// VA-surface vehicle detector: OpenVINO reads the decoded VA surface directly
+// (remote tensor). PPP converts NV12 to RGB, scales 1920x1080 -> 640x360 and
+// pads to a 640x640 letterbox (140px top/bottom, gray 114), matching the
+// geometry and operation order of OpenVINOYOLODetector as closely as possible.
 // Output rows are the baked NMS [x1,y1,x2,y2,score,class] in letterbox px.
 // Only ~29KB (300x6 f32) crosses to host per infer. No full-frame download.
 #include <CL/cl.h>
@@ -55,37 +55,36 @@ struct SurfaceVehicle {
     static constexpr int kFateH = 360;
     static constexpr int kOut = 640;
     static constexpr int kMax = 300;
+    static constexpr int kSourceW = 1920;
+    static constexpr int kSourceH = 1080;
 
     ov::Core core;
     ov::intel_gpu::ocl::VAContext context;
     ov::CompiledModel compiled;
     ov::InferRequest request;
-    VADisplay display;
-    VAConfigID vpp_config = VA_INVALID_ID;
-    VAContextID vpp_context = VA_INVALID_ID;
-    VASurfaceID resized_surface = VA_INVALID_SURFACE;
-
-    static void check_va(VAStatus status, const char* operation) {
-        if (status != VA_STATUS_SUCCESS) {
-            throw std::runtime_error(std::string(operation) + ": " +
-                                     vaErrorStr(status));
-        }
-    }
 
     SurfaceVehicle(VADisplay display, const std::string& model_path)
-        : context(core, display), display(display) {
+        : context(core, display) {
         auto model = core.read_model(model_path);
+        // The fleet model supports a dynamic batch, but this camera-local
+        // shadow consumes exactly one retained VA surface at a time. Pinning
+        // batch one preserves the authoritative detector contract and avoids
+        // asking the GPU plugin to compile an unbounded dynamic request.
+        model->reshape({{model->input(0).get_any_name(),
+                         ov::PartialShape{1, 3, kOut, kOut}}});
         ov::preprocess::PrePostProcessor ppp(model);
         ppp.input()
             .tensor()
             .set_element_type(ov::element::u8)
-            .set_spatial_static_shape(kFateH, kFateW)
+            .set_spatial_static_shape(kSourceH, kSourceW)
             .set_color_format(ov::preprocess::ColorFormat::NV12_TWO_PLANES,
                               {"nv12_y_surface", "nv12_uv_surface"})
             .set_memory_type(ov::intel_gpu::memory_type::surface);
         ppp.input()
             .preprocess()
             .convert_color(ov::preprocess::ColorFormat::RGB)
+            .resize(ov::preprocess::ResizeAlgorithm::RESIZE_LINEAR,
+                    kFateH, kFateW)
             .convert_element_type(ov::element::f32)
             .scale(255.0F)
             .convert_layout("NCHW")
@@ -98,67 +97,14 @@ struct SurfaceVehicle {
             ov::AnyMap{{ov::hint::performance_mode.name(),
                         ov::hint::PerformanceMode::LATENCY}});
         request = compiled.create_infer_request();
-
-        check_va(vaCreateConfig(display, VAProfileNone,
-                                VAEntrypointVideoProc, nullptr, 0,
-                                &vpp_config),
-                 "vaCreateConfig(VPP)");
-        VASurfaceAttrib pixel_format{};
-        pixel_format.type = VASurfaceAttribPixelFormat;
-        pixel_format.flags = VA_SURFACE_ATTRIB_SETTABLE;
-        pixel_format.value.type = VAGenericValueTypeInteger;
-        pixel_format.value.value.i = VA_FOURCC_NV12;
-        check_va(vaCreateSurfaces(display, VA_RT_FORMAT_YUV420,
-                                  kFateW, kFateH, &resized_surface, 1,
-                                  &pixel_format, 1),
-                 "vaCreateSurfaces(VPP output)");
-        check_va(vaCreateContext(display, vpp_config, kFateW, kFateH,
-                                 VA_PROGRESSIVE, nullptr, 0, &vpp_context),
-                 "vaCreateContext(VPP)");
     }
 
-    ~SurfaceVehicle() {
-        if (vpp_context != VA_INVALID_ID) {
-            vaDestroyContext(display, vpp_context);
-        }
-        if (resized_surface != VA_INVALID_SURFACE) {
-            vaDestroySurfaces(display, &resized_surface, 1);
-        }
-        if (vpp_config != VA_INVALID_ID) {
-            vaDestroyConfig(display, vpp_config);
-        }
-    }
+    ~SurfaceVehicle() = default;
 
     // Returns kept-row count; rows are [x1,y1,x2,y2,score,class] f32.
     int infer(std::uint32_t source_surface, float* rows, int capacity) {
-        VARectangle source_region{0, 0, 1920, 1080};
-        VARectangle output_region{0, 0, kFateW, kFateH};
-        VAProcPipelineParameterBuffer parameter{};
-        parameter.surface = source_surface;
-        parameter.surface_region = &source_region;
-        parameter.output_region = &output_region;
-        parameter.filter_flags = VA_FILTER_SCALING_DEFAULT;
-        VABufferID buffer = VA_INVALID_ID;
-        check_va(vaCreateBuffer(display, vpp_context,
-                                VAProcPipelineParameterBufferType,
-                                sizeof(parameter), 1, &parameter, &buffer),
-                 "vaCreateBuffer(VPP)");
-        try {
-            check_va(vaBeginPicture(display, vpp_context, resized_surface),
-                     "vaBeginPicture(VPP)");
-            check_va(vaRenderPicture(display, vpp_context, &buffer, 1),
-                     "vaRenderPicture(VPP)");
-            check_va(vaEndPicture(display, vpp_context),
-                     "vaEndPicture(VPP)");
-            check_va(vaSyncSurface(display, resized_surface),
-                     "vaSyncSurface(VPP)");
-        } catch (...) {
-            vaDestroyBuffer(display, buffer);
-            throw;
-        }
-        vaDestroyBuffer(display, buffer);
-        auto planes = context.create_tensor_nv12(kFateH, kFateW,
-                                                 resized_surface);
+        auto planes = context.create_tensor_nv12(kSourceH, kSourceW,
+                                                 source_surface);
         request.set_input_tensor(0, planes.first);
         request.set_input_tensor(1, planes.second);
         request.infer();

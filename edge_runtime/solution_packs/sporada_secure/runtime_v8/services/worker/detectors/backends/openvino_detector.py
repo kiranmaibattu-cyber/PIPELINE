@@ -124,6 +124,7 @@ class OpenVINOYOLODetector:
         max_detections: Optional[int] = None,
         cache_dir: str = "/tmp/ov_cache",
         performance_hint: str = "LATENCY",
+        batch_size: Optional[int] = 1,
     ):
         import openvino as ov
         from openvino import Layout, Type
@@ -138,17 +139,25 @@ class OpenVINOYOLODetector:
         self.class_ids = set(class_ids) if class_ids is not None else None
         self.class_names = class_names or {}
         self.max_detections = max_detections
+        if batch_size is not None and int(batch_size) < 1:
+            raise ValueError("YOLO batch_size must be positive or None for dynamic")
+        self.batch_size = None if batch_size is None else int(batch_size)
         self._tls = threading.local()
         self._infer_lock_fd = None
 
         core = shared_core(cache_dir)
         model = core.read_model(model_xml)
-        # The vehicle IR accepts a dynamic batch, but the Intel GPU path is
-        # compiled for the batch actually used by this detector.  The current
-        # per-camera worker submits one frame per request.  A future batching
-        # worker must reshape its own model instance to its selected fixed
-        # batch (for example 2 or 4) before compilation.
-        model.reshape({model.input(0): [1, 3, self.imgsz, self.imgsz]})
+        # Camera-local detectors retain the fixed batch-one behavior.  The
+        # fleet scheduler explicitly requests a dynamic batch so it can submit
+        # bounded partial batches without padding them with fake frames.
+        model.reshape({
+            model.input(0): [
+                -1 if self.batch_size is None else self.batch_size,
+                3,
+                self.imgsz,
+                self.imgsz,
+            ]
+        })
         # Fold preprocessing into the graph: accept uint8 NHWC BGR, let the device
         # convert to the model's f32 NCHW RGB /255 input.
         ppp = PrePostProcessor(model)
@@ -207,18 +216,35 @@ class OpenVINOYOLODetector:
             del self._tls.req
 
     def warmup(self, n: int = 2) -> None:
-        dummy = np.zeros((1, self.imgsz, self.imgsz, 3), np.uint8)
+        dummy = np.zeros((self.batch_size or 1, self.imgsz, self.imgsz, 3), np.uint8)
         req = self._request()
         for _ in range(n):
             req.infer({0: dummy})
 
     def infer_letterboxed(self, canvas: np.ndarray, *, request=None) -> np.ndarray:
         """Infer one uint8 NHWC letterboxed image and return a detached result."""
+        return self.infer_letterboxed_batch(canvas[None], request=request)
+
+    def infer_letterboxed_batch(self, canvases: np.ndarray, *, request=None) -> np.ndarray:
+        """Infer an NHWC uint8 batch and return detached per-slot results."""
+        if (
+            canvases.ndim != 4
+            or canvases.shape[1:] != (self.imgsz, self.imgsz, 3)
+            or canvases.dtype != np.uint8
+        ):
+            raise ValueError(
+                f"unexpected YOLO batch {canvases.shape}/{canvases.dtype}; "
+                f"expected [N,{self.imgsz},{self.imgsz},3]/uint8"
+            )
+        if self.batch_size is not None and canvases.shape[0] != self.batch_size:
+            raise ValueError(
+                f"YOLO batch has {canvases.shape[0]} frames; expected {self.batch_size}"
+            )
         if self._infer_lock_fd is not None:
             fcntl.flock(self._infer_lock_fd, fcntl.LOCK_EX)
         try:
             req = request if request is not None else self._request()
-            return np.asarray(req.infer({0: canvas[None]})[self._out]).copy()
+            return np.asarray(req.infer({0: canvases})[self._out]).copy()
         finally:
             if self._infer_lock_fd is not None:
                 fcntl.flock(self._infer_lock_fd, fcntl.LOCK_UN)

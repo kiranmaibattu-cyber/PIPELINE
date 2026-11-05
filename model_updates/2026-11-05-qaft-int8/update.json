@@ -1,0 +1,89 @@
+{
+  "status": "tested-local-with-limitations-not-production-qualified",
+  "image": "localhost/sentry-v8-qaft-int8-model-candidate:2026.11.05",
+  "image_id": "d035cb44df82a66cbcdaa29e3ca22177f7bfdbf080009d6a27bf6633e5eb2127",
+  "local_manifest_digest": "sha256:3a6fce5944495bed10d870b57489dee73e7e87bde531dbba9bdc84b512fe1f64",
+  "base_image": "localhost/sentry-v8-opt79-shared-gait-background:latest",
+  "base_image_id": "f82a0769ed12eff25ef7bdabc9619370ebfdceeed737eaed21e5f2381e4feb86",
+  "source_model": "models/traffic-v11/vehicle_person_qaft_int8/model.xml",
+  "active_native_model": "/models/traffic/openvino/vehicle_person_qaft_int8/model_static_b1.xml",
+  "active_native_batch": 1,
+  "dynamic_batch_source_retained": true,
+  "trained_quantizers_preserved": 86,
+  "static_bin_identical_to_dynamic_bin": true,
+  "image_changes": [
+    "detector model files",
+    "detector paths in surface_stream.py/stream_fleet_openvino.py/worker.json",
+    "model provenance/version labels"
+  ],
+  "unchanged": [
+    "V8 contract and schemas",
+    "production gates and thresholds",
+    "model-proc/class mapping",
+    "tracker/motion/presence/zone/count/dwell logic",
+    "face/body/gait/ANPR/scene/hazard models",
+    "hardware decode and GPU detector placement",
+    "native batch size and request scheduling"
+  ],
+  "opt80_gait_experiment_included": false,
+  "testing": "Local testing completed after user authorization; CV runtime used GPU/NPU. Separate offline CPU/F32 reference diagnostics ran after performance tests and were never a runtime fallback.",
+  "published": true,
+  "source_files": {
+    "edge_runtime/solution_packs/sporada_secure/runtime_v8/services/worker/pipeline/surface_stream.py": "b263bbf84b14c37a1b5f33bbaa70c930870114a2d1affba72c0523e14a0e2235",
+    "edge_runtime/solution_packs/sporada_secure/runtime_v8/services/worker/stream_fleet_openvino.py": "42fe722ba47d4aa81deb9829f238ce2394f8dd70070c34eb35dd92a3714da7c3",
+    "edge_runtime/solution_packs/sporada_secure/runtime_v8/config/worker.json": "85012bc63eb0c908c992984b820ecf893077a0c2b29bd878434e00049ea1598b"
+  },
+  "validation": {
+    "native_cases": 22,
+    "runtime_policy_tests_passed": 93,
+    "opt80_only_tests_deselected": 1,
+    "image_unchanged": true,
+    "qualification": "not production qualified",
+    "active_native_batch": 1,
+    "gpu_fixed_batch_internal_consistency_passed": [
+      1,
+      2,
+      3,
+      4,
+      8
+    ],
+    "gpu_dynamic_batch_parity_passed": false,
+    "cpu_f32_export_reference_parity_passed": false,
+    "gpu_f32_hint_reference_parity_passed": false,
+    "cpu_static_dynamic_reference_parity_passed": false,
+    "qaft_only_gallery_audit": {
+      "sampled_packages": 3811,
+      "JPEGs": 3322,
+      "evidence_frame": 2951,
+      "embeddings": 3104,
+      "evidence_face_crop": 95,
+      "evidence_subject_crop": 276
+    },
+    "gallery_audit_passed": true,
+    "report": "VALIDATION_REPORT.md",
+    "results": "validation/results.json",
+    "source_and_contract_changes_during_testing": false,
+    "raw_gpu_f32_identical_input_reference_parity_passed": false
+  },
+  "published_image": "ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.11.05-v8-qaft-int8-candidate",
+  "registry_digest": "sha256:53105b8a0c0654b9b50be6c6b7380223ac4f65588076c0c9ea9e32d6ecc1bd28",
+  "publication_status": "Published registry image and prepared matching Git/release snapshot",
+  "publication_repositories": [
+    "kiranmaibattu-cyber/sentry_cv",
+    "kiranmaibattu-cyber/PIPELINE"
+  ],
+  "publication_branch": "sentry_cv_multi",
+  "release_tag": "intel-285h-2026.11.05-v8-qaft-int8-candidate",
+  "release_assets": [
+    {
+      "name": "sentry-v8-qaft-int8-models-2026.11.05.tar.gz",
+      "bytes": 517261735,
+      "sha256": "95c079acf6d80ebc23b2b2460f02934ee69662a030c99ee0b7dd70d866751c64"
+    },
+    {
+      "name": "sentry-v8-qaft-int8-validation-2026.11.05.tar.gz",
+      "bytes": 1699519535,
+      "sha256": "944d3f9754648c3e7f8057831854798dd34d35b042839dcf6d8257b1a00ee576"
+    }
+  ]
+}

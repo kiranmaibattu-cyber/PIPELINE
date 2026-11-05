@@ -1,0 +1,2311 @@
+{
+  "ok": true,
+  "observed_at": "2026-11-05T01:03:12.823561Z",
+  "liveness": "alive",
+  "ready": true,
+  "worker_running": true,
+  "revision": 1,
+  "telemetry": {
+    "sample_interval_seconds": 2.0,
+    "configured_load": {
+      "camera_count": 2,
+      "aggregate_fps": 16.0,
+      "fps_source": "desired_state_per_camera_or_default_8",
+      "fixed_aggregate_limit": null
+    },
+    "cameras": [
+      {
+        "schema_version": "1.0",
+        "camera_id": "capacity-01",
+        "pid": 52,
+        "observed_at": "2026-11-05T01:03:12.454694Z",
+        "started_at": "2026-11-05T01:01:14.976730Z",
+        "uptime_seconds": 117.478,
+        "window_seconds": 2.047,
+        "processing": {
+          "target_fps": 8.0,
+          "decoded_fps": 8.307,
+          "frames_received_fps": 8.307,
+          "inference_fps": 8.307,
+          "quiet_fps": 0.0,
+          "output_events_per_second": 9.773,
+          "totals": {
+            "decoded_frames": 933,
+            "events_handoff_admitted": 863,
+            "evidence_jpeg_encoded": 308,
+            "fire_bgr_avoided_frames": 234,
+            "fire_model_system_memory_frames": 234,
+            "gait_inference_avoided": 75,
+            "gait_inference_eligible": 9,
+            "handoff_admitted": 863,
+            "inference_frames": 933,
+            "primary_bgr_avoided_frames": 42,
+            "primary_bgr_materialized_frames": 891,
+            "scene_embedding_computed": 59
+          },
+          "gauges": {
+            "dls_pending_admissions": 0,
+            "dls_rate_gate_accepted_frames": 933,
+            "dls_rate_gate_dropped_frames": 2560,
+            "fire_rate_gate_accepted_frames": 234,
+            "fire_rate_gate_dropped_frames": 3236,
+            "gait_retained_presences": 67,
+            "gait_retained_silhouettes": 647,
+            "gait_retained_track_centers": 175,
+            "gait_silhouette_payload_bytes": 1821952,
+            "tcp_feeder_bytes_received": 165481736,
+            "tcp_feeder_connections": 1,
+            "tcp_feeder_disconnects": 0
+          }
+        },
+        "outputs": {
+          "by_event_type": {
+            "camera_health": {
+              "total": 4,
+              "per_second": 0.0,
+              "in_window": 0
+            },
+            "object_present": {
+              "total": 120,
+              "per_second": 0.9773,
+              "in_window": 2
+            },
+            "person_feature_sample": {
+              "total": 130,
+              "per_second": 0.9773,
+              "in_window": 2
+            },
+            "plate_outcome": {
+              "total": 12,
+              "per_second": 0.4886,
+              "in_window": 1
+            },
+            "plate_read": {
+              "total": 4,
+              "per_second": 0.0,
+              "in_window": 0
+            },
+            "presence_ended_unknown": {
+              "total": 55,
+              "per_second": 0.4886,
+              "in_window": 1
+            },
+            "presence_recovered": {
+              "total": 183,
+              "per_second": 3.4204,
+              "in_window": 7
+            },
+            "scene_sample": {
+              "total": 59,
+              "per_second": 0.4886,
+              "in_window": 1
+            },
+            "track_lost": {
+              "total": 258,
+              "per_second": 2.9318,
+              "in_window": 6
+            },
+            "zone_count": {
+              "total": 37,
+              "per_second": 0.0,
+              "in_window": 0
+            },
+            "zone_entry": {
+              "total": 1,
+              "per_second": 0.0,
+              "in_window": 0
+            }
+          },
+          "by_use_case_id": {
+            "anpr-1": {
+              "total": 16,
+              "per_second": 0.4886,
+              "in_window": 1,
+              "app": "anpr"
+            },
+            "count-1": {
+              "total": 29,
+              "per_second": 0.0,
+              "in_window": 0,
+              "app": "vehicle_counting"
+            },
+            "identity-1": {
+              "total": 130,
+              "per_second": 0.9773,
+              "in_window": 2,
+              "app": "person_identity"
+            },
+            "people-count-1": {
+              "total": 8,
+              "per_second": 0.0,
+              "in_window": 0,
+              "app": "people_counting"
+            },
+            "person-presence-1": {
+              "total": 102,
+              "per_second": 0.9773,
+              "in_window": 2,
+              "app": "person_presence"
+            },
+            "runtime": {
+              "total": 500,
+              "per_second": 6.8408,
+              "in_window": 14,
+              "app": "runtime"
+            },
+            "scene-1": {
+              "total": 59,
+              "per_second": 0.4886,
+              "in_window": 1,
+              "app": "scene_search"
+            },
+            "vehicle-presence-1": {
+              "total": 19,
+              "per_second": 0.0,
+              "in_window": 0,
+              "app": "vehicle_presence"
+            }
+          },
+          "production_latency_by_event_type": {
+            "camera_health": {
+              "calls_total": 4,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 42.885,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "object_present": {
+              "calls_total": 120,
+              "calls_in_window": 2,
+              "calls_per_second": 0.9773,
+              "avg_ms": 0.0,
+              "max_ms": 0.0,
+              "last_ms": 0.0,
+              "lifetime_avg_ms": 5.62,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "person_feature_sample": {
+              "calls_total": 130,
+              "calls_in_window": 2,
+              "calls_per_second": 0.9773,
+              "avg_ms": 0.0,
+              "max_ms": 0.0,
+              "last_ms": 0.0,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "plate_outcome": {
+              "calls_total": 12,
+              "calls_in_window": 1,
+              "calls_per_second": 0.4886,
+              "avg_ms": 0.0,
+              "max_ms": 0.0,
+              "last_ms": 0.0,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "plate_read": {
+              "calls_total": 4,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "presence_ended_unknown": {
+              "calls_total": 55,
+              "calls_in_window": 1,
+              "calls_per_second": 0.4886,
+              "avg_ms": 0.0,
+              "max_ms": 0.0,
+              "last_ms": 0.0,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "presence_recovered": {
+              "calls_total": 183,
+              "calls_in_window": 7,
+              "calls_per_second": 3.4204,
+              "avg_ms": 0.0,
+              "max_ms": 0.0,
+              "last_ms": 0.0,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "scene_sample": {
+              "calls_total": 59,
+              "calls_in_window": 1,
+              "calls_per_second": 0.4886,
+              "avg_ms": 0.0,
+              "max_ms": 0.0,
+              "last_ms": 0.0,
+              "lifetime_avg_ms": 4.78,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "track_lost": {
+              "calls_total": 258,
+              "calls_in_window": 6,
+              "calls_per_second": 2.9318,
+              "avg_ms": 0.0,
+              "max_ms": 0.0,
+              "last_ms": 0.0,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "zone_count": {
+              "calls_total": 37,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 5.847,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "zone_entry": {
+              "calls_total": 1,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            }
+          }
+        },
+        "use_case_processing": {
+          "anpr.ocr": {
+            "calls_total": 172,
+            "calls_in_window": 7,
+            "calls_per_second": 3.4204,
+            "avg_ms": 29.4,
+            "max_ms": 44.918,
+            "last_ms": 28.956,
+            "lifetime_avg_ms": 18.342,
+            "measurement_type": "async_submit_to_callback_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_detection": {
+            "calls_total": 687,
+            "calls_in_window": 15,
+            "calls_per_second": 7.3294,
+            "avg_ms": 8.428,
+            "max_ms": 14.634,
+            "last_ms": 5.967,
+            "lifetime_avg_ms": 8.292,
+            "measurement_type": "model_invocation_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_executor_wall_time": {
+            "calls_total": 687,
+            "calls_in_window": 15,
+            "calls_per_second": 7.3294,
+            "avg_ms": 6.479,
+            "max_ms": 8.367,
+            "last_ms": 5.653,
+            "lifetime_avg_ms": 6.954,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_model_wall_time": {
+            "calls_total": 687,
+            "calls_in_window": 15,
+            "calls_per_second": 7.3294,
+            "avg_ms": 7.527,
+            "max_ms": 13.618,
+            "last_ms": 5.747,
+            "lifetime_avg_ms": 7.557,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_postprocessing": {
+            "calls_total": 687,
+            "calls_in_window": 15,
+            "calls_per_second": 7.3294,
+            "avg_ms": 0.048,
+            "max_ms": 0.116,
+            "last_ms": 0.009,
+            "lifetime_avg_ms": 0.025,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_preprocessing": {
+            "calls_total": 687,
+            "calls_in_window": 15,
+            "calls_per_second": 7.3294,
+            "avg_ms": 0.721,
+            "max_ms": 3.671,
+            "last_ms": 0.18,
+            "lifetime_avg_ms": 0.55,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_scheduler_queue_wait": {
+            "calls_total": 687,
+            "calls_in_window": 15,
+            "calls_per_second": 7.3294,
+            "avg_ms": 0.961,
+            "max_ms": 7.458,
+            "last_ms": 0.055,
+            "lifetime_avg_ms": 0.471,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.policy": {
+            "calls_total": 932,
+            "calls_in_window": 16,
+            "calls_per_second": 7.8181,
+            "avg_ms": 1.837,
+            "max_ms": 14.384,
+            "last_ms": 0.187,
+            "lifetime_avg_ms": 0.543,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "counting.policy": {
+            "calls_total": 932,
+            "calls_in_window": 16,
+            "calls_per_second": 7.8181,
+            "avg_ms": 0.068,
+            "max_ms": 0.152,
+            "last_ms": 0.099,
+            "lifetime_avg_ms": 0.084,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "delivery_agent.handoff_admission": {
+            "calls_total": 863,
+            "calls_in_window": 20,
+            "calls_per_second": 9.7726,
+            "avg_ms": 1.316,
+            "max_ms": 5.544,
+            "last_ms": 1.394,
+            "lifetime_avg_ms": 1.413,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "detection.vehicle_person.metadata_bridge": {
+            "calls_total": 933,
+            "calls_in_window": 17,
+            "calls_per_second": 8.3067,
+            "avg_ms": 6.881,
+            "max_ms": 21.194,
+            "last_ms": 7.079,
+            "lifetime_avg_ms": 4.818,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "event_handoff_admission": {
+            "calls_total": 863,
+            "calls_in_window": 20,
+            "calls_per_second": 9.7726,
+            "avg_ms": 1.316,
+            "max_ms": 5.544,
+            "last_ms": 1.394,
+            "lifetime_avg_ms": 1.413,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "event_policy.active_frame": {
+            "calls_total": 932,
+            "calls_in_window": 16,
+            "calls_per_second": 7.8181,
+            "avg_ms": 48.779,
+            "max_ms": 158.648,
+            "last_ms": 21.977,
+            "lifetime_avg_ms": 42.835,
+            "measurement_type": "pipeline_span_wall_time",
+            "includes_child_stages": true
+          },
+          "evidence.jpeg": {
+            "calls_total": 308,
+            "calls_in_window": 5,
+            "calls_per_second": 2.4431,
+            "avg_ms": 4.521,
+            "max_ms": 12.646,
+            "last_ms": 12.646,
+            "lifetime_avg_ms": 3.368,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "fire_smoke.detection.metadata_bridge": {
+            "calls_total": 234,
+            "calls_in_window": 5,
+            "calls_per_second": 2.4431,
+            "avg_ms": 0.105,
+            "max_ms": 0.162,
+            "last_ms": 0.125,
+            "lifetime_avg_ms": 0.16,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "fire_smoke.policy": {
+            "calls_total": 1166,
+            "calls_in_window": 21,
+            "calls_per_second": 10.2612,
+            "avg_ms": 0.019,
+            "max_ms": 0.103,
+            "last_ms": 0.087,
+            "lifetime_avg_ms": 0.011,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "frame_conversion.primary_selective_bgr": {
+            "calls_total": 891,
+            "calls_in_window": 17,
+            "calls_per_second": 8.3067,
+            "avg_ms": 13.853,
+            "max_ms": 15.972,
+            "last_ms": 15.319,
+            "lifetime_avg_ms": 18.78,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "line_crossing.policy": {
+            "calls_total": 3219,
+            "calls_in_window": 68,
+            "calls_per_second": 33.2268,
+            "avg_ms": 0.007,
+            "max_ms": 0.032,
+            "last_ms": 0.009,
+            "lifetime_avg_ms": 0.005,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "object_presence.emission": {
+            "calls_total": 120,
+            "calls_in_window": 2,
+            "calls_per_second": 0.9773,
+            "avg_ms": 0.992,
+            "max_ms": 1.615,
+            "last_ms": 0.37,
+            "lifetime_avg_ms": 3.097,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_embedding": {
+            "calls_total": 500,
+            "calls_in_window": 10,
+            "calls_per_second": 4.8863,
+            "avg_ms": 22.149,
+            "max_ms": 67.298,
+            "last_ms": 14.26,
+            "lifetime_avg_ms": 22.742,
+            "measurement_type": "model_invocation_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_executor_wall_time": {
+            "calls_total": 871,
+            "calls_in_window": 19,
+            "calls_per_second": 9.284,
+            "avg_ms": 9.557,
+            "max_ms": 14.207,
+            "last_ms": 12.176,
+            "lifetime_avg_ms": 10.849,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_model_wall_time": {
+            "calls_total": 871,
+            "calls_in_window": 19,
+            "calls_per_second": 9.284,
+            "avg_ms": 10.494,
+            "max_ms": 16.084,
+            "last_ms": 12.389,
+            "lifetime_avg_ms": 12.286,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_postprocessing": {
+            "calls_total": 871,
+            "calls_in_window": 19,
+            "calls_per_second": 9.284,
+            "avg_ms": 0.071,
+            "max_ms": 0.181,
+            "last_ms": 0.143,
+            "lifetime_avg_ms": 0.083,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_preprocessing": {
+            "calls_total": 871,
+            "calls_in_window": 19,
+            "calls_per_second": 9.284,
+            "avg_ms": 1.506,
+            "max_ms": 9.454,
+            "last_ms": 1.625,
+            "lifetime_avg_ms": 1.223,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_result_wait": {
+            "calls_total": 871,
+            "calls_in_window": 19,
+            "calls_per_second": 9.284,
+            "avg_ms": 10.005,
+            "max_ms": 15.599,
+            "last_ms": 12.389,
+            "lifetime_avg_ms": 11.674,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_scheduler_queue_wait": {
+            "calls_total": 871,
+            "calls_in_window": 19,
+            "calls_per_second": 9.284,
+            "avg_ms": 0.853,
+            "max_ms": 8.049,
+            "last_ms": 0.109,
+            "lifetime_avg_ms": 1.312,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.candidate_flush": {
+            "calls_total": 932,
+            "calls_in_window": 16,
+            "calls_per_second": 7.8181,
+            "avg_ms": 0.005,
+            "max_ms": 0.01,
+            "last_ms": 0.009,
+            "lifetime_avg_ms": 0.049,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.face_pipeline": {
+            "calls_total": 933,
+            "calls_in_window": 17,
+            "calls_per_second": 8.3067,
+            "avg_ms": 2.308,
+            "max_ms": 13.659,
+            "last_ms": 1.586,
+            "lifetime_avg_ms": 5.24,
+            "measurement_type": "pipeline_span_wall_time",
+            "includes_child_stages": true
+          },
+          "person_identity.face_pose": {
+            "calls_total": 94,
+            "calls_in_window": 2,
+            "calls_per_second": 0.9773,
+            "avg_ms": 3.841,
+            "max_ms": 5.136,
+            "last_ms": 5.136,
+            "lifetime_avg_ms": 37.427,
+            "measurement_type": "model_invocation_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_background_reuse": {
+            "calls_total": 600,
+            "calls_in_window": 14,
+            "calls_per_second": 6.8408,
+            "avg_ms": 0.0,
+            "max_ms": 0.0,
+            "last_ms": 0.0,
+            "lifetime_avg_ms": 0.0,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_background_update": {
+            "calls_total": 276,
+            "calls_in_window": 5,
+            "calls_per_second": 2.4431,
+            "avg_ms": 67.11,
+            "max_ms": 72.542,
+            "last_ms": 57.747,
+            "lifetime_avg_ms": 71.363,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_executor_wall_time": {
+            "calls_total": 9,
+            "calls_in_window": 1,
+            "calls_per_second": 0.4886,
+            "avg_ms": 27.055,
+            "max_ms": 27.055,
+            "last_ms": 27.055,
+            "lifetime_avg_ms": 32.833,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_model_wall_time": {
+            "calls_total": 9,
+            "calls_in_window": 1,
+            "calls_per_second": 0.4886,
+            "avg_ms": 27.921,
+            "max_ms": 27.921,
+            "last_ms": 27.921,
+            "lifetime_avg_ms": 38.684,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_processing": {
+            "calls_total": 876,
+            "calls_in_window": 19,
+            "calls_per_second": 9.284,
+            "avg_ms": 19.674,
+            "max_ms": 96.103,
+            "last_ms": 0.143,
+            "lifetime_avg_ms": 23.565,
+            "measurement_type": "model_invocation_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_region_morphology": {
+            "calls_total": 876,
+            "calls_in_window": 19,
+            "calls_per_second": 9.284,
+            "avg_ms": 0.318,
+            "max_ms": 4.236,
+            "last_ms": 0.063,
+            "lifetime_avg_ms": 0.273,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_scheduler_queue_wait": {
+            "calls_total": 9,
+            "calls_in_window": 1,
+            "calls_per_second": 0.4886,
+            "avg_ms": 0.053,
+            "max_ms": 0.053,
+            "last_ms": 0.053,
+            "lifetime_avg_ms": 4.532,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_silhouette_normalization": {
+            "calls_total": 876,
+            "calls_in_window": 19,
+            "calls_per_second": 9.284,
+            "avg_ms": 0.141,
+            "max_ms": 0.411,
+            "last_ms": 0.052,
+            "lifetime_avg_ms": 0.213,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_silhouette_preprocessing": {
+            "calls_total": 876,
+            "calls_in_window": 19,
+            "calls_per_second": 9.284,
+            "avg_ms": 18.139,
+            "max_ms": 72.813,
+            "last_ms": 0.122,
+            "lifetime_avg_ms": 22.988,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.policy": {
+            "calls_total": 2605,
+            "calls_in_window": 53,
+            "calls_per_second": 25.8974,
+            "avg_ms": 7.418,
+            "max_ms": 102.445,
+            "last_ms": 0.061,
+            "lifetime_avg_ms": 8.239,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "pipeline.frame_processing_total": {
+            "calls_total": 932,
+            "calls_in_window": 16,
+            "calls_per_second": 7.8181,
+            "avg_ms": 80.524,
+            "max_ms": 178.849,
+            "last_ms": 38.406,
+            "lifetime_avg_ms": 77.74,
+            "measurement_type": "pipeline_span_wall_time",
+            "includes_child_stages": true
+          },
+          "presence.loss_recovery": {
+            "calls_total": 932,
+            "calls_in_window": 16,
+            "calls_per_second": 7.8181,
+            "avg_ms": 1.192,
+            "max_ms": 5.119,
+            "last_ms": 1.059,
+            "lifetime_avg_ms": 0.816,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "presence.zone_lifecycle": {
+            "calls_total": 3219,
+            "calls_in_window": 68,
+            "calls_per_second": 33.2268,
+            "avg_ms": 0.079,
+            "max_ms": 0.237,
+            "last_ms": 0.102,
+            "lifetime_avg_ms": 0.07,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "scene_search.device_inference": {
+            "calls_total": 59,
+            "calls_in_window": 1,
+            "calls_per_second": 0.4886,
+            "avg_ms": 12.991,
+            "max_ms": 12.991,
+            "last_ms": 12.991,
+            "lifetime_avg_ms": 15.389,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "scene_search.embedding": {
+            "calls_total": 59,
+            "calls_in_window": 1,
+            "calls_per_second": 0.4886,
+            "avg_ms": 13.466,
+            "max_ms": 13.466,
+            "last_ms": 13.466,
+            "lifetime_avg_ms": 16.757,
+            "measurement_type": "model_invocation_wall_time",
+            "includes_child_stages": false
+          },
+          "scene_search.policy": {
+            "calls_total": 932,
+            "calls_in_window": 16,
+            "calls_per_second": 7.8181,
+            "avg_ms": 3.443,
+            "max_ms": 25.848,
+            "last_ms": 3.206,
+            "lifetime_avg_ms": 3.165,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "scene_search.scheduler_queue_wait": {
+            "calls_total": 59,
+            "calls_in_window": 1,
+            "calls_per_second": 0.4886,
+            "avg_ms": 0.049,
+            "max_ms": 0.049,
+            "last_ms": 0.049,
+            "lifetime_avg_ms": 0.535,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "tracking_geometry_and_ocr_submit": {
+            "calls_total": 933,
+            "calls_in_window": 17,
+            "calls_per_second": 8.3067,
+            "avg_ms": 0.308,
+            "max_ms": 0.588,
+            "last_ms": 0.311,
+            "lifetime_avg_ms": 0.163,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          }
+        },
+        "resources": {
+          "process": {
+            "scope": "shared_camera_group_process",
+            "pid": 52,
+            "shared_by_multiple_cameras": true,
+            "cpu_cores_used": 1.693,
+            "rss_mb": 2580.11,
+            "uss_mb": 2469.15,
+            "pss_mb": 2522.26,
+            "threads": 196
+          },
+          "accelerators": {
+            "GPU": {
+              "scope": "camera_attributed_model_stages",
+              "attributed_stage_wall_ms_per_second": 222.47,
+              "model_calls_total": 1356,
+              "model_calls_in_window": 30
+            },
+            "NPU": {
+              "scope": "camera_attributed_model_stages",
+              "attributed_stage_wall_ms_per_second": 287.951,
+              "model_calls_total": 1462,
+              "model_calls_in_window": 35
+            }
+          }
+        },
+        "device_placement": {
+          "anpr_ocr": "MULTI:GPU,NPU/DLStreamer",
+          "anpr_plate_detection": "NPU/DLStreamer",
+          "body_embedding": "NPU/DLStreamer",
+          "decode": "GPU/VAAPI-DLStreamer",
+          "face_detection": "GPU",
+          "face_embedding": "NPU",
+          "face_pose": "NPU",
+          "fire_smoke_detection": "GPU/DLStreamer-OpenCV-BGR",
+          "gait_embedding": "NPU/DLStreamer",
+          "object_tracking": "CPU/gvatrack",
+          "scene_embedding": "GPU/DLStreamer",
+          "vehicle_person_detection": "GPU/DLStreamer-VA"
+        },
+        "timestamp_source": "source_pts",
+        "resolved_policy": {
+          "schema_version": "1.1",
+          "camera_id": "capacity-01",
+          "policy_revision": 5,
+          "changed_at": "2026-11-05T01:01:53.394025Z",
+          "bounded_adaptation": true,
+          "modes": {
+            "tracking": "tolerant_collection",
+            "presence": "tolerant_collection",
+            "zone": "tolerant_collection",
+            "count": "tolerant_collection",
+            "anpr": "tolerant_collection",
+            "identity": "tolerant_collection",
+            "fire_smoke": "balanced"
+          },
+          "object_modes": {
+            "zone": {
+              "person": "tolerant_collection",
+              "vehicle": "tolerant_collection"
+            },
+            "count": {
+              "person": "tolerant_collection",
+              "vehicle": "tolerant_collection"
+            },
+            "presence": {
+              "person": "tolerant_collection",
+              "vehicle": "tolerant_collection"
+            }
+          },
+          "decision_reasons": {
+            "tracking": [
+              "frequent_track_fragmentation"
+            ],
+            "presence": [
+              "frequent_track_fragmentation"
+            ],
+            "zone": [
+              "frequent_track_fragmentation"
+            ],
+            "count": [
+              "frequent_track_fragmentation"
+            ],
+            "zone_person": [
+              "distant_objects",
+              "frequent_track_fragmentation"
+            ],
+            "zone_vehicle": [
+              "frequent_track_fragmentation"
+            ],
+            "count_person": [
+              "distant_objects",
+              "frequent_track_fragmentation"
+            ],
+            "count_vehicle": [
+              "frequent_track_fragmentation"
+            ],
+            "presence_person": [
+              "distant_objects",
+              "frequent_track_fragmentation"
+            ],
+            "presence_vehicle": [
+              "frequent_track_fragmentation"
+            ],
+            "anpr": [
+              "plate_observations_need_longer_collection"
+            ],
+            "identity": [
+              "identity_view_needs_longer_selection"
+            ],
+            "fire_smoke": [
+              "normal_scene_visibility"
+            ]
+          },
+          "measurements": {
+            "frames_observed": 925,
+            "observed_processing_fps": 8.001,
+            "target_processing_fps": 8.0,
+            "frames_with_objects_ratio": 0.9438,
+            "median_object_scale": 0.10545,
+            "median_person_scale": 0.06954,
+            "median_vehicle_scale": 0.33928,
+            "median_person_width_ratio": 0.03281,
+            "median_person_height_ratio": 0.14907,
+            "median_vehicle_width_ratio": 0.30885,
+            "median_vehicle_height_ratio": 0.36111,
+            "real_detection_dropout_ratio": 0.0,
+            "median_frame_sharpness": 2852.343,
+            "median_exposure_quality": 0.8489,
+            "median_plate_width_px": 20.0,
+            "median_plate_height_px": 12.0,
+            "median_plate_width_ratio": 0.010417,
+            "median_plate_sharpness": 609.112,
+            "median_ocr_confidence": 0.4826,
+            "ocr_text_stability_ratio": 0.1379,
+            "anpr_unreadable_ratio": 0.7333,
+            "median_face_width_px": 54.0,
+            "median_face_width_ratio": 0.028125,
+            "median_face_quality": 0.5984,
+            "median_face_pose_quality": 0.9441,
+            "face_detection_success_ratio": 0.0,
+            "track_fragmentations_last_60s": 106,
+            "outbox_pressure_ratio": 0.0,
+            "model_queue_wait_seconds": 0.0
+          },
+          "tracking": {
+            "mode": "tolerant_collection",
+            "max_distance_px": 320.0,
+            "max_disappeared_seconds": 9.0
+          },
+          "presence": {
+            "mode": "tolerant_collection",
+            "stable_hits": 4,
+            "unobserved_after_seconds": 5.0,
+            "ended_unknown_after_seconds": 20.0
+          },
+          "zone": {
+            "mode": "tolerant_collection",
+            "boundary_margin": 0.018,
+            "transition_votes": 4,
+            "transition_hold_seconds": 0.8
+          },
+          "count": {
+            "mode": "tolerant_collection",
+            "debounce_observations": 4,
+            "debounce_seconds": 0.8,
+            "heartbeat_seconds": 20.0
+          },
+          "anpr": {
+            "mode": "tolerant_collection",
+            "candidate_window_seconds": 3.5,
+            "ocr_emit_min_confidence": 0.35,
+            "confirm_min_reads": 2,
+            "min_plate_width_px": 16.0,
+            "min_plate_height_px": 5.0,
+            "min_sharpness": 5.0,
+            "single_read_confidence": 0.82
+          },
+          "identity": {
+            "mode": "tolerant_collection",
+            "face_min_quality": 0.3,
+            "face_emit_min_width_px": 28.0,
+            "face_selection_window_seconds": 2.5,
+            "body_quality_floor": 0.2,
+            "body_min_width_px": 28.0,
+            "body_min_height_px": 56.0,
+            "gait_min_silhouettes": 24,
+            "feature_cooldown_seconds": 5.0
+          },
+          "fire_smoke": {
+            "mode": "balanced",
+            "event_min_confidence": 0.65,
+            "positive_confirmations": 5,
+            "positive_window_seconds": 3.0,
+            "clear_seconds": 10.0,
+            "clear_confirmations": 5,
+            "clear_max_evaluation_gap_seconds": 2.5
+          },
+          "object_profiles": {
+            "person": {
+              "zone": {
+                "mode": "tolerant_collection",
+                "boundary_margin": 0.018,
+                "transition_votes": 4,
+                "transition_hold_seconds": 0.8
+              },
+              "count": {
+                "mode": "tolerant_collection",
+                "debounce_observations": 4,
+                "debounce_seconds": 0.8,
+                "heartbeat_seconds": 20.0
+              },
+              "presence": {
+                "mode": "tolerant_collection",
+                "stable_hits": 4,
+                "unobserved_after_seconds": 5.0,
+                "ended_unknown_after_seconds": 20.0
+              }
+            },
+            "vehicle": {
+              "zone": {
+                "mode": "tolerant_collection",
+                "boundary_margin": 0.018,
+                "transition_votes": 4,
+                "transition_hold_seconds": 0.8
+              },
+              "count": {
+                "mode": "tolerant_collection",
+                "debounce_observations": 4,
+                "debounce_seconds": 0.8,
+                "heartbeat_seconds": 20.0
+              },
+              "presence": {
+                "mode": "tolerant_collection",
+                "stable_hits": 4,
+                "unobserved_after_seconds": 5.0,
+                "ended_unknown_after_seconds": 20.0
+              }
+            }
+          },
+          "pressure": {
+            "mode": "normal",
+            "outbox_ratio": 0.0,
+            "model_queue_wait_seconds": 0.0
+          },
+          "scene": {
+            "interval_source": "desired_state",
+            "pressure_interval_multiplier": 1.0,
+            "optional_sampling_allowed": true,
+            "event_trigger_cooldown_seconds": 1.0,
+            "outbox_pressure_limit_bytes": 134217728
+          }
+        },
+        "sample_age_seconds": 0.368,
+        "fresh": true,
+        "camera_health": {
+          "state": "healthy",
+          "reason": "none",
+          "last_reliable_at": "2026-11-05T01:02:53.520814Z",
+          "as_of": "2026-11-05T01:02:53.520814Z",
+          "retrying": false
+        },
+        "decoder": {
+          "state": "healthy",
+          "reason": "none",
+          "retrying": false,
+          "stream_session_id": "d19e86b6-aa24-4aba-acd1-8fa1344da454",
+          "camera_process_pid": 52,
+          "decoder_pid": null,
+          "last_frame_at": "2026-11-05T01:03:12.125149Z",
+          "last_frame_age_seconds": 0.697,
+          "reconnects": 0,
+          "decoder_errors": 0,
+          "decoder_starts": 1,
+          "last_ffmpeg_exit_code": null,
+          "retry_reason": null,
+          "retry_backoff_seconds": 0.0,
+          "sanitized_stderr": null,
+          "status_sample_age_seconds": 0.656
+        }
+      },
+      {
+        "schema_version": "1.0",
+        "camera_id": "capacity-02",
+        "pid": 52,
+        "observed_at": "2026-11-05T01:03:12.453695Z",
+        "started_at": "2026-11-05T01:01:14.976913Z",
+        "uptime_seconds": 117.477,
+        "window_seconds": 2.058,
+        "processing": {
+          "target_fps": 8.0,
+          "decoded_fps": 7.774,
+          "frames_received_fps": 7.774,
+          "inference_fps": 7.774,
+          "quiet_fps": 0.0,
+          "output_events_per_second": 9.718,
+          "totals": {
+            "decoded_frames": 933,
+            "events_handoff_admitted": 851,
+            "evidence_jpeg_encoded": 307,
+            "fire_bgr_avoided_frames": 234,
+            "fire_model_system_memory_frames": 234,
+            "gait_inference_avoided": 75,
+            "gait_inference_eligible": 9,
+            "handoff_admitted": 851,
+            "handoff_rejected": 11,
+            "inference_frames": 933,
+            "primary_bgr_avoided_frames": 42,
+            "primary_bgr_materialized_frames": 891,
+            "scene_embedding_computed": 59
+          },
+          "gauges": {
+            "dls_pending_admissions": 0,
+            "dls_rate_gate_accepted_frames": 933,
+            "dls_rate_gate_dropped_frames": 2561,
+            "fire_rate_gate_accepted_frames": 234,
+            "fire_rate_gate_dropped_frames": 3242,
+            "gait_retained_presences": 67,
+            "gait_retained_silhouettes": 647,
+            "gait_retained_track_centers": 175,
+            "gait_silhouette_payload_bytes": 1821952,
+            "tcp_feeder_bytes_received": 165514636,
+            "tcp_feeder_connections": 1,
+            "tcp_feeder_disconnects": 0
+          }
+        },
+        "outputs": {
+          "by_event_type": {
+            "camera_health": {
+              "total": 4,
+              "per_second": 0.0,
+              "in_window": 0
+            },
+            "object_present": {
+              "total": 120,
+              "per_second": 0.9718,
+              "in_window": 2
+            },
+            "person_feature_sample": {
+              "total": 129,
+              "per_second": 0.9718,
+              "in_window": 2
+            },
+            "plate_outcome": {
+              "total": 12,
+              "per_second": 0.4859,
+              "in_window": 1
+            },
+            "plate_read": {
+              "total": 4,
+              "per_second": 0.0,
+              "in_window": 0
+            },
+            "presence_ended_unknown": {
+              "total": 54,
+              "per_second": 0.4859,
+              "in_window": 1
+            },
+            "presence_recovered": {
+              "total": 183,
+              "per_second": 3.4012,
+              "in_window": 7
+            },
+            "scene_sample": {
+              "total": 59,
+              "per_second": 0.4859,
+              "in_window": 1
+            },
+            "track_lost": {
+              "total": 248,
+              "per_second": 2.9153,
+              "in_window": 6
+            },
+            "zone_count": {
+              "total": 37,
+              "per_second": 0.0,
+              "in_window": 0
+            },
+            "zone_entry": {
+              "total": 1,
+              "per_second": 0.0,
+              "in_window": 0
+            }
+          },
+          "by_use_case_id": {
+            "anpr-2": {
+              "total": 16,
+              "per_second": 0.4859,
+              "in_window": 1,
+              "app": "anpr"
+            },
+            "count-2": {
+              "total": 29,
+              "per_second": 0.0,
+              "in_window": 0,
+              "app": "vehicle_counting"
+            },
+            "identity-2": {
+              "total": 129,
+              "per_second": 0.9718,
+              "in_window": 2,
+              "app": "person_identity"
+            },
+            "people-count-2": {
+              "total": 8,
+              "per_second": 0.0,
+              "in_window": 0,
+              "app": "people_counting"
+            },
+            "person-presence-2": {
+              "total": 102,
+              "per_second": 0.9718,
+              "in_window": 2,
+              "app": "person_presence"
+            },
+            "runtime": {
+              "total": 489,
+              "per_second": 6.8024,
+              "in_window": 14,
+              "app": "runtime"
+            },
+            "scene-2": {
+              "total": 59,
+              "per_second": 0.4859,
+              "in_window": 1,
+              "app": "scene_search"
+            },
+            "vehicle-presence-2": {
+              "total": 19,
+              "per_second": 0.0,
+              "in_window": 0,
+              "app": "vehicle_presence"
+            }
+          },
+          "production_latency_by_event_type": {
+            "camera_health": {
+              "calls_total": 4,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 43.098,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "object_present": {
+              "calls_total": 120,
+              "calls_in_window": 2,
+              "calls_per_second": 0.9718,
+              "avg_ms": 0.0,
+              "max_ms": 0.0,
+              "last_ms": 0.0,
+              "lifetime_avg_ms": 7.32,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "person_feature_sample": {
+              "calls_total": 129,
+              "calls_in_window": 2,
+              "calls_per_second": 0.9718,
+              "avg_ms": 0.0,
+              "max_ms": 0.0,
+              "last_ms": 0.0,
+              "lifetime_avg_ms": 0.719,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "plate_outcome": {
+              "calls_total": 12,
+              "calls_in_window": 1,
+              "calls_per_second": 0.4859,
+              "avg_ms": 0.0,
+              "max_ms": 0.0,
+              "last_ms": 0.0,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "plate_read": {
+              "calls_total": 4,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "presence_ended_unknown": {
+              "calls_total": 54,
+              "calls_in_window": 1,
+              "calls_per_second": 0.4859,
+              "avg_ms": 0.0,
+              "max_ms": 0.0,
+              "last_ms": 0.0,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "presence_recovered": {
+              "calls_total": 183,
+              "calls_in_window": 7,
+              "calls_per_second": 3.4012,
+              "avg_ms": 0.0,
+              "max_ms": 0.0,
+              "last_ms": 0.0,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "scene_sample": {
+              "calls_total": 59,
+              "calls_in_window": 1,
+              "calls_per_second": 0.4859,
+              "avg_ms": 0.0,
+              "max_ms": 0.0,
+              "last_ms": 0.0,
+              "lifetime_avg_ms": 5.432,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "track_lost": {
+              "calls_total": 248,
+              "calls_in_window": 6,
+              "calls_per_second": 2.9153,
+              "avg_ms": 0.0,
+              "max_ms": 0.0,
+              "last_ms": 0.0,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "zone_count": {
+              "calls_total": 37,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 6.634,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "zone_entry": {
+              "calls_total": 1,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            }
+          }
+        },
+        "use_case_processing": {
+          "anpr.ocr": {
+            "calls_total": 172,
+            "calls_in_window": 7,
+            "calls_per_second": 3.4012,
+            "avg_ms": 19.409,
+            "max_ms": 33.204,
+            "last_ms": 11.619,
+            "lifetime_avg_ms": 19.493,
+            "measurement_type": "async_submit_to_callback_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_detection": {
+            "calls_total": 687,
+            "calls_in_window": 13,
+            "calls_per_second": 6.3165,
+            "avg_ms": 9.127,
+            "max_ms": 22.393,
+            "last_ms": 6.904,
+            "lifetime_avg_ms": 8.387,
+            "measurement_type": "model_invocation_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_executor_wall_time": {
+            "calls_total": 687,
+            "calls_in_window": 13,
+            "calls_per_second": 6.3165,
+            "avg_ms": 8.092,
+            "max_ms": 21.693,
+            "last_ms": 5.79,
+            "lifetime_avg_ms": 7.137,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_model_wall_time": {
+            "calls_total": 687,
+            "calls_in_window": 13,
+            "calls_per_second": 6.3165,
+            "avg_ms": 8.826,
+            "max_ms": 21.823,
+            "last_ms": 6.145,
+            "lifetime_avg_ms": 7.675,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_postprocessing": {
+            "calls_total": 687,
+            "calls_in_window": 13,
+            "calls_per_second": 6.3165,
+            "avg_ms": 0.021,
+            "max_ms": 0.053,
+            "last_ms": 0.053,
+            "lifetime_avg_ms": 0.026,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_preprocessing": {
+            "calls_total": 687,
+            "calls_in_window": 13,
+            "calls_per_second": 6.3165,
+            "avg_ms": 0.228,
+            "max_ms": 0.559,
+            "last_ms": 0.559,
+            "lifetime_avg_ms": 0.516,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_scheduler_queue_wait": {
+            "calls_total": 687,
+            "calls_in_window": 13,
+            "calls_per_second": 6.3165,
+            "avg_ms": 0.65,
+            "max_ms": 5.617,
+            "last_ms": 0.194,
+            "lifetime_avg_ms": 0.394,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.policy": {
+            "calls_total": 932,
+            "calls_in_window": 16,
+            "calls_per_second": 7.7742,
+            "avg_ms": 0.97,
+            "max_ms": 7.546,
+            "last_ms": 0.08,
+            "lifetime_avg_ms": 0.583,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "counting.policy": {
+            "calls_total": 932,
+            "calls_in_window": 16,
+            "calls_per_second": 7.7742,
+            "avg_ms": 0.051,
+            "max_ms": 0.17,
+            "last_ms": 0.045,
+            "lifetime_avg_ms": 0.086,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "delivery_agent.handoff_admission": {
+            "calls_total": 862,
+            "calls_in_window": 20,
+            "calls_per_second": 9.7178,
+            "avg_ms": 1.482,
+            "max_ms": 8.726,
+            "last_ms": 1.6,
+            "lifetime_avg_ms": 1.422,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "detection.vehicle_person.metadata_bridge": {
+            "calls_total": 933,
+            "calls_in_window": 16,
+            "calls_per_second": 7.7742,
+            "avg_ms": 5.404,
+            "max_ms": 21.27,
+            "last_ms": 4.487,
+            "lifetime_avg_ms": 4.712,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "event_handoff_admission": {
+            "calls_total": 851,
+            "calls_in_window": 20,
+            "calls_per_second": 9.7178,
+            "avg_ms": 1.482,
+            "max_ms": 8.726,
+            "last_ms": 1.6,
+            "lifetime_avg_ms": 1.433,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "event_policy.active_frame": {
+            "calls_total": 932,
+            "calls_in_window": 16,
+            "calls_per_second": 7.7742,
+            "avg_ms": 48.532,
+            "max_ms": 151.015,
+            "last_ms": 16.026,
+            "lifetime_avg_ms": 44.355,
+            "measurement_type": "pipeline_span_wall_time",
+            "includes_child_stages": true
+          },
+          "evidence.jpeg": {
+            "calls_total": 307,
+            "calls_in_window": 5,
+            "calls_per_second": 2.4294,
+            "avg_ms": 7.244,
+            "max_ms": 29.884,
+            "last_ms": 5.794,
+            "lifetime_avg_ms": 3.439,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "fire_smoke.detection.metadata_bridge": {
+            "calls_total": 234,
+            "calls_in_window": 4,
+            "calls_per_second": 1.9436,
+            "avg_ms": 0.063,
+            "max_ms": 0.103,
+            "last_ms": 0.08,
+            "lifetime_avg_ms": 0.104,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "fire_smoke.policy": {
+            "calls_total": 1166,
+            "calls_in_window": 20,
+            "calls_per_second": 9.7178,
+            "avg_ms": 0.01,
+            "max_ms": 0.057,
+            "last_ms": 0.056,
+            "lifetime_avg_ms": 0.01,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "frame_conversion.primary_selective_bgr": {
+            "calls_total": 891,
+            "calls_in_window": 16,
+            "calls_per_second": 7.7742,
+            "avg_ms": 12.781,
+            "max_ms": 15.061,
+            "last_ms": 14.217,
+            "lifetime_avg_ms": 22.093,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "line_crossing.policy": {
+            "calls_total": 3220,
+            "calls_in_window": 69,
+            "calls_per_second": 33.5263,
+            "avg_ms": 0.005,
+            "max_ms": 0.031,
+            "last_ms": 0.013,
+            "lifetime_avg_ms": 0.005,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "object_presence.emission": {
+            "calls_total": 120,
+            "calls_in_window": 2,
+            "calls_per_second": 0.9718,
+            "avg_ms": 0.695,
+            "max_ms": 1.06,
+            "last_ms": 0.329,
+            "lifetime_avg_ms": 2.464,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_embedding": {
+            "calls_total": 501,
+            "calls_in_window": 11,
+            "calls_per_second": 5.3448,
+            "avg_ms": 21.492,
+            "max_ms": 62.969,
+            "last_ms": 27.11,
+            "lifetime_avg_ms": 23.62,
+            "measurement_type": "model_invocation_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_executor_wall_time": {
+            "calls_total": 873,
+            "calls_in_window": 21,
+            "calls_per_second": 10.2037,
+            "avg_ms": 9.706,
+            "max_ms": 13.033,
+            "last_ms": 11.14,
+            "lifetime_avg_ms": 11.295,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_model_wall_time": {
+            "calls_total": 873,
+            "calls_in_window": 21,
+            "calls_per_second": 10.2037,
+            "avg_ms": 10.407,
+            "max_ms": 16.119,
+            "last_ms": 11.547,
+            "lifetime_avg_ms": 12.685,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_postprocessing": {
+            "calls_total": 873,
+            "calls_in_window": 21,
+            "calls_per_second": 10.2037,
+            "avg_ms": 0.125,
+            "max_ms": 0.303,
+            "last_ms": 0.095,
+            "lifetime_avg_ms": 0.093,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_preprocessing": {
+            "calls_total": 873,
+            "calls_in_window": 21,
+            "calls_per_second": 10.2037,
+            "avg_ms": 1.71,
+            "max_ms": 5.066,
+            "last_ms": 1.762,
+            "lifetime_avg_ms": 1.395,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_result_wait": {
+            "calls_total": 873,
+            "calls_in_window": 21,
+            "calls_per_second": 10.2037,
+            "avg_ms": 9.314,
+            "max_ms": 15.94,
+            "last_ms": 11.276,
+            "lifetime_avg_ms": 11.985,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_scheduler_queue_wait": {
+            "calls_total": 873,
+            "calls_in_window": 21,
+            "calls_per_second": 10.2037,
+            "avg_ms": 0.558,
+            "max_ms": 7.909,
+            "last_ms": 0.319,
+            "lifetime_avg_ms": 1.244,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.candidate_flush": {
+            "calls_total": 932,
+            "calls_in_window": 16,
+            "calls_per_second": 7.7742,
+            "avg_ms": 0.004,
+            "max_ms": 0.013,
+            "last_ms": 0.004,
+            "lifetime_avg_ms": 0.043,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.face_pipeline": {
+            "calls_total": 933,
+            "calls_in_window": 17,
+            "calls_per_second": 8.2601,
+            "avg_ms": 1.843,
+            "max_ms": 9.38,
+            "last_ms": 1.43,
+            "lifetime_avg_ms": 2.098,
+            "measurement_type": "pipeline_span_wall_time",
+            "includes_child_stages": true
+          },
+          "person_identity.face_pose": {
+            "calls_total": 95,
+            "calls_in_window": 2,
+            "calls_per_second": 0.9718,
+            "avg_ms": 3.616,
+            "max_ms": 4.112,
+            "last_ms": 4.112,
+            "lifetime_avg_ms": 6.548,
+            "measurement_type": "model_invocation_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_background_reuse": {
+            "calls_total": 600,
+            "calls_in_window": 14,
+            "calls_per_second": 6.8024,
+            "avg_ms": 0.0,
+            "max_ms": 0.0,
+            "last_ms": 0.0,
+            "lifetime_avg_ms": 0.0,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_background_update": {
+            "calls_total": 276,
+            "calls_in_window": 5,
+            "calls_per_second": 2.4294,
+            "avg_ms": 69.737,
+            "max_ms": 75.044,
+            "last_ms": 72.5,
+            "lifetime_avg_ms": 74.093,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_executor_wall_time": {
+            "calls_total": 9,
+            "calls_in_window": 1,
+            "calls_per_second": 0.4859,
+            "avg_ms": 31.319,
+            "max_ms": 31.319,
+            "last_ms": 31.319,
+            "lifetime_avg_ms": 34.946,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_model_wall_time": {
+            "calls_total": 9,
+            "calls_in_window": 1,
+            "calls_per_second": 0.4859,
+            "avg_ms": 32.172,
+            "max_ms": 32.172,
+            "last_ms": 32.172,
+            "lifetime_avg_ms": 35.848,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_processing": {
+            "calls_total": 876,
+            "calls_in_window": 19,
+            "calls_per_second": 9.2319,
+            "avg_ms": 20.306,
+            "max_ms": 99.481,
+            "last_ms": 0.157,
+            "lifetime_avg_ms": 24.449,
+            "measurement_type": "model_invocation_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_region_morphology": {
+            "calls_total": 876,
+            "calls_in_window": 19,
+            "calls_per_second": 9.2319,
+            "avg_ms": 0.088,
+            "max_ms": 0.229,
+            "last_ms": 0.07,
+            "lifetime_avg_ms": 0.255,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_scheduler_queue_wait": {
+            "calls_total": 9,
+            "calls_in_window": 1,
+            "calls_per_second": 0.4859,
+            "avg_ms": 0.041,
+            "max_ms": 0.041,
+            "last_ms": 0.041,
+            "lifetime_avg_ms": 0.06,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_silhouette_normalization": {
+            "calls_total": 876,
+            "calls_in_window": 19,
+            "calls_per_second": 9.2319,
+            "avg_ms": 0.1,
+            "max_ms": 0.312,
+            "last_ms": 0.056,
+            "lifetime_avg_ms": 0.182,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_silhouette_preprocessing": {
+            "calls_total": 876,
+            "calls_in_window": 19,
+            "calls_per_second": 9.2319,
+            "avg_ms": 18.556,
+            "max_ms": 75.331,
+            "last_ms": 0.132,
+            "lifetime_avg_ms": 23.799,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.policy": {
+            "calls_total": 2605,
+            "calls_in_window": 53,
+            "calls_per_second": 25.7521,
+            "avg_ms": 7.579,
+            "max_ms": 106.014,
+            "last_ms": 0.026,
+            "lifetime_avg_ms": 8.577,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "pipeline.frame_processing_total": {
+            "calls_total": 932,
+            "calls_in_window": 16,
+            "calls_per_second": 7.7742,
+            "avg_ms": 80.628,
+            "max_ms": 189.197,
+            "last_ms": 36.025,
+            "lifetime_avg_ms": 79.263,
+            "measurement_type": "pipeline_span_wall_time",
+            "includes_child_stages": true
+          },
+          "presence.loss_recovery": {
+            "calls_total": 932,
+            "calls_in_window": 16,
+            "calls_per_second": 7.7742,
+            "avg_ms": 0.903,
+            "max_ms": 4.66,
+            "last_ms": 0.505,
+            "lifetime_avg_ms": 0.797,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "presence.zone_lifecycle": {
+            "calls_total": 3220,
+            "calls_in_window": 69,
+            "calls_per_second": 33.5263,
+            "avg_ms": 0.064,
+            "max_ms": 0.303,
+            "last_ms": 0.198,
+            "lifetime_avg_ms": 0.07,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "scene_search.device_inference": {
+            "calls_total": 59,
+            "calls_in_window": 1,
+            "calls_per_second": 0.4859,
+            "avg_ms": 13.335,
+            "max_ms": 13.335,
+            "last_ms": 13.335,
+            "lifetime_avg_ms": 15.083,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "scene_search.embedding": {
+            "calls_total": 59,
+            "calls_in_window": 1,
+            "calls_per_second": 0.4859,
+            "avg_ms": 14.691,
+            "max_ms": 14.691,
+            "last_ms": 14.691,
+            "lifetime_avg_ms": 16.119,
+            "measurement_type": "model_invocation_wall_time",
+            "includes_child_stages": false
+          },
+          "scene_search.policy": {
+            "calls_total": 932,
+            "calls_in_window": 16,
+            "calls_per_second": 7.7742,
+            "avg_ms": 4.849,
+            "max_ms": 57.097,
+            "last_ms": 1.527,
+            "lifetime_avg_ms": 3.132,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "scene_search.scheduler_queue_wait": {
+            "calls_total": 59,
+            "calls_in_window": 1,
+            "calls_per_second": 0.4859,
+            "avg_ms": 0.214,
+            "max_ms": 0.214,
+            "last_ms": 0.214,
+            "lifetime_avg_ms": 0.25,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "tracking_geometry_and_ocr_submit": {
+            "calls_total": 933,
+            "calls_in_window": 16,
+            "calls_per_second": 7.7742,
+            "avg_ms": 0.202,
+            "max_ms": 0.371,
+            "last_ms": 0.303,
+            "lifetime_avg_ms": 0.159,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          }
+        },
+        "resources": {
+          "process": {
+            "scope": "shared_camera_group_process",
+            "pid": 52,
+            "shared_by_multiple_cameras": true,
+            "cpu_cores_used": 1.693,
+            "rss_mb": 2580.11,
+            "uss_mb": 2469.15,
+            "pss_mb": 2522.26,
+            "threads": 196
+          },
+          "accelerators": {
+            "GPU": {
+              "scope": "camera_attributed_model_stages",
+              "attributed_stage_wall_ms_per_second": 172.641,
+              "model_calls_total": 1356,
+              "model_calls_in_window": 28
+            },
+            "NPU": {
+              "scope": "camera_attributed_model_stages",
+              "attributed_stage_wall_ms_per_second": 257.685,
+              "model_calls_total": 1464,
+              "model_calls_in_window": 34
+            }
+          }
+        },
+        "device_placement": {
+          "anpr_ocr": "MULTI:GPU,NPU/DLStreamer",
+          "anpr_plate_detection": "NPU/DLStreamer",
+          "body_embedding": "NPU/DLStreamer",
+          "decode": "GPU/VAAPI-DLStreamer",
+          "face_detection": "GPU",
+          "face_embedding": "NPU",
+          "face_pose": "NPU",
+          "fire_smoke_detection": "GPU/DLStreamer-OpenCV-BGR",
+          "gait_embedding": "NPU/DLStreamer",
+          "object_tracking": "CPU/gvatrack",
+          "scene_embedding": "GPU/DLStreamer",
+          "vehicle_person_detection": "GPU/DLStreamer-VA"
+        },
+        "timestamp_source": "source_pts",
+        "resolved_policy": {
+          "schema_version": "1.1",
+          "camera_id": "capacity-02",
+          "policy_revision": 5,
+          "changed_at": "2026-11-05T01:01:53.386570Z",
+          "bounded_adaptation": true,
+          "modes": {
+            "tracking": "tolerant_collection",
+            "presence": "tolerant_collection",
+            "zone": "tolerant_collection",
+            "count": "tolerant_collection",
+            "anpr": "tolerant_collection",
+            "identity": "tolerant_collection",
+            "fire_smoke": "balanced"
+          },
+          "object_modes": {
+            "zone": {
+              "person": "tolerant_collection",
+              "vehicle": "tolerant_collection"
+            },
+            "count": {
+              "person": "tolerant_collection",
+              "vehicle": "tolerant_collection"
+            },
+            "presence": {
+              "person": "tolerant_collection",
+              "vehicle": "tolerant_collection"
+            }
+          },
+          "decision_reasons": {
+            "tracking": [
+              "frequent_track_fragmentation"
+            ],
+            "presence": [
+              "frequent_track_fragmentation"
+            ],
+            "zone": [
+              "frequent_track_fragmentation"
+            ],
+            "count": [
+              "frequent_track_fragmentation"
+            ],
+            "zone_person": [
+              "distant_objects",
+              "frequent_track_fragmentation"
+            ],
+            "zone_vehicle": [
+              "frequent_track_fragmentation"
+            ],
+            "count_person": [
+              "distant_objects",
+              "frequent_track_fragmentation"
+            ],
+            "count_vehicle": [
+              "frequent_track_fragmentation"
+            ],
+            "presence_person": [
+              "distant_objects",
+              "frequent_track_fragmentation"
+            ],
+            "presence_vehicle": [
+              "frequent_track_fragmentation"
+            ],
+            "anpr": [
+              "plate_observations_need_longer_collection"
+            ],
+            "identity": [
+              "identity_view_needs_longer_selection"
+            ],
+            "fire_smoke": [
+              "normal_scene_visibility"
+            ]
+          },
+          "measurements": {
+            "frames_observed": 925,
+            "observed_processing_fps": 8.001,
+            "target_processing_fps": 8.0,
+            "frames_with_objects_ratio": 0.9438,
+            "median_object_scale": 0.10545,
+            "median_person_scale": 0.06954,
+            "median_vehicle_scale": 0.33928,
+            "median_person_width_ratio": 0.03281,
+            "median_person_height_ratio": 0.14907,
+            "median_vehicle_width_ratio": 0.30885,
+            "median_vehicle_height_ratio": 0.36111,
+            "real_detection_dropout_ratio": 0.0,
+            "median_frame_sharpness": 2852.343,
+            "median_exposure_quality": 0.8489,
+            "median_plate_width_px": 20.0,
+            "median_plate_height_px": 12.0,
+            "median_plate_width_ratio": 0.010417,
+            "median_plate_sharpness": 634.665,
+            "median_ocr_confidence": 0.4826,
+            "ocr_text_stability_ratio": 0.1379,
+            "anpr_unreadable_ratio": 0.7333,
+            "median_face_width_px": 53.0,
+            "median_face_width_ratio": 0.027604,
+            "median_face_quality": 0.6091,
+            "median_face_pose_quality": 0.9455,
+            "face_detection_success_ratio": 0.0,
+            "track_fragmentations_last_60s": 106,
+            "outbox_pressure_ratio": 0.0,
+            "model_queue_wait_seconds": 0.0
+          },
+          "tracking": {
+            "mode": "tolerant_collection",
+            "max_distance_px": 320.0,
+            "max_disappeared_seconds": 9.0
+          },
+          "presence": {
+            "mode": "tolerant_collection",
+            "stable_hits": 4,
+            "unobserved_after_seconds": 5.0,
+            "ended_unknown_after_seconds": 20.0
+          },
+          "zone": {
+            "mode": "tolerant_collection",
+            "boundary_margin": 0.018,
+            "transition_votes": 4,
+            "transition_hold_seconds": 0.8
+          },
+          "count": {
+            "mode": "tolerant_collection",
+            "debounce_observations": 4,
+            "debounce_seconds": 0.8,
+            "heartbeat_seconds": 20.0
+          },
+          "anpr": {
+            "mode": "tolerant_collection",
+            "candidate_window_seconds": 3.5,
+            "ocr_emit_min_confidence": 0.35,
+            "confirm_min_reads": 2,
+            "min_plate_width_px": 16.0,
+            "min_plate_height_px": 5.0,
+            "min_sharpness": 5.0,
+            "single_read_confidence": 0.82
+          },
+          "identity": {
+            "mode": "tolerant_collection",
+            "face_min_quality": 0.3,
+            "face_emit_min_width_px": 28.0,
+            "face_selection_window_seconds": 2.5,
+            "body_quality_floor": 0.2,
+            "body_min_width_px": 28.0,
+            "body_min_height_px": 56.0,
+            "gait_min_silhouettes": 24,
+            "feature_cooldown_seconds": 5.0
+          },
+          "fire_smoke": {
+            "mode": "balanced",
+            "event_min_confidence": 0.65,
+            "positive_confirmations": 5,
+            "positive_window_seconds": 3.0,
+            "clear_seconds": 10.0,
+            "clear_confirmations": 5,
+            "clear_max_evaluation_gap_seconds": 2.5
+          },
+          "object_profiles": {
+            "person": {
+              "zone": {
+                "mode": "tolerant_collection",
+                "boundary_margin": 0.018,
+                "transition_votes": 4,
+                "transition_hold_seconds": 0.8
+              },
+              "count": {
+                "mode": "tolerant_collection",
+                "debounce_observations": 4,
+                "debounce_seconds": 0.8,
+                "heartbeat_seconds": 20.0
+              },
+              "presence": {
+                "mode": "tolerant_collection",
+                "stable_hits": 4,
+                "unobserved_after_seconds": 5.0,
+                "ended_unknown_after_seconds": 20.0
+              }
+            },
+            "vehicle": {
+              "zone": {
+                "mode": "tolerant_collection",
+                "boundary_margin": 0.018,
+                "transition_votes": 4,
+                "transition_hold_seconds": 0.8
+              },
+              "count": {
+                "mode": "tolerant_collection",
+                "debounce_observations": 4,
+                "debounce_seconds": 0.8,
+                "heartbeat_seconds": 20.0
+              },
+              "presence": {
+                "mode": "tolerant_collection",
+                "stable_hits": 4,
+                "unobserved_after_seconds": 5.0,
+                "ended_unknown_after_seconds": 20.0
+              }
+            }
+          },
+          "pressure": {
+            "mode": "normal",
+            "outbox_ratio": 0.0,
+            "model_queue_wait_seconds": 0.0
+          },
+          "scene": {
+            "interval_source": "desired_state",
+            "pressure_interval_multiplier": 1.0,
+            "optional_sampling_allowed": true,
+            "event_trigger_cooldown_seconds": 1.0,
+            "outbox_pressure_limit_bytes": 134217728
+          }
+        },
+        "sample_age_seconds": 0.369,
+        "fresh": true,
+        "camera_health": {
+          "state": "healthy",
+          "reason": "none",
+          "last_reliable_at": "2026-11-05T01:02:53.513359Z",
+          "as_of": "2026-11-05T01:02:53.513359Z",
+          "retrying": false
+        },
+        "decoder": {
+          "state": "healthy",
+          "reason": "none",
+          "retrying": false,
+          "stream_session_id": "e8f4987e-048a-4aa5-88f7-7bb1ba9a8482",
+          "camera_process_pid": 52,
+          "decoder_pid": null,
+          "last_frame_at": "2026-11-05T01:03:11.672308Z",
+          "last_frame_age_seconds": 1.15,
+          "reconnects": 0,
+          "decoder_errors": 0,
+          "decoder_starts": 1,
+          "last_ffmpeg_exit_code": null,
+          "retry_reason": null,
+          "retry_backoff_seconds": 0.0,
+          "sanitized_stderr": null,
+          "status_sample_age_seconds": 1.056
+        }
+      }
+    ],
+    "runtime_processes": {
+      "unique_camera_processes": 1,
+      "camera_process_cpu_cores_sum": 1.693,
+      "camera_process_rss_mb_sum": 2580.11,
+      "camera_process_pss_mb_sum": 2522.26,
+      "rss_sum_note": "Each process PID is counted once; RSS still includes shared pages, so use container_cgroup memory for pod consumption"
+    },
+    "system": {
+      "schema_version": "1.0",
+      "message_type": "system_health",
+      "observed_at": "2026-11-05T01:03:12.250116+00:00",
+      "host": {
+        "ram_used_mb": 4571.2,
+        "ram_total_mb": 31575.6,
+        "ram_pct": 14.5,
+        "cpu_pct": 12.4,
+        "swap_pct": 0.0
+      },
+      "worker": {
+        "rss_mb": 224.0,
+        "threads": 9,
+        "open_fds": 12
+      },
+      "container_cgroup": {
+        "scope": "container_cgroup",
+        "measurement_status": "measured",
+        "cpu_cores_used": 1.752,
+        "cpu_capacity_cores": 16.0,
+        "cpu_limit_cores": null,
+        "cpu_capacity_utilization_pct": 10.95,
+        "memory_current_mb": 3194.11,
+        "memory_limit_mb": null,
+        "memory_limit_utilization_pct": null,
+        "pids_current": 209
+      },
+      "accelerators": {
+        "GPU": {
+          "scope": "node_device",
+          "hardware_utilization_pct": 73.22,
+          "hardware_measurement_status": "measured",
+          "utilization_counter": "/sys/class/drm/card1/device/drm/card1/gt/gt1/rc6_residency_ms",
+          "utilization_semantics": "non_rc6_active_residency; node-wide GT activity, not per-process engine busy",
+          "current_frequency_mhz": 2350.0,
+          "max_frequency_mhz": 2350.0
+        },
+        "NPU": {
+          "scope": "node_device",
+          "hardware_utilization_pct": 31.2,
+          "hardware_measurement_status": "measured",
+          "busy_counter": "/sys/class/accel/accel0/device/npu_busy_time_us",
+          "memory_used_bytes": 295337984,
+          "current_frequency_mhz": 0.0,
+          "max_frequency_mhz": 1600.0
+        }
+      },
+      "decode": {
+        "backend": "vaapi",
+        "device": "/dev/dri/renderD128",
+        "available": true
+      },
+      "inference": {
+        "backend": "openvino",
+        "device": "CPU,GPU,NPU",
+        "available": true,
+        "models_loaded": [
+          "anpr_ocr",
+          "anpr_plate_detection",
+          "body_embedding",
+          "face_detection",
+          "face_embedding",
+          "face_pose",
+          "fire_smoke_detection",
+          "gait_embedding",
+          "object_tracking",
+          "scene_embedding",
+          "vehicle_person_detection"
+        ],
+        "models_loaded_scope": "active_camera_pipeline_stages"
+      },
+      "sample_age_seconds": 0.572,
+      "fresh": true
+    },
+    "handoff_scheduler": {
+      "schema_version": "1.0",
+      "scope": "cv_handoff_scheduler",
+      "observed_at": 1793840592.656977,
+      "socket_path": "/run/sentinel-delivery/agent.sock",
+      "retained_packages": 0,
+      "retained_bytes": 0,
+      "replaceable_packages": 0,
+      "replaceable_bytes": 0,
+      "maximum_retained_packages": 8,
+      "maximum_retained_bytes": 268435456,
+      "maximum_in_flight": 4,
+      "counters": {
+        "admitted": 1722,
+        "durable": 1722,
+        "duplicate": 0,
+        "backpressure": 11,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "last_error": null,
+      "scheduler_running": true
+    },
+    "accelerators": {
+      "GPU": {
+        "scope": "node_device",
+        "hardware_utilization_pct": 73.22,
+        "hardware_measurement_status": "measured",
+        "utilization_counter": "/sys/class/drm/card1/device/drm/card1/gt/gt1/rc6_residency_ms",
+        "utilization_semantics": "non_rc6_active_residency; node-wide GT activity, not per-process engine busy",
+        "current_frequency_mhz": 2350.0,
+        "max_frequency_mhz": 2350.0,
+        "attributed_stage_wall_ms_per_second": 395.111,
+        "attributed_model_calls_in_window": 58
+      },
+      "NPU": {
+        "scope": "node_device",
+        "hardware_utilization_pct": 31.2,
+        "hardware_measurement_status": "measured",
+        "busy_counter": "/sys/class/accel/accel0/device/npu_busy_time_us",
+        "memory_used_bytes": 295337984,
+        "current_frequency_mhz": 0.0,
+        "max_frequency_mhz": 1600.0,
+        "attributed_stage_wall_ms_per_second": 545.636,
+        "attributed_model_calls_in_window": 69
+      }
+    },
+    "measurement_notes": {
+      "fps": "rates over the latest completed telemetry window",
+      "processing_latency": "wall time inside the named edge stage",
+      "event_production_latency": "source observed_at to CV handoff admission; durable package status is owned by the delivery agent",
+      "accelerator_attributed_wall": "camera-attributed model-call wall time, not utilization",
+      "hardware_utilization": "node-device counter; null when no supported busy counter is available",
+      "cpu": "camera process CPU is cores used; container usage is under system.container_cgroup",
+      "stage_latency": "parent spans marked includes_child_stages must not be summed with children"
+    }
+  }
+}

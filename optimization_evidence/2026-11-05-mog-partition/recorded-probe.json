@@ -1,0 +1,74 @@
+{
+  "scope": "MOG2 CPU per-call feasibility only; no inference or camera-capacity claim",
+  "opencv": "4.14.0",
+  "opencv_threads": 1,
+  "workers": 4,
+  "input": "/crowd.mp4",
+  "cases": [
+    {
+      "width": 1280,
+      "height": 720,
+      "frames": 120,
+      "failures": [],
+      "timing_ms": {
+        "native": {
+          "median": 18.006903119385242,
+          "p95": 20.031507441308346
+        },
+        "partitioned": {
+          "median": 6.554575054906309,
+          "p95": 7.408401544671506
+        }
+      }
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "frames": 120,
+      "failures": [],
+      "timing_ms": {
+        "native": {
+          "median": 38.880891050212085,
+          "p95": 41.429156018421054
+        },
+        "partitioned": {
+          "median": 14.47635143995285,
+          "p95": 16.376980778295547
+        }
+      }
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "frames": 120,
+      "failures": [],
+      "timing_ms": {
+        "native": {
+          "median": 66.59021298401058,
+          "p95": 70.65577557077631
+        },
+        "partitioned": {
+          "median": 24.04842898249626,
+          "p95": 25.998104666359723
+        }
+      }
+    },
+    {
+      "width": 197,
+      "height": 123,
+      "frames": 120,
+      "failures": [],
+      "timing_ms": {
+        "native": {
+          "median": 0.6161059718579054,
+          "p95": 1.0170043096877635
+        },
+        "partitioned": {
+          "median": 0.5506500601768494,
+          "p95": 0.9243359672836957
+        }
+      }
+    }
+  ],
+  "passed": true
+}

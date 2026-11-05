@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/tools/analyze_markers.py", line 76, in <module>
+    if __name__=='__main__':print(json.dumps(analyze(Path(sys.argv[1]),Path(sys.argv[2])),indent=2))
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tools/analyze_markers.py", line 34, in analyze
+    report=json.loads((case/'report.json').read_text());samples=[s for s in report['samples']if s.get('sample_phase')=='steady'];start=samples[0]['sample_monotonic_seconds'];end=samples[-1]['sample_monotonic_seconds']
+                                                                                                                                       ~~~~~~~^^^
+IndexError: list index out of range

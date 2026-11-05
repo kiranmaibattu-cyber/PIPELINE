@@ -1,0 +1,42 @@
+{
+  "scope": "Actual baked formatters with synthetic input; a failure is potential leakage, not evidence of real credentials leaked",
+  "cases": [
+    {
+      "logger": "supervisor",
+      "variant": "message",
+      "passed": true,
+      "rendered": "{\"timestamp\":\"2026-11-05T00:09:36.304185Z\",\"level\":\"WARNING\",\"logger\":\"qualification\",\"message\":\"<redacted-url> token=<redacted>\",\"pid\":1,\"camera_id\":null,\"stream_session_id\":null,\"event\":\"log_message\"}"
+    },
+    {
+      "logger": "supervisor",
+      "variant": "string-extra",
+      "passed": true,
+      "rendered": "{\"timestamp\":\"2026-11-05T00:09:36.304288Z\",\"level\":\"WARNING\",\"logger\":\"qualification\",\"message\":\"test diagnostic\",\"pid\":1,\"camera_id\":null,\"stream_session_id\":null,\"event\":\"log_message\",\"reason\":\"<redacted-url> token=<redacted>\"}"
+    },
+    {
+      "logger": "supervisor",
+      "variant": "nested-extra",
+      "passed": true,
+      "rendered": "{\"timestamp\":\"2026-11-05T00:09:36.304334Z\",\"level\":\"WARNING\",\"logger\":\"qualification\",\"message\":\"test diagnostic\",\"pid\":1,\"camera_id\":null,\"stream_session_id\":null,\"event\":\"log_message\"}"
+    },
+    {
+      "logger": "worker",
+      "variant": "message",
+      "passed": true,
+      "rendered": "{\"timestamp\":\"2026-11-05T00:09:36.304366Z\",\"level\":\"WARNING\",\"logger\":\"qualification\",\"message\":\"<redacted-url> token=<redacted>\",\"pid\":1,\"camera_id\":null,\"stream_session_id\":null,\"event\":\"log_message\"}"
+    },
+    {
+      "logger": "worker",
+      "variant": "string-extra",
+      "passed": true,
+      "rendered": "{\"timestamp\":\"2026-11-05T00:09:36.304402Z\",\"level\":\"WARNING\",\"logger\":\"qualification\",\"message\":\"test diagnostic\",\"pid\":1,\"camera_id\":null,\"stream_session_id\":null,\"event\":\"log_message\",\"reason\":\"<redacted-url> token=<redacted>\"}"
+    },
+    {
+      "logger": "worker",
+      "variant": "nested-extra",
+      "passed": false,
+      "rendered": "{\"timestamp\":\"2026-11-05T00:09:36.304438Z\",\"level\":\"WARNING\",\"logger\":\"qualification\",\"message\":\"test diagnostic\",\"pid\":1,\"camera_id\":null,\"stream_session_id\":null,\"event\":\"log_message\",\"diagnostic\":{\"source\":\"rtsps://dummyuser:QUALIFICATION_PASSWORD@localhost:443/test token=QUALIFICATION_TOKEN\",\"token\":\"QUALIFICATION_TOKEN\"}}"
+    }
+  ],
+  "passed": false
+}

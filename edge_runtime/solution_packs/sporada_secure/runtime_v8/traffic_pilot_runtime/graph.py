@@ -55,6 +55,7 @@ NODE_CATALOG = {
 @dataclass(frozen=True)
 class CameraGraph:
     camera_id: str
+    fps: float
     apps: tuple[str, ...]
     nodes: tuple[dict[str, Any], ...]
     edges: tuple[dict[str, str], ...]
@@ -207,6 +208,7 @@ def _camera_graph(camera: DesiredCamera) -> CameraGraph:
     edge_ids = tuple(_dedupe(edge_ids))
     return CameraGraph(
         camera_id=camera.camera_id,
+        fps=camera.fps,
         apps=camera.apps,
         nodes=tuple(_node_payload(node_id, devices) for node_id in node_ids),
         edges=tuple(_edge_payload(source, target) for source, target in edge_ids),

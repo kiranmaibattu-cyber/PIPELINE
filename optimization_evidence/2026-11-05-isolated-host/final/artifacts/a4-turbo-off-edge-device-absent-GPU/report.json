@@ -1,0 +1,109 @@
+{
+  "image": "localhost/sentry-v8-opt79-shared-gait-background",
+  "camera_count": 1,
+  "fps_per_camera": 8,
+  "fps_explicit_in_desired_state": true,
+  "source_urls": [
+    "tcp://127.0.0.1:19001"
+  ],
+  "source_reuse": false,
+  "source_mode": "local_independent_tcp_replays",
+  "motion_gate_enabled": true,
+  "full_usecases": true,
+  "steady_throughput": {
+    "passed": false,
+    "per_camera": {},
+    "duration_seconds": 0.0
+  },
+  "capacity_qualified": false,
+  "test_scope": "capacity",
+  "end_health": {
+    "ready": false,
+    "worker_running": false,
+    "camera_records": 0,
+    "camera_states": {},
+    "cameras_with_recent_frames": 0,
+    "target_decode_fps": 8.0,
+    "aggregate_decode_fps": 0,
+    "decode_target_ratio": 0.0,
+    "aggregate_inference_fps": 0,
+    "per_camera": {},
+    "unique_camera_processes": 0,
+    "camera_process_rss_mb": 0.0,
+    "camera_process_pss_mb": 0.0,
+    "container_memory_mb": 442.96,
+    "container_cpu_cores": 0.005,
+    "container_pids": 52,
+    "gpu_utilization_pct": 0.12,
+    "npu_utilization_pct": 0.0,
+    "handoff": {
+      "admitted": 0,
+      "durable": 0,
+      "duplicate": 0,
+      "backpressure": 0,
+      "coalesced": 0,
+      "exhausted": 0,
+      "protocol_errors": 0
+    }
+  },
+  "startup_seconds": null,
+  "steady_seconds": 35,
+  "minimum_required_decode_ratio": 0.9,
+  "required_final_stable_samples": 3,
+  "minimum_observed_decode_ratio": 0.0,
+  "passed": false,
+  "fatal_lines": [
+    "{\"timestamp\":\"2026-11-05T00:09:46.772542Z\",\"level\":\"WARNING\",\"logger\":\"pipeline.dls_secondary\",\"message\":\"DL Streamer secondary job completed\",\"pid\":50,\"camera_id\":\"capacity-01\",\"stream_session_id\":null,\"event\":\"dls_secondary_job\",\"model_name\":\"scene-siglip\",\"job_sequence\":0,\"lane\":0,\"queue_wait_ms\":0.127,\"executor_wall_ms\":194.767,\"successful\":false,\"error_type\":\"RuntimeError\"}",
+    "{\"timestamp\":\"2026-11-05T00:09:46.772846Z\",\"level\":\"ERROR\",\"logger\":\"stream_fleet_openvino\",\"message\":\"camera thread failed inside shared DL Streamer group\",\"pid\":50,\"camera_id\":\"capacity-01\",\"stream_session_id\":\"5663f4f9-7cad-4a13-bc1d-5a5b46223998\",\"event\":\"camera_thread_unhandled_exception\",\"exception_type\":\"RuntimeError\",\"dlstreamer_group\":0,\"exception\":\"Traceback (most recent call last):\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 1006, in run_camera_thread\\n    _camera_proc_impl(\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 402, in _camera_proc_impl\\n    return run_surface_camera(\\n           ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/surface_stream.py\\\", line 809, in run_surface_camera\\n    scene_extractor.warmup()\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/dls_secondary.py\\\", line 580, in warmup\\n    self.embed(np.zeros((224, 224, 3), np.uint8))\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/dls_secondary.py\\\", line 585, in embed\\n    vector = normalize_scene_embedding(self.engine.infer(resized))\\n                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/dls_secondary.py\\\", line 376, in infer\\n    result = self._engine.infer(image, owner_id=self._owner_id)\\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/dls_secondary.py\\\", line 162, in infer\\n    return self.wait(self.submit(image, owner_id=owner_id))\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/dls_secondary.py\\\", line 193, in wait\\n    raise job.error\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/dls_secondary.py\\\", line 228, in _run\\n    result = self._infer_direct(job.image, lane=lane, sequence=job_sequence)\\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/dls_secondary.py\\\", line 291, in _infer_direct\\n    raise RuntimeError(\\nRuntimeError: DL Streamer secondary inference failed: base_inference plugin initialization failed\"}",
+    "{\"timestamp\":\"2026-11-05T00:10:03.574294Z\",\"level\":\"WARNING\",\"logger\":\"pipeline.dls_secondary\",\"message\":\"DL Streamer secondary job completed\",\"pid\":279,\"camera_id\":\"capacity-01\",\"stream_session_id\":null,\"event\":\"dls_secondary_job\",\"model_name\":\"scene-siglip\",\"job_sequence\":0,\"lane\":0,\"queue_wait_ms\":0.112,\"executor_wall_ms\":184.842,\"successful\":false,\"error_type\":\"RuntimeError\"}",
+    "{\"timestamp\":\"2026-11-05T00:10:03.574567Z\",\"level\":\"ERROR\",\"logger\":\"stream_fleet_openvino\",\"message\":\"camera thread failed inside shared DL Streamer group\",\"pid\":279,\"camera_id\":\"capacity-01\",\"stream_session_id\":\"a8bcae11-4a63-47c8-a37e-cc705ab2693d\",\"event\":\"camera_thread_unhandled_exception\",\"exception_type\":\"RuntimeError\",\"dlstreamer_group\":0,\"exception\":\"Traceback (most recent call last):\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 1006, in run_camera_thread\\n    _camera_proc_impl(\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 402, in _camera_proc_impl\\n    return run_surface_camera(\\n           ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/surface_stream.py\\\", line 809, in run_surface_camera\\n    scene_extractor.warmup()\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/dls_secondary.py\\\", line 580, in warmup\\n    self.embed(np.zeros((224, 224, 3), np.uint8))\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/dls_secondary.py\\\", line 585, in embed\\n    vector = normalize_scene_embedding(self.engine.infer(resized))\\n                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/dls_secondary.py\\\", line 376, in infer\\n    result = self._engine.infer(image, owner_id=self._owner_id)\\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/dls_secondary.py\\\", line 162, in infer\\n    return self.wait(self.submit(image, owner_id=owner_id))\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/dls_secondary.py\\\", line 193, in wait\\n    raise job.error\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/dls_secondary.py\\\", line 228, in _run\\n    result = self._infer_direct(job.image, lane=lane, sequence=job_sequence)\\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/dls_secondary.py\\\", line 291, in _infer_direct\\n    raise RuntimeError(\\nRuntimeError: DL Streamer secondary inference failed: base_inference plugin initialization failed\"}"
+  ],
+  "final": {
+    "ready": false,
+    "worker_running": false,
+    "camera_records": 0,
+    "camera_states": {},
+    "cameras_with_recent_frames": 0,
+    "target_decode_fps": 8.0,
+    "aggregate_decode_fps": 0,
+    "decode_target_ratio": 0.0,
+    "aggregate_inference_fps": 0,
+    "per_camera": {},
+    "unique_camera_processes": 0,
+    "camera_process_rss_mb": 0.0,
+    "camera_process_pss_mb": 0.0,
+    "container_memory_mb": 442.96,
+    "container_cpu_cores": 0.005,
+    "container_pids": 52,
+    "gpu_utilization_pct": 0.12,
+    "npu_utilization_pct": 0.0,
+    "handoff": {
+      "admitted": 0,
+      "durable": 0,
+      "duplicate": 0,
+      "backpressure": 0,
+      "coalesced": 0,
+      "exhausted": 0,
+      "protocol_errors": 0
+    }
+  },
+  "samples": [],
+  "isolation": {
+    "requested": false,
+    "camera_number": null,
+    "target_interrupted": null,
+    "peers_healthy": null,
+    "target_recovered": null,
+    "passed": true,
+    "samples": []
+  },
+  "package_summary": {
+    "package_count": 0,
+    "event_types": {},
+    "evidence_objects": 0,
+    "embedding_objects": 0,
+    "embedding_profiles": {}
+  },
+  "full_usecases_minimum_outputs_passed": false,
+  "artifact_directory": "/tmp/sentry-v8-capacity-1.nyofc9aa"
+}

@@ -7,7 +7,7 @@ cd "$ROOT"
 command -v podman >/dev/null 2>&1 || { echo "ERROR: Podman is required" >&2; exit 1; }
 
 BASE_TAG="${INTEL_TRAFFIC_V4_BASE_TAG:-localhost/apexfabric-intel-traffic-runtime-base:intel-285h-2026.09.18-v2}"
-IMAGE_VERSION="${SENTINEL_IMAGE_VERSION:-2026.11.02-v8-dev3}"
+IMAGE_VERSION="${SENTINEL_IMAGE_VERSION:-2026.11.05-v8-qaft-int8-model-candidate}"
 IMAGE_REPOSITORY="${SENTINEL_IMAGE_REPOSITORY:-ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime}"
 IMAGE_TAG="${IMAGE_REPOSITORY}:intel-285h-${IMAGE_VERSION}"
 

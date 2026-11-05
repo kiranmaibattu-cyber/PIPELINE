@@ -541,7 +541,8 @@ class FaceSamplePipeline:
         )))
 
     def process(self, packet, people: list) -> list[Any]:
-        if packet.index % self.interval:
+        metadata_driven = bool(getattr(self.extractor, "metadata_driven", False))
+        if not metadata_driven and packet.index % self.interval:
             packet.analytics_state["adaptive_face_observation"] = {"evaluated": False}
             return []
         now = time.time()
@@ -569,7 +570,11 @@ class FaceSamplePipeline:
             track_id = int(person.metadata["track_id"])
             face = faces_by_track.get(track_id)
             if face is None:
-                self.adaptive_scheduler.observe(track_id, now, None)
+                # In a DL Streamer cascade an admitted primary frame may fall
+                # between face-inference intervals.  That is not a failed face
+                # observation and must not back off the adaptive search state.
+                if not metadata_driven or bool(getattr(self.extractor, "evaluated", True)):
+                    self.adaptive_scheduler.observe(track_id, now, None)
                 continue
             if face.quality < self.min_quality:
                 self.metrics.suppressed("quality")
@@ -619,7 +624,10 @@ class FaceSamplePipeline:
                 self.metrics.suppressed("duplicate")
 
         packet.analytics_state["adaptive_face_observation"] = {
-            "evaluated": True,
+            "evaluated": (
+                bool(getattr(self.extractor, "evaluated", True))
+                if metadata_driven else True
+            ),
             "eligible_tracks": len(eligible),
             "due_tracks": len(due),
             "detected_faces": len(faces),

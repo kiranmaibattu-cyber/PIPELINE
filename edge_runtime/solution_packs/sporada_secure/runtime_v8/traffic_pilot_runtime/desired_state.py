@@ -12,7 +12,7 @@ CONTRACT = "sentry-v8"
 SCHEMA_VERSION = "8.0"
 SOLUTION_PACK = "sentinel-cv-runtime"
 MAX_CAMERAS = 50
-MAX_AGGREGATE_FPS = 64.0
+DEFAULT_CAMERA_FPS = 8.0
 STREAM_SCHEMES = ("rtsp://", "rtsps://", "http://", "https://", "tcp://")
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "image_schema" / "desired-state.schema.json"
 LINE_APPS = {"vehicle_entry_exit_counts", "people_entry_exit_counts", "line_crossing"}
@@ -72,12 +72,6 @@ class DesiredStateValidator:
             raise ValueError(f"desired state supports at most {MAX_CAMERAS} cameras")
         if data["edge_id"] != data["deployment_id"]:
             raise ValueError("edge_id must equal deployment_id")
-        aggregate_fps = sum(float(camera["fps"]) for camera in data["cameras"])
-        if aggregate_fps > MAX_AGGREGATE_FPS:
-            raise ValueError(
-                f"desired state aggregate FPS {aggregate_fps:g} exceeds "
-                f"{MAX_AGGREGATE_FPS:g}"
-            )
         camera_ids: set[str] = set()
         all_use_cases: set[str] = set()
         for camera in data["cameras"]:
@@ -137,7 +131,9 @@ class DesiredStateValidator:
             apps.add("scene_embeddings")
         return DesiredCamera(
             camera_id=item["camera_id"], name=item["camera_id"],
-            source=item["source"], fps=float(item["fps"]), apps=tuple(sorted(apps)),
+            source=item["source"],
+            fps=float(item.get("fps", DEFAULT_CAMERA_FPS)),
+            apps=tuple(sorted(apps)),
             config={"v8": {"deployment_id": root["deployment_id"],
                            "config_revision": root["revision"],
                            "bindings": bindings, "geometry": item.get("geometry") or {}}},

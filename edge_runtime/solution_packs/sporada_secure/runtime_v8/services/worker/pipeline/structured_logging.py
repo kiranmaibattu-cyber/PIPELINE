@@ -10,9 +10,7 @@ import threading
 from typing import Any
 
 
-_context_lock = threading.Lock()
-_camera_id: str | None = None
-_stream_session_id: str | None = None
+_context = threading.local()
 
 _URL = re.compile(r"(?i)\b(?:rtsp|rtsps|rtmp|rtmps|http|https|tcp)://[^\s\"']+")
 _BEARER = re.compile(r"(?i)(authorization\s*[:=]\s*bearer\s+)[^\s,;]+")
@@ -33,16 +31,17 @@ def sanitize_text(value: Any, *, limit: int = 4096) -> str:
 def set_log_context(
     camera_id: str | None = None, stream_session_id: str | None = None
 ) -> None:
-    global _camera_id, _stream_session_id
-    with _context_lock:
-        _camera_id = str(camera_id) if camera_id else None
-        _stream_session_id = str(stream_session_id) if stream_session_id else None
+    # Camera workers may share one process when DL Streamer model instances are
+    # shared.  Keep context thread-local so one camera cannot overwrite the
+    # camera/session fields attached to another camera's records.
+    _context.camera_id = str(camera_id) if camera_id else None
+    _context.stream_session_id = (
+        str(stream_session_id) if stream_session_id else None
+    )
 
 
 def set_stream_session_id(value: str | None) -> None:
-    global _stream_session_id
-    with _context_lock:
-        _stream_session_id = str(value) if value else None
+    _context.stream_session_id = str(value) if value else None
 
 
 class JsonLogFormatter(logging.Formatter):
@@ -56,9 +55,8 @@ class JsonLogFormatter(logging.Formatter):
     )
 
     def format(self, record: logging.LogRecord) -> str:
-        with _context_lock:
-            camera_context = _camera_id
-            session_context = _stream_session_id
+        camera_context = getattr(_context, "camera_id", None)
+        session_context = getattr(_context, "stream_session_id", None)
         payload: dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "level": record.levelname,

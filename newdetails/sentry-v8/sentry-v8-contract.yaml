@@ -480,7 +480,13 @@ retention:
     admission: sum_of_deployment_caps_plus_20_percent_headroom_plus_20_GiB_free_reserve
     continuousGuard: kubelet_DiskPressure_and_15_percent_nodefs_and_imagefs_eviction_thresholds
     configuredMaximumCameras: 50
-    configuredMaximumAggregateFPS: 64
+    configuredFPS:
+      source: desired_state_camera_fps
+      defaultPerCamera: 8
+      aggregateFormula: sum_of_effective_camera_fps
+      fixedAggregateMaximum: null
+      admission: camera_count_and_per_camera_schema_validation_only
+      capacityResponse: report_resolved_aggregate_fps_and_runtime_pressure_in_health_without_silently_changing_requested_fps
   controlPlane:
     scope: one_site_control_plane_evidence_store_shared_by_its_deployments
     maximumBytes: 16106127360

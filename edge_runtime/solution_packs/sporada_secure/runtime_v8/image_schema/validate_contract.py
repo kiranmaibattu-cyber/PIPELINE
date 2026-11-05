@@ -38,6 +38,14 @@ check(schemas["desired-state.schema.json"], desired)
 assert desired["contract"] == "sentry-v8"
 assert desired["schema_version"] == "8.0"
 assert desired["edge_id"] == desired["deployment_id"]
+desired_without_fps = copy.deepcopy(desired)
+desired_without_fps["cameras"][0].pop("fps")
+check(schemas["desired-state.schema.json"], desired_without_fps)
+assert schemas["desired-state.schema.json"]["$defs"]["camera"]["properties"]["fps"]["default"] == 8
+configured_fps = contract["retention"]["physicalBox"]["configuredFPS"]
+assert configured_fps["defaultPerCamera"] == 8
+assert configured_fps["aggregateFormula"] == "sum_of_effective_camera_fps"
+assert configured_fps["fixedAggregateMaximum"] is None
 
 events = read_json("observation-examples.json")
 for event in events:

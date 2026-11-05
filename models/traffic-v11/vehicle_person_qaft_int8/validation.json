@@ -1,0 +1,906 @@
+{
+  "time": "2026-11-04T19:32:41.479506+00:00",
+  "passed": true,
+  "conversion_acceptance_max_absolute_ap_drop": 0.01,
+  "mixed_test": {
+    "dataset": "D:\\TRAINING\\vehicle_person_finetune\\datasets\\3a746aba85c6faee",
+    "reports": {
+      "openvino_int8": {
+        "images": 340,
+        "metrics": {
+          "metrics/precision(B)": 0.9430816489155225,
+          "metrics/recall(B)": 0.9259839346021103,
+          "metrics/mAP50(B)": 0.9680572214282418,
+          "metrics/mAP50-95(B)": 0.9552889946595583,
+          "fitness": 0.9552889946595583
+        },
+        "per_class": {
+          "bus": {
+            "objects": 4,
+            "supported": true,
+            "ap50": 0.995,
+            "ap50_95": 0.9949999999999999,
+            "precision": 0.8578637976099048,
+            "recall": 1.0
+          },
+          "car": {
+            "objects": 342,
+            "supported": true,
+            "ap50": 0.9919285915530057,
+            "ap50_95": 0.9886161388632775,
+            "precision": 0.9620115378114766,
+            "recall": 0.97953216374269
+          },
+          "minivan": {
+            "objects": 59,
+            "supported": true,
+            "ap50": 0.9879021307331167,
+            "ap50_95": 0.9879021307331166,
+            "precision": 1.0,
+            "recall": 0.93617804931252
+          },
+          "motorcycle": {
+            "objects": 470,
+            "supported": true,
+            "ap50": 0.9883782507380326,
+            "ap50_95": 0.9783733335032926,
+            "precision": 0.9419656286451088,
+            "recall": 0.966964296531399
+          },
+          "rickshaw": {
+            "objects": 131,
+            "supported": true,
+            "ap50": 0.9858529669300578,
+            "ap50_95": 0.9792301280578549,
+            "precision": 0.9401803309210356,
+            "recall": 0.9598223832773823
+          },
+          "truck": {
+            "objects": 36,
+            "supported": true,
+            "ap50": 0.9917948717948718,
+            "ap50_95": 0.9917948717948718,
+            "precision": 0.9481667295041731,
+            "recall": 0.9722222222222222
+          },
+          "bicycle": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "person": {
+            "objects": 88,
+            "supported": true,
+            "ap50": 0.8355437382486087,
+            "ap50_95": 0.7661063596644955,
+            "precision": 0.9513835179169592,
+            "recall": 0.6671684271285585
+          },
+          "others": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          }
+        }
+      },
+      "pytorch_int8_sim": {
+        "images": 340,
+        "metrics": {
+          "metrics/precision(B)": 0.9388086945463953,
+          "metrics/recall(B)": 0.9370388714212171,
+          "metrics/mAP50(B)": 0.9676443807425804,
+          "metrics/mAP50-95(B)": 0.9556236275242946,
+          "fitness": 0.9556236275242946
+        },
+        "per_class": {
+          "bus": {
+            "objects": 4,
+            "supported": true,
+            "ap50": 0.995,
+            "ap50_95": 0.9949999999999999,
+            "precision": 0.8389464288973654,
+            "recall": 1.0
+          },
+          "car": {
+            "objects": 342,
+            "supported": true,
+            "ap50": 0.9917940144303719,
+            "ap50_95": 0.9894147166761703,
+            "precision": 0.9611402304599334,
+            "recall": 0.97953216374269
+          },
+          "minivan": {
+            "objects": 59,
+            "supported": true,
+            "ap50": 0.9890523958063956,
+            "ap50_95": 0.9890523958063955,
+            "precision": 0.9802362652728989,
+            "recall": 0.9491525423728814
+          },
+          "motorcycle": {
+            "objects": 470,
+            "supported": true,
+            "ap50": 0.990146024515049,
+            "ap50_95": 0.9836334972366092,
+            "precision": 0.9465659045095606,
+            "recall": 0.9744680851063829
+          },
+          "rickshaw": {
+            "objects": 131,
+            "supported": true,
+            "ap50": 0.9860045872109754,
+            "ap50_95": 0.9826859276538737,
+            "precision": 0.934034733739239,
+            "recall": 0.9728033579554706
+          },
+          "truck": {
+            "objects": 36,
+            "supported": true,
+            "ap50": 0.9906756756756757,
+            "ap50_95": 0.9865124961372983,
+            "precision": 0.9729083992618482,
+            "recall": 0.9976107726883828
+          },
+          "bicycle": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "person": {
+            "objects": 88,
+            "supported": true,
+            "ap50": 0.8308379675595949,
+            "ap50_95": 0.7630663591597141,
+            "precision": 0.9378288996839219,
+            "recall": 0.6857051780827129
+          },
+          "others": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          }
+        }
+      }
+    },
+    "ap50_95_deltas_openvino_minus_sim": {
+      "bus": 0.0,
+      "car": -0.0007985778128928311,
+      "minivan": -0.0011502650732788666,
+      "motorcycle": -0.005260163733316614,
+      "rickshaw": -0.003455799596018827,
+      "truck": 0.0052823756575735015,
+      "person": 0.0030400005047813705
+    },
+    "inference_timings": [
+      {
+        "batch": 16,
+        "milliseconds": 113.03910007700324
+      },
+      {
+        "batch": 16,
+        "milliseconds": 124.45330014452338
+      },
+      {
+        "batch": 16,
+        "milliseconds": 117.9990996606648
+      },
+      {
+        "batch": 16,
+        "milliseconds": 148.21969997137785
+      },
+      {
+        "batch": 16,
+        "milliseconds": 126.84049969539046
+      },
+      {
+        "batch": 16,
+        "milliseconds": 140.72900032624602
+      },
+      {
+        "batch": 16,
+        "milliseconds": 112.69949981942773
+      },
+      {
+        "batch": 16,
+        "milliseconds": 116.36049998924136
+      },
+      {
+        "batch": 16,
+        "milliseconds": 115.9013002179563
+      },
+      {
+        "batch": 16,
+        "milliseconds": 113.77910012379289
+      },
+      {
+        "batch": 16,
+        "milliseconds": 112.39319993183017
+      },
+      {
+        "batch": 16,
+        "milliseconds": 128.25819989666343
+      },
+      {
+        "batch": 16,
+        "milliseconds": 121.08780024573207
+      },
+      {
+        "batch": 16,
+        "milliseconds": 117.11640004068613
+      },
+      {
+        "batch": 16,
+        "milliseconds": 123.85150045156479
+      },
+      {
+        "batch": 16,
+        "milliseconds": 114.7317998111248
+      },
+      {
+        "batch": 16,
+        "milliseconds": 119.77440025657415
+      },
+      {
+        "batch": 16,
+        "milliseconds": 119.0407001413405
+      },
+      {
+        "batch": 16,
+        "milliseconds": 121.98689999058843
+      },
+      {
+        "batch": 16,
+        "milliseconds": 125.23950031027198
+      },
+      {
+        "batch": 16,
+        "milliseconds": 120.9937003441155
+      },
+      {
+        "batch": 4,
+        "milliseconds": 32.74739999324083
+      }
+    ],
+    "output_shapes": [
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        16,
+        300,
+        6
+      ],
+      [
+        4,
+        300,
+        6
+      ]
+    ]
+  },
+  "human_test": {
+    "dataset": "D:\\TRAINING\\vehicle_person_finetune\\training_campaigns\\20261104T184204_002814Z_balanced\\human_test_subset",
+    "reports": {
+      "openvino_int8": {
+        "images": 14,
+        "metrics": {
+          "metrics/precision(B)": 0.6799231130080361,
+          "metrics/recall(B)": 0.4444444444444444,
+          "metrics/mAP50(B)": 0.5301340264765897,
+          "metrics/mAP50-95(B)": 0.3590401621633975,
+          "fitness": 0.3590401621633975
+        },
+        "per_class": {
+          "bus": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "car": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "minivan": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "motorcycle": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "rickshaw": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "truck": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "bicycle": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "person": {
+            "objects": 9,
+            "supported": true,
+            "ap50": 0.5301340264765897,
+            "ap50_95": 0.3590401621633975,
+            "precision": 0.6799231130080361,
+            "recall": 0.4444444444444444
+          },
+          "others": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          }
+        }
+      },
+      "pytorch_int8_sim": {
+        "images": 14,
+        "metrics": {
+          "metrics/precision(B)": 0.8162868254474686,
+          "metrics/recall(B)": 0.498733862602673,
+          "metrics/mAP50(B)": 0.5576286634460547,
+          "metrics/mAP50-95(B)": 0.37180880592755666,
+          "fitness": 0.37180880592755666
+        },
+        "per_class": {
+          "bus": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "car": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "minivan": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "motorcycle": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "rickshaw": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "truck": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "bicycle": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          },
+          "person": {
+            "objects": 9,
+            "supported": true,
+            "ap50": 0.5576286634460547,
+            "ap50_95": 0.37180880592755666,
+            "precision": 0.8162868254474686,
+            "recall": 0.498733862602673
+          },
+          "others": {
+            "objects": 0,
+            "supported": false,
+            "ap50": null,
+            "ap50_95": null,
+            "precision": null,
+            "recall": null
+          }
+        }
+      }
+    },
+    "ap50_95_deltas_openvino_minus_sim": {
+      "person": -0.012768643764159149
+    },
+    "inference_timings": [
+      {
+        "batch": 14,
+        "milliseconds": 133.55599995702505
+      }
+    ],
+    "output_shapes": [
+      [
+        14,
+        300,
+        6
+      ]
+    ]
+  },
+  "batch_validation": [
+    {
+      "batch": 1,
+      "shape": [
+        1,
+        300,
+        6
+      ],
+      "median_inference_ms": 6.306000053882599,
+      "images_per_second": 158.57912963135814,
+      "consistent_with_single_image": true,
+      "image_comparisons": [
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        }
+      ]
+    },
+    {
+      "batch": 2,
+      "shape": [
+        2,
+        300,
+        6
+      ],
+      "median_inference_ms": 14.465999789536,
+      "images_per_second": 138.25522114598002,
+      "consistent_with_single_image": true,
+      "image_comparisons": [
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        }
+      ]
+    },
+    {
+      "batch": 3,
+      "shape": [
+        3,
+        300,
+        6
+      ],
+      "median_inference_ms": 20.521700382232666,
+      "images_per_second": 146.1867167009878,
+      "consistent_with_single_image": true,
+      "image_comparisons": [
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        }
+      ]
+    },
+    {
+      "batch": 4,
+      "shape": [
+        4,
+        300,
+        6
+      ],
+      "median_inference_ms": 23.173700086772442,
+      "images_per_second": 172.60946611987964,
+      "consistent_with_single_image": true,
+      "image_comparisons": [
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        }
+      ]
+    },
+    {
+      "batch": 8,
+      "shape": [
+        8,
+        300,
+        6
+      ],
+      "median_inference_ms": 52.06460040062666,
+      "images_per_second": 153.65526554398966,
+      "consistent_with_single_image": true,
+      "image_comparisons": [
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        }
+      ]
+    },
+    {
+      "batch": 16,
+      "shape": [
+        16,
+        300,
+        6
+      ],
+      "median_inference_ms": 127.48500006273389,
+      "images_per_second": 125.50496130624454,
+      "consistent_with_single_image": true,
+      "image_comparisons": [
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 1,
+          "reference_detections": 1,
+          "matched_same_class_iou05": 1,
+          "min_matched_iou": 1.0,
+          "max_matched_confidence_difference": 0.0
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 14,
+          "reference_detections": 14,
+          "matched_same_class_iou05": 14,
+          "min_matched_iou": 1.0,
+          "max_matched_confidence_difference": 0.0
+        },
+        {
+          "detections": 14,
+          "reference_detections": 14,
+          "matched_same_class_iou05": 14,
+          "min_matched_iou": 1.0,
+          "max_matched_confidence_difference": 0.0
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        },
+        {
+          "detections": 0,
+          "reference_detections": 0,
+          "matched_same_class_iou05": 0,
+          "min_matched_iou": null,
+          "max_matched_confidence_difference": null
+        }
+      ]
+    }
+  ],
+  "overall_ap_drop": 0.00033463286473633946,
+  "class_drops_over_tolerance": {},
+  "evaluation_provisional": true,
+  "note": "Conversion fidelity only. Most mixed-test labels are original-teacher predictions; human test has 14 images and 9 persons. No full-class independent accuracy or retention certification.",
+  "mixed_test_and_batch_checks_passed": true,
+  "acceptance_scope": "Existing passed flag covers mixed test and dynamic-batch consistency only.",
+  "human_subset_ap_drop": 0.012768643764159149,
+  "human_subset_within_1point": false,
+  "deployment_quality_qualified": false,
+  "quality_note": "Human-reviewed person subset declines by 1.2769 AP percentage points. It has only 14 images and 9 persons. Mixed test is mostly teacher-labeled. Independent full-class accuracy remains unverified."
+}

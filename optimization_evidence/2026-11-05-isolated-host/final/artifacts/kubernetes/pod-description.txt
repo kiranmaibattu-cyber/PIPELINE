@@ -1,0 +1,119 @@
+Name:             sentry-validation
+Namespace:        sentry-validation
+Priority:         0
+Service Account:  default
+Node:             sentry-validation-node/192.168.1.64
+Start Time:       Thu, 05 Nov 2026 07:30:11 +0530
+Labels:           <none>
+Annotations:      <none>
+Status:           Running
+IP:               192.168.1.64
+IPs:
+  IP:  192.168.1.64
+Containers:
+  agent:
+    Container ID:  containerd://34cffcb4d67f8ec4df7b292ee88bdad3854b63e72946cdd9776ed0327f7d15e8
+    Image:         localhost/sentry-v8-opt79-shared-gait-background:latest
+    Image ID:      sha256:f82a0769ed12eff25ef7bdabc9619370ebfdceeed737eaed21e5f2381e4feb86
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      python3
+      /inputs/agent.py
+      --socket
+      /run/sentinel-delivery/agent.sock
+      --schemas
+      /opt/traffic-pilot/contracts/sentry-v8
+      --log
+      /state/packages.jsonl
+      --status
+      /state/agent-status.json
+    State:          Running
+      Started:      Thu, 05 Nov 2026 07:30:18 +0530
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /inputs from inputs (ro)
+      /run/sentinel-delivery from delivery (rw)
+      /state from state (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-qwpwx (ro)
+  cv:
+    Container ID:   containerd://ed8f3c9184f49103e2820eceaeade13201826c84275ff6ac5a37bb929d3502d1
+    Image:          localhost/sentry-v8-opt79-shared-gait-background:latest
+    Image ID:       sha256:f82a0769ed12eff25ef7bdabc9619370ebfdceeed737eaed21e5f2381e4feb86
+    Port:           <none>
+    Host Port:      <none>
+    State:          Running
+      Started:      Thu, 05 Nov 2026 07:30:18 +0530
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      cpu:     4
+      memory:  8Gi
+    Requests:
+      cpu:      1
+      memory:   3Gi
+    Liveness:   http-get http://:18081/healthz delay=10s timeout=1s period=5s #success=1 #failure=3
+    Readiness:  http-get http://:18081/readyz delay=5s timeout=1s period=3s #success=1 #failure=3
+    Environment:
+      APEX_API_PORT:  18081
+    Mounts:
+      /configs from inputs (ro)
+      /dev/accel from accel (rw)
+      /dev/dri from dri (rw)
+      /run/secrets/sentinel/cameras from secrets (ro)
+      /run/sentinel-delivery from delivery (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-qwpwx (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  inputs:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      inputs
+    Optional:  false
+  secrets:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  camera-urls
+    Optional:    false
+  delivery:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  <unset>
+  state:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  <unset>
+  dri:
+    Type:          HostPath (bare host directory volume)
+    Path:          /dev/dri
+    HostPathType:  Directory
+  accel:
+    Type:          HostPath (bare host directory volume)
+    Path:          /dev/accel
+    HostPathType:  Directory
+  kube-api-access-qwpwx:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   Burstable
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason     Age                    From     Message
+  ----     ------     ----                   ----     -------
+  Normal   Pulled     2m26s                  kubelet  spec.containers{agent}: Container image "localhost/sentry-v8-opt79-shared-gait-background:latest" already present on machine and can be accessed by the pod
+  Normal   Created    2m26s                  kubelet  spec.containers{agent}: Container created
+  Normal   Started    2m26s                  kubelet  spec.containers{agent}: Container started
+  Normal   Pulled     2m26s                  kubelet  spec.containers{cv}: Container image "localhost/sentry-v8-opt79-shared-gait-background:latest" already present on machine and can be accessed by the pod
+  Normal   Created    2m26s                  kubelet  spec.containers{cv}: Container created
+  Normal   Started    2m26s                  kubelet  spec.containers{cv}: Container started
+  Warning  Unhealthy  2m16s (x2 over 2m19s)  kubelet  spec.containers{cv}: Readiness probe failed: HTTP probe failed with statuscode: 503

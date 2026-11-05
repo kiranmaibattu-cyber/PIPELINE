@@ -101,7 +101,11 @@ class RuntimeState:
     def metrics(self, stop_requested: bool = False) -> dict[str, Any]:
         with self.lock:
             plan = self.plan or {}
-            camera_count = len(plan.get("cameras") or [])
+            configured_cameras = plan.get("cameras") or []
+            camera_count = len(configured_cameras)
+            configured_aggregate_fps = sum(
+                float(camera.get("fps") or 0.0) for camera in configured_cameras
+            )
             return {
                 "solution_pack": SOLUTION_PACK,
                 "edge_id": plan.get("edge_id"),
@@ -110,6 +114,7 @@ class RuntimeState:
                 "models_ready": self.ready,
                 "camera_count": camera_count,
                 "configured_cameras": camera_count,
+                "configured_aggregate_fps": configured_aggregate_fps,
                 "child_running": self.worker_running,
                 "child_exit_code": None,
                 "uptime_seconds": max(0.0, time.time() - self.started_at),
@@ -169,6 +174,9 @@ class WorkerSupervisor:
 
     def start_or_replace(self, desired: DesiredState, plan: RuntimePlan, cameras_file: Path) -> None:
         env = os.environ.copy()
+        worker_pythonpath = str(self.repo_root / "services" / "worker")
+        if env.get("PYTHONPATH"):
+            worker_pythonpath += os.pathsep + env["PYTHONPATH"]
         ready_dir = self.generated_dir / f"ready-{desired.revision}-{time.time_ns()}"
         ready_dir.mkdir(parents=True, exist_ok=False)
         env.update({
@@ -176,13 +184,16 @@ class WorkerSupervisor:
             "OPENVINO_MODELS_DIR": env.get("OPENVINO_MODELS_DIR", str(self.repo_root / "models" / "openvino")),
             "WORKER_CONFIG_PATH": env.get("WORKER_CONFIG_PATH", str(self.repo_root / "config" / "worker.json")),
             "CAMERAS_FILE": str(cameras_file),
-            "PYTHONPATH": str(self.repo_root / "services" / "worker"),
+            # Preserve runtime-provided module roots such as DL Streamer's
+            # gstgva bindings while keeping Sentinel worker modules first.
+            "PYTHONPATH": worker_pythonpath,
             "INFER_FPS": str(max(1, int(min(camera.fps for camera in desired.cameras) if desired.cameras else 1))),
             "ANALYTICS_EVENT_LOG_PATH": env.get(
                 "ANALYTICS_EVENT_LOG_PATH", "/tmp/sentinel/state/events/analytics.jsonl"
             ),
             "EDGE_ID": desired.edge_id,
             "APEXFABRIC_CAMERA_READY_DIR": str(ready_dir),
+            "APEXFABRIC_WORKER_STOP_FILE": str(ready_dir / "worker.stop"),
         })
         command = [sys.executable, "-u", str(self.repo_root / "services" / "worker" / "stream_fleet_openvino.py")]
         logger.info(
@@ -211,13 +222,17 @@ class WorkerSupervisor:
                     "startup deadline"
                 )
         except Exception:
-            self._stop_process(new_process)
+            self._stop_process(new_process, ready_dir / "worker.stop")
             raise
         old_process = self.process
+        old_ready_dir = self.ready_dir
         self.process = new_process
         self.ready_dir = ready_dir
         self.expected_camera_ids = expected_camera_ids
-        self._stop_process(old_process)
+        self._stop_process(
+            old_process,
+            old_ready_dir / "worker.stop" if old_ready_dir is not None else None,
+        )
         with self.state.lock:
             self.state.worker_pid = new_process.pid
             self.state.worker_running = True
@@ -243,17 +258,33 @@ class WorkerSupervisor:
             self.state.ready = running and bool(self.state.plan) and self._is_initialized()
 
     def stop(self) -> None:
-        self._stop_process(self.process)
+        self._stop_process(
+            self.process,
+            self.ready_dir / "worker.stop" if self.ready_dir is not None else None,
+        )
         self.process = None
         self.ready_dir = None
         self.expected_camera_ids = ()
         self.poll_worker()
 
     @staticmethod
-    def _stop_process(proc: subprocess.Popen | None) -> None:
+    def _stop_process(
+        proc: subprocess.Popen | None,
+        stop_file: Path | None = None,
+    ) -> None:
         if proc is None or proc.poll() is not None:
             return
-        proc.terminate()
+        # The worker may own active OpenVINO inference threads.  Delivering
+        # SIGTERM into that process can trigger an unsafe native longjmp while
+        # a request is in flight.  Request shutdown through a polled marker so
+        # it can stop camera producers and drain admitted handoffs first.
+        if stop_file is not None:
+            try:
+                stop_file.touch(exist_ok=True)
+            except OSError:
+                stop_file = None
+        if stop_file is None:
+            proc.kill()
         try:
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
@@ -630,16 +661,22 @@ def _health_payload(state: RuntimeState) -> dict[str, Any]:
     process_cpu_cores = 0.0
     process_rss = 0.0
     process_pss = 0.0
+    process_pids: set[int | str] = set()
     accelerator_attributed_wall: dict[str, float] = {}
     accelerator_calls: dict[str, int] = {}
     for camera in camera_values:
         process = ((camera.get("resources") or {}).get("process") or {})
-        if isinstance(process.get("cpu_cores_used"), (int, float)):
-            process_cpu_cores += float(process["cpu_cores_used"])
-        if isinstance(process.get("rss_mb"), (int, float)):
-            process_rss += float(process["rss_mb"])
-        if isinstance(process.get("pss_mb"), (int, float)):
-            process_pss += float(process["pss_mb"])
+        process_key = process.get("pid")
+        if not isinstance(process_key, int):
+            process_key = f"camera:{camera.get('camera_id')}"
+        if process_key not in process_pids:
+            process_pids.add(process_key)
+            if isinstance(process.get("cpu_cores_used"), (int, float)):
+                process_cpu_cores += float(process["cpu_cores_used"])
+            if isinstance(process.get("rss_mb"), (int, float)):
+                process_rss += float(process["rss_mb"])
+            if isinstance(process.get("pss_mb"), (int, float)):
+                process_pss += float(process["pss_mb"])
         for device, values in (((camera.get("resources") or {}).get("accelerators") or {}).items()):
             work = values.get("attributed_stage_wall_ms_per_second")
             if isinstance(work, (int, float)):
@@ -664,6 +701,10 @@ def _health_payload(state: RuntimeState) -> dict[str, Any]:
         accelerators[device]["attributed_model_calls_in_window"] = int(
             accelerator_calls.get(device, 0)
         )
+    plan_cameras = (snap.get("plan") or {}).get("cameras") or []
+    configured_aggregate_fps = sum(
+        float(camera.get("fps") or 0.0) for camera in plan_cameras
+    )
     return {
         "ok": True,
         "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -675,12 +716,19 @@ def _health_payload(state: RuntimeState) -> dict[str, Any]:
             "sample_interval_seconds": float(os.getenv(
                 "SENTINEL_TELEMETRY_INTERVAL_SECONDS", "2"
             )),
+            "configured_load": {
+                "camera_count": len(plan_cameras),
+                "aggregate_fps": round(configured_aggregate_fps, 3),
+                "fps_source": "desired_state_per_camera_or_default_8",
+                "fixed_aggregate_limit": None,
+            },
             "cameras": [by_camera[key] for key in sorted(by_camera)],
             "runtime_processes": {
+                "unique_camera_processes": len(process_pids),
                 "camera_process_cpu_cores_sum": round(process_cpu_cores, 3),
                 "camera_process_rss_mb_sum": round(process_rss, 2),
                 "camera_process_pss_mb_sum": round(process_pss, 2),
-                "rss_sum_note": "RSS includes shared pages; use container_cgroup memory for pod consumption",
+                "rss_sum_note": "Each process PID is counted once; RSS still includes shared pages, so use container_cgroup memory for pod consumption",
             },
             "system": system,
             "handoff_scheduler": _read_json(Path(os.getenv(

@@ -20,6 +20,28 @@ DEFAULT_EMBEDDING_SPACE = (
 )
 
 
+def preprocess_scene_image(image: np.ndarray) -> np.ndarray:
+    """Return the canonical SigLIP2 NCHW tensor for one BGR image."""
+    if image is None or image.size == 0:
+        raise ValueError("scene image is empty")
+    resized = cv2.resize(image, (224, 224), interpolation=cv2.INTER_AREA)
+    rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB).astype(np.float32)
+    # SigLIP image preprocessing maps [0, 255] to [-1, 1].
+    tensor = ((rgb / 255.0) - 0.5) / 0.5
+    return np.ascontiguousarray(np.transpose(tensor, (2, 0, 1))[None, ...])
+
+
+def normalize_scene_embedding(result: np.ndarray) -> np.ndarray:
+    """Validate and L2-normalize one canonical SigLIP2 image vector."""
+    vector = np.asarray(result, dtype=np.float32).reshape(-1)
+    if vector.size != SCENE_DIMENSIONS or not np.isfinite(vector).all():
+        raise ValueError("scene model returned an invalid vector")
+    norm = float(np.linalg.norm(vector))
+    if norm <= 1e-12:
+        raise ValueError("scene model returned a zero vector")
+    return vector / norm
+
+
 class OpenVINOSceneExtractor:
     model_id = SCENE_MODEL_ID
     model_version = SCENE_MODEL_VERSION
@@ -55,17 +77,5 @@ class OpenVINOSceneExtractor:
         self.embed(np.zeros((224, 224, 3), dtype=np.uint8))
 
     def embed(self, image: np.ndarray) -> np.ndarray:
-        if image is None or image.size == 0:
-            raise ValueError("scene image is empty")
-        resized = cv2.resize(image, (224, 224), interpolation=cv2.INTER_AREA)
-        rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB).astype(np.float32)
-        # SigLIP image preprocessing maps [0, 255] to [-1, 1].
-        tensor = ((rgb / 255.0) - 0.5) / 0.5
-        tensor = np.transpose(tensor, (2, 0, 1))[None, ...]
-        result = np.asarray(self.compiled([tensor])[self.output], dtype=np.float32).reshape(-1)
-        if result.size != self.dimension or not np.isfinite(result).all():
-            raise ValueError("scene model returned an invalid vector")
-        norm = float(np.linalg.norm(result))
-        if norm <= 1e-12:
-            raise ValueError("scene model returned a zero vector")
-        return result / norm
+        tensor = preprocess_scene_image(image)
+        return normalize_scene_embedding(self.compiled([tensor])[self.output])

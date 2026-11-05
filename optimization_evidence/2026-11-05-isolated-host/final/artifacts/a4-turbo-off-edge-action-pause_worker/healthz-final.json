@@ -1,0 +1,1487 @@
+{
+  "ok": true,
+  "observed_at": "2026-11-05T00:50:00.134899Z",
+  "liveness": "alive",
+  "ready": true,
+  "worker_running": true,
+  "revision": 1,
+  "telemetry": {
+    "sample_interval_seconds": 2.0,
+    "configured_load": {
+      "camera_count": 2,
+      "aggregate_fps": 16.0,
+      "fps_source": "desired_state_per_camera_or_default_8",
+      "fixed_aggregate_limit": null
+    },
+    "cameras": [
+      {
+        "schema_version": "1.0",
+        "camera_id": "capacity-01",
+        "pid": 53,
+        "observed_at": "2026-11-05T00:49:59.437860Z",
+        "started_at": "2026-11-05T00:48:02.633663Z",
+        "uptime_seconds": 116.804,
+        "window_seconds": 2.032,
+        "processing": {
+          "target_fps": 8.0,
+          "decoded_fps": 0.984,
+          "frames_received_fps": 0.984,
+          "inference_fps": 0.0,
+          "quiet_fps": 0.0,
+          "output_events_per_second": 0.0,
+          "totals": {
+            "decoded_frames": 259,
+            "events_handoff_admitted": 115,
+            "evidence_jpeg_encoded": 73,
+            "fire_bgr_avoided_frames": 95,
+            "fire_model_system_memory_frames": 95,
+            "gait_inference_avoided": 7,
+            "gait_inference_eligible": 1,
+            "handoff_admitted": 115,
+            "handoff_rejected": 15,
+            "inference_frames": 164,
+            "primary_bgr_avoided_frames": 7,
+            "primary_bgr_materialized_frames": 157,
+            "scene_embedding_computed": 11
+          },
+          "gauges": {
+            "dls_pending_admissions": 2,
+            "dls_rate_gate_accepted_frames": 284,
+            "dls_rate_gate_dropped_frames": 651,
+            "fire_rate_gate_accepted_frames": 95,
+            "fire_rate_gate_dropped_frames": 794,
+            "gait_retained_presences": 15,
+            "gait_retained_silhouettes": 81,
+            "gait_retained_track_centers": 25,
+            "gait_silhouette_payload_bytes": 228096,
+            "tcp_feeder_bytes_received": 45629092,
+            "tcp_feeder_connections": 1,
+            "tcp_feeder_disconnects": 0
+          }
+        },
+        "outputs": {
+          "by_event_type": {
+            "camera_health": {
+              "total": 1,
+              "per_second": 0.0,
+              "in_window": 0
+            },
+            "object_present": {
+              "total": 30,
+              "per_second": 0.0,
+              "in_window": 0
+            },
+            "person_feature_sample": {
+              "total": 29,
+              "per_second": 0.0,
+              "in_window": 0
+            },
+            "plate_outcome": {
+              "total": 2,
+              "per_second": 0.0,
+              "in_window": 0
+            },
+            "plate_read": {
+              "total": 1,
+              "per_second": 0.0,
+              "in_window": 0
+            },
+            "presence_ended_unknown": {
+              "total": 2,
+              "per_second": 0.0,
+              "in_window": 0
+            },
+            "presence_recovered": {
+              "total": 4,
+              "per_second": 0.0,
+              "in_window": 0
+            },
+            "scene_sample": {
+              "total": 11,
+              "per_second": 0.0,
+              "in_window": 0
+            },
+            "track_lost": {
+              "total": 20,
+              "per_second": 0.0,
+              "in_window": 0
+            },
+            "zone_count": {
+              "total": 15,
+              "per_second": 0.0,
+              "in_window": 0
+            }
+          },
+          "by_use_case_id": {
+            "anpr-1": {
+              "total": 3,
+              "per_second": 0.0,
+              "in_window": 0,
+              "app": "anpr"
+            },
+            "count-1": {
+              "total": 8,
+              "per_second": 0.0,
+              "in_window": 0,
+              "app": "vehicle_counting"
+            },
+            "identity-1": {
+              "total": 29,
+              "per_second": 0.0,
+              "in_window": 0,
+              "app": "person_identity"
+            },
+            "people-count-1": {
+              "total": 7,
+              "per_second": 0.0,
+              "in_window": 0,
+              "app": "people_counting"
+            },
+            "person-presence-1": {
+              "total": 26,
+              "per_second": 0.0,
+              "in_window": 0,
+              "app": "person_presence"
+            },
+            "runtime": {
+              "total": 27,
+              "per_second": 0.0,
+              "in_window": 0,
+              "app": "runtime"
+            },
+            "scene-1": {
+              "total": 11,
+              "per_second": 0.0,
+              "in_window": 0,
+              "app": "scene_search"
+            },
+            "vehicle-presence-1": {
+              "total": 4,
+              "per_second": 0.0,
+              "in_window": 0,
+              "app": "vehicle_presence"
+            }
+          },
+          "production_latency_by_event_type": {
+            "camera_health": {
+              "calls_total": 1,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 184.442,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "object_present": {
+              "calls_total": 30,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 47.274,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "person_feature_sample": {
+              "calls_total": 29,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 130.158,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "plate_outcome": {
+              "calls_total": 2,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "plate_read": {
+              "calls_total": 1,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "presence_ended_unknown": {
+              "calls_total": 2,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "presence_recovered": {
+              "calls_total": 4,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 0.0,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "scene_sample": {
+              "calls_total": 11,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 27.729,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "track_lost": {
+              "calls_total": 20,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 61.288,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            },
+            "zone_count": {
+              "calls_total": 15,
+              "calls_in_window": 0,
+              "calls_per_second": 0.0,
+              "avg_ms": null,
+              "max_ms": null,
+              "last_ms": null,
+              "lifetime_avg_ms": 24.54,
+              "measurement_type": "source_to_cv_output_acceptance_wall_time",
+              "includes_child_stages": false
+            }
+          }
+        },
+        "use_case_processing": {
+          "anpr.ocr": {
+            "calls_total": 21,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 18.829,
+            "measurement_type": "async_submit_to_callback_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_detection": {
+            "calls_total": 106,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 9.183,
+            "measurement_type": "model_invocation_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_executor_wall_time": {
+            "calls_total": 106,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 8.232,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_model_wall_time": {
+            "calls_total": 106,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 8.763,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_postprocessing": {
+            "calls_total": 106,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.018,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_preprocessing": {
+            "calls_total": 106,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.361,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.plate_scheduler_queue_wait": {
+            "calls_total": 106,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.3,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "anpr.policy": {
+            "calls_total": 164,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.364,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "counting.policy": {
+            "calls_total": 164,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.15,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "delivery_agent.handoff_admission": {
+            "calls_total": 130,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 1.539,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "detection.vehicle_person.metadata_bridge": {
+            "calls_total": 164,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 5.153,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "event_handoff_admission": {
+            "calls_total": 115,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 1.666,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "event_policy.active_frame": {
+            "calls_total": 164,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 41.053,
+            "measurement_type": "pipeline_span_wall_time",
+            "includes_child_stages": true
+          },
+          "evidence.jpeg": {
+            "calls_total": 73,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 2.375,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "fire_smoke.detection.metadata_bridge": {
+            "calls_total": 95,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.512,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "fire_smoke.policy": {
+            "calls_total": 259,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.012,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "frame_conversion.primary_selective_bgr": {
+            "calls_total": 157,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 15.393,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "line_crossing.policy": {
+            "calls_total": 510,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.004,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "object_presence.emission": {
+            "calls_total": 30,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 2.515,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_embedding": {
+            "calls_total": 84,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 22.451,
+            "measurement_type": "model_invocation_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_executor_wall_time": {
+            "calls_total": 143,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 11.338,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_model_wall_time": {
+            "calls_total": 143,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 12.561,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_postprocessing": {
+            "calls_total": 143,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.076,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_preprocessing": {
+            "calls_total": 143,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 1.017,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_result_wait": {
+            "calls_total": 143,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 12.029,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.body_scheduler_queue_wait": {
+            "calls_total": 143,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 1.138,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.candidate_flush": {
+            "calls_total": 164,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.055,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.face_pipeline": {
+            "calls_total": 164,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 2.01,
+            "measurement_type": "pipeline_span_wall_time",
+            "includes_child_stages": true
+          },
+          "person_identity.face_pose": {
+            "calls_total": 16,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 6.707,
+            "measurement_type": "model_invocation_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_background_reuse": {
+            "calls_total": 86,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.0,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_background_update": {
+            "calls_total": 50,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 72.499,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_executor_wall_time": {
+            "calls_total": 1,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 40.799,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_model_wall_time": {
+            "calls_total": 1,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 43.143,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_processing": {
+            "calls_total": 136,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 27.882,
+            "measurement_type": "model_invocation_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_region_morphology": {
+            "calls_total": 136,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.46,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_scheduler_queue_wait": {
+            "calls_total": 1,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.043,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_silhouette_normalization": {
+            "calls_total": 136,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.374,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.gait_silhouette_preprocessing": {
+            "calls_total": 136,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 27.509,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "person_identity.policy": {
+            "calls_total": 417,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 9.366,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "pipeline.frame_processing_total": {
+            "calls_total": 164,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 69.338,
+            "measurement_type": "pipeline_span_wall_time",
+            "includes_child_stages": true
+          },
+          "presence.loss_recovery": {
+            "calls_total": 164,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.206,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "presence.zone_lifecycle": {
+            "calls_total": 510,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.046,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "scene_search.device_inference": {
+            "calls_total": 11,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 15.218,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "scene_search.embedding": {
+            "calls_total": 11,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 15.986,
+            "measurement_type": "model_invocation_wall_time",
+            "includes_child_stages": false
+          },
+          "scene_search.policy": {
+            "calls_total": 164,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 2.459,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "scene_search.scheduler_queue_wait": {
+            "calls_total": 11,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.061,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          },
+          "tracking_geometry_and_ocr_submit": {
+            "calls_total": 164,
+            "calls_in_window": 0,
+            "calls_per_second": 0.0,
+            "avg_ms": null,
+            "max_ms": null,
+            "last_ms": null,
+            "lifetime_avg_ms": 0.094,
+            "measurement_type": "pipeline_stage_wall_time",
+            "includes_child_stages": false
+          }
+        },
+        "resources": {
+          "process": {
+            "scope": "shared_camera_group_process",
+            "pid": 53,
+            "shared_by_multiple_cameras": true,
+            "cpu_cores_used": 0.123,
+            "rss_mb": 2153.05,
+            "uss_mb": 2010.97,
+            "pss_mb": 2079.65,
+            "threads": 199
+          },
+          "accelerators": {
+            "GPU": {
+              "scope": "camera_attributed_model_stages",
+              "attributed_stage_wall_ms_per_second": 0.0,
+              "model_calls_total": 284,
+              "model_calls_in_window": 0
+            },
+            "NPU": {
+              "scope": "camera_attributed_model_stages",
+              "attributed_stage_wall_ms_per_second": 0.0,
+              "model_calls_total": 228,
+              "model_calls_in_window": 0
+            }
+          }
+        },
+        "device_placement": {
+          "anpr_ocr": "MULTI:GPU,NPU/DLStreamer",
+          "anpr_plate_detection": "NPU/DLStreamer",
+          "body_embedding": "NPU/DLStreamer",
+          "decode": "GPU/VAAPI-DLStreamer",
+          "face_detection": "GPU",
+          "face_embedding": "NPU",
+          "face_pose": "NPU",
+          "fire_smoke_detection": "GPU/DLStreamer-OpenCV-BGR",
+          "gait_embedding": "NPU/DLStreamer",
+          "object_tracking": "CPU/gvatrack",
+          "scene_embedding": "GPU/DLStreamer",
+          "vehicle_person_detection": "GPU/DLStreamer-VA"
+        },
+        "timestamp_source": "source_pts",
+        "resolved_policy": {
+          "schema_version": "1.1",
+          "camera_id": "capacity-01",
+          "policy_revision": 4,
+          "changed_at": "2026-11-05T00:48:31.212993Z",
+          "bounded_adaptation": true,
+          "modes": {
+            "tracking": "balanced",
+            "presence": "balanced",
+            "zone": "balanced",
+            "count": "balanced",
+            "anpr": "tolerant_collection",
+            "identity": "tolerant_collection",
+            "fire_smoke": "balanced"
+          },
+          "object_modes": {
+            "count": {
+              "person": "tolerant_collection",
+              "vehicle": "balanced"
+            },
+            "presence": {
+              "person": "tolerant_collection",
+              "vehicle": "balanced"
+            },
+            "zone": {
+              "person": "tolerant_collection",
+              "vehicle": "balanced"
+            }
+          },
+          "decision_reasons": {
+            "tracking": [
+              "normal_object_geometry"
+            ],
+            "presence": [
+              "normal_object_geometry"
+            ],
+            "zone": [
+              "normal_object_geometry"
+            ],
+            "count": [
+              "normal_object_geometry"
+            ],
+            "count_person": [
+              "distant_objects"
+            ],
+            "count_vehicle": [
+              "normal_object_geometry"
+            ],
+            "presence_person": [
+              "distant_objects"
+            ],
+            "presence_vehicle": [
+              "normal_object_geometry"
+            ],
+            "zone_person": [
+              "distant_objects"
+            ],
+            "zone_vehicle": [
+              "normal_object_geometry"
+            ],
+            "anpr": [
+              "plate_observations_need_longer_collection"
+            ],
+            "identity": [
+              "identity_view_needs_longer_selection"
+            ],
+            "fire_smoke": [
+              "normal_scene_visibility"
+            ]
+          },
+          "measurements": {
+            "frames_observed": 161,
+            "observed_processing_fps": 7.992,
+            "target_processing_fps": 8.0,
+            "frames_with_objects_ratio": 0.9503,
+            "median_object_scale": 0.08153,
+            "median_person_scale": 0.07176,
+            "median_vehicle_scale": 0.3536,
+            "median_person_width_ratio": 0.03385,
+            "median_person_height_ratio": 0.15648,
+            "median_vehicle_width_ratio": 0.30781,
+            "median_vehicle_height_ratio": 0.37037,
+            "real_detection_dropout_ratio": 0.0,
+            "median_frame_sharpness": 2864.282,
+            "median_exposure_quality": 0.8338,
+            "median_plate_width_px": 21.5,
+            "median_plate_height_px": 12.5,
+            "median_plate_width_ratio": 0.011198,
+            "median_plate_sharpness": 481.78,
+            "median_ocr_confidence": 0.5374,
+            "ocr_text_stability_ratio": 0.25,
+            "anpr_unreadable_ratio": 0.6667,
+            "median_face_width_px": 53.0,
+            "median_face_width_ratio": 0.027604,
+            "median_face_quality": 0.5993,
+            "median_face_pose_quality": 0.9403,
+            "face_detection_success_ratio": 0.0,
+            "track_fragmentations_last_60s": 4,
+            "outbox_pressure_ratio": 0.0001,
+            "model_queue_wait_seconds": 0.0
+          },
+          "tracking": {
+            "mode": "balanced",
+            "max_distance_px": 320.0,
+            "max_disappeared_seconds": 9.0
+          },
+          "presence": {
+            "mode": "balanced",
+            "stable_hits": 3,
+            "unobserved_after_seconds": 5.0,
+            "ended_unknown_after_seconds": 18.0
+          },
+          "zone": {
+            "mode": "balanced",
+            "boundary_margin": 0.012,
+            "transition_votes": 2,
+            "transition_hold_seconds": 0.5
+          },
+          "count": {
+            "mode": "balanced",
+            "debounce_observations": 2,
+            "debounce_seconds": 0.25,
+            "heartbeat_seconds": 20.0
+          },
+          "anpr": {
+            "mode": "tolerant_collection",
+            "candidate_window_seconds": 3.5,
+            "ocr_emit_min_confidence": 0.35,
+            "confirm_min_reads": 2,
+            "min_plate_width_px": 16.0,
+            "min_plate_height_px": 5.0,
+            "min_sharpness": 5.0,
+            "single_read_confidence": 0.82
+          },
+          "identity": {
+            "mode": "tolerant_collection",
+            "face_min_quality": 0.3,
+            "face_emit_min_width_px": 28.0,
+            "face_selection_window_seconds": 2.5,
+            "body_quality_floor": 0.2,
+            "body_min_width_px": 28.0,
+            "body_min_height_px": 56.0,
+            "gait_min_silhouettes": 24,
+            "feature_cooldown_seconds": 5.0
+          },
+          "fire_smoke": {
+            "mode": "balanced",
+            "event_min_confidence": 0.65,
+            "positive_confirmations": 5,
+            "positive_window_seconds": 3.0,
+            "clear_seconds": 10.0,
+            "clear_confirmations": 5,
+            "clear_max_evaluation_gap_seconds": 2.5
+          },
+          "object_profiles": {
+            "person": {
+              "count": {
+                "mode": "tolerant_collection",
+                "debounce_observations": 4,
+                "debounce_seconds": 0.8,
+                "heartbeat_seconds": 20.0
+              },
+              "presence": {
+                "mode": "tolerant_collection",
+                "stable_hits": 4,
+                "unobserved_after_seconds": 5.0,
+                "ended_unknown_after_seconds": 20.0
+              },
+              "zone": {
+                "mode": "tolerant_collection",
+                "boundary_margin": 0.018,
+                "transition_votes": 4,
+                "transition_hold_seconds": 0.8
+              }
+            },
+            "vehicle": {
+              "count": {
+                "mode": "balanced",
+                "debounce_observations": 2,
+                "debounce_seconds": 0.25,
+                "heartbeat_seconds": 20.0
+              },
+              "presence": {
+                "mode": "balanced",
+                "stable_hits": 3,
+                "unobserved_after_seconds": 5.0,
+                "ended_unknown_after_seconds": 18.0
+              },
+              "zone": {
+                "mode": "balanced",
+                "boundary_margin": 0.012,
+                "transition_votes": 2,
+                "transition_hold_seconds": 0.5
+              }
+            }
+          },
+          "pressure": {
+            "mode": "normal",
+            "outbox_ratio": 0.0001,
+            "model_queue_wait_seconds": 0.0
+          },
+          "scene": {
+            "interval_source": "desired_state",
+            "pressure_interval_multiplier": 1.0,
+            "optional_sampling_allowed": true,
+            "event_trigger_cooldown_seconds": 1.0,
+            "outbox_pressure_limit_bytes": 134217728
+          }
+        },
+        "sample_age_seconds": 0.696,
+        "fresh": true,
+        "camera_health": {
+          "state": "unavailable",
+          "reason": "stream_disconnected",
+          "last_reliable_at": "2026-11-05T00:48:23.634423Z",
+          "as_of": "2026-11-05T00:50:00.134578Z",
+          "retrying": true
+        },
+        "decoder": {
+          "state": "unavailable",
+          "reason": "stream_disconnected",
+          "retrying": true,
+          "stream_session_id": "aa9a969c-ad4a-41d0-b933-70f0b066e106",
+          "camera_process_pid": 53,
+          "decoder_pid": null,
+          "last_frame_at": "2026-11-05T00:48:23.634423Z",
+          "last_frame_age_seconds": 96.499,
+          "reconnects": 85,
+          "decoder_errors": 85,
+          "decoder_starts": 1,
+          "last_ffmpeg_exit_code": null,
+          "retry_reason": "RuntimeError",
+          "retry_backoff_seconds": 1.0,
+          "sanitized_stderr": "DL Streamer output has no admission record",
+          "status_sample_age_seconds": 0.694
+        }
+      },
+      {
+        "schema_version": "1.0",
+        "camera_id": "capacity-02",
+        "pid": 53,
+        "observed_at": "2026-11-05T00:49:59.166148Z",
+        "started_at": "2026-11-05T00:49:34.737300Z",
+        "uptime_seconds": 24.429,
+        "window_seconds": 2.031,
+        "processing": {
+          "target_fps": 8.0,
+          "decoded_fps": 0.0,
+          "frames_received_fps": 0.0,
+          "inference_fps": 0.0,
+          "quiet_fps": 0.0,
+          "output_events_per_second": 0.0,
+          "totals": {},
+          "gauges": {
+            "dls_pending_admissions": 0,
+            "dls_rate_gate_accepted_frames": 0,
+            "dls_rate_gate_dropped_frames": 0,
+            "fire_rate_gate_accepted_frames": 0,
+            "fire_rate_gate_dropped_frames": 0,
+            "tcp_feeder_bytes_received": 0,
+            "tcp_feeder_connections": 0,
+            "tcp_feeder_disconnects": 24
+          }
+        },
+        "outputs": {
+          "by_event_type": {},
+          "by_use_case_id": {},
+          "production_latency_by_event_type": {}
+        },
+        "use_case_processing": {},
+        "resources": {
+          "process": {
+            "scope": "shared_camera_group_process",
+            "pid": 53,
+            "shared_by_multiple_cameras": true,
+            "cpu_cores_used": 0.123,
+            "rss_mb": 2153.05,
+            "uss_mb": 2010.97,
+            "pss_mb": 2079.65,
+            "threads": 199
+          },
+          "accelerators": {
+            "GPU": {
+              "scope": "camera_attributed_model_stages",
+              "attributed_stage_wall_ms_per_second": 0.0,
+              "model_calls_total": 0,
+              "model_calls_in_window": 0
+            },
+            "NPU": {
+              "scope": "camera_attributed_model_stages",
+              "attributed_stage_wall_ms_per_second": 0.0,
+              "model_calls_total": 0,
+              "model_calls_in_window": 0
+            }
+          }
+        },
+        "device_placement": {
+          "anpr_ocr": "MULTI:GPU,NPU/DLStreamer",
+          "anpr_plate_detection": "NPU/DLStreamer",
+          "body_embedding": "NPU/DLStreamer",
+          "decode": "GPU/VAAPI-DLStreamer",
+          "face_detection": "GPU",
+          "face_embedding": "NPU",
+          "face_pose": "NPU",
+          "fire_smoke_detection": "GPU/DLStreamer-OpenCV-BGR",
+          "gait_embedding": "NPU/DLStreamer",
+          "object_tracking": "CPU/gvatrack",
+          "scene_embedding": "GPU/DLStreamer",
+          "vehicle_person_detection": "GPU/DLStreamer-VA"
+        },
+        "timestamp_source": "edge_received_at",
+        "resolved_policy": {
+          "schema_version": "1.1",
+          "camera_id": "capacity-02",
+          "policy_revision": 1,
+          "changed_at": "2026-11-05T00:49:34.784006Z",
+          "bounded_adaptation": true,
+          "modes": {
+            "tracking": "balanced",
+            "presence": "balanced",
+            "zone": "balanced",
+            "count": "balanced",
+            "anpr": "balanced",
+            "identity": "balanced",
+            "fire_smoke": "balanced"
+          },
+          "object_modes": {
+            "count": {
+              "person": "balanced",
+              "vehicle": "balanced"
+            },
+            "presence": {
+              "person": "balanced",
+              "vehicle": "balanced"
+            },
+            "zone": {
+              "person": "balanced",
+              "vehicle": "balanced"
+            }
+          },
+          "decision_reasons": {},
+          "measurements": {
+            "frames_observed": 0,
+            "observed_processing_fps": 0.0,
+            "target_processing_fps": 8.0,
+            "frames_with_objects_ratio": 0.0,
+            "median_object_scale": 0.0,
+            "median_person_scale": 0.0,
+            "median_vehicle_scale": 0.0,
+            "median_person_width_ratio": 0.0,
+            "median_person_height_ratio": 0.0,
+            "median_vehicle_width_ratio": 0.0,
+            "median_vehicle_height_ratio": 0.0,
+            "real_detection_dropout_ratio": 0.0,
+            "median_frame_sharpness": 0.0,
+            "median_exposure_quality": 0.0,
+            "median_plate_width_px": 0.0,
+            "median_plate_height_px": 0.0,
+            "median_plate_width_ratio": 0.0,
+            "median_plate_sharpness": 0.0,
+            "median_ocr_confidence": 0.0,
+            "ocr_text_stability_ratio": 0.0,
+            "anpr_unreadable_ratio": 0.0,
+            "median_face_width_px": 0.0,
+            "median_face_width_ratio": 0.0,
+            "median_face_quality": 0.0,
+            "median_face_pose_quality": 0.0,
+            "face_detection_success_ratio": 1.0,
+            "track_fragmentations_last_60s": 0,
+            "outbox_pressure_ratio": 0.0,
+            "model_queue_wait_seconds": 0.0
+          },
+          "tracking": {
+            "mode": "balanced",
+            "max_distance_px": 320.0,
+            "max_disappeared_seconds": 9.0
+          },
+          "presence": {
+            "mode": "balanced",
+            "stable_hits": 3,
+            "unobserved_after_seconds": 5.0,
+            "ended_unknown_after_seconds": 18.0
+          },
+          "zone": {
+            "mode": "balanced",
+            "boundary_margin": 0.012,
+            "transition_votes": 2,
+            "transition_hold_seconds": 0.5
+          },
+          "count": {
+            "mode": "balanced",
+            "debounce_observations": 2,
+            "debounce_seconds": 0.25,
+            "heartbeat_seconds": 20.0
+          },
+          "anpr": {
+            "mode": "balanced",
+            "candidate_window_seconds": 2.5,
+            "ocr_emit_min_confidence": 0.35,
+            "confirm_min_reads": 2,
+            "min_plate_width_px": 22.0,
+            "min_plate_height_px": 7.0,
+            "min_sharpness": 8.0,
+            "single_read_confidence": 0.82
+          },
+          "identity": {
+            "mode": "balanced",
+            "face_min_quality": 0.3,
+            "face_emit_min_width_px": 32.0,
+            "face_selection_window_seconds": 1.5,
+            "body_quality_floor": 0.2,
+            "body_min_width_px": 32.0,
+            "body_min_height_px": 64.0,
+            "gait_min_silhouettes": 20,
+            "feature_cooldown_seconds": 5.0
+          },
+          "fire_smoke": {
+            "mode": "balanced",
+            "event_min_confidence": 0.65,
+            "positive_confirmations": 5,
+            "positive_window_seconds": 3.0,
+            "clear_seconds": 10.0,
+            "clear_confirmations": 5,
+            "clear_max_evaluation_gap_seconds": 2.5
+          },
+          "object_profiles": {
+            "person": {
+              "count": {
+                "mode": "balanced",
+                "debounce_observations": 2,
+                "debounce_seconds": 0.25,
+                "heartbeat_seconds": 20.0
+              },
+              "presence": {
+                "mode": "balanced",
+                "stable_hits": 3,
+                "unobserved_after_seconds": 5.0,
+                "ended_unknown_after_seconds": 18.0
+              },
+              "zone": {
+                "mode": "balanced",
+                "boundary_margin": 0.012,
+                "transition_votes": 2,
+                "transition_hold_seconds": 0.5
+              }
+            },
+            "vehicle": {
+              "count": {
+                "mode": "balanced",
+                "debounce_observations": 2,
+                "debounce_seconds": 0.25,
+                "heartbeat_seconds": 20.0
+              },
+              "presence": {
+                "mode": "balanced",
+                "stable_hits": 3,
+                "unobserved_after_seconds": 5.0,
+                "ended_unknown_after_seconds": 18.0
+              },
+              "zone": {
+                "mode": "balanced",
+                "boundary_margin": 0.012,
+                "transition_votes": 2,
+                "transition_hold_seconds": 0.5
+              }
+            }
+          },
+          "pressure": {
+            "mode": "normal",
+            "outbox_ratio": 0.0,
+            "model_queue_wait_seconds": 0.0
+          },
+          "scene": {
+            "interval_source": "desired_state",
+            "pressure_interval_multiplier": 1.0,
+            "optional_sampling_allowed": true,
+            "event_trigger_cooldown_seconds": 1.0,
+            "outbox_pressure_limit_bytes": 134217728
+          }
+        },
+        "sample_age_seconds": 0.968,
+        "fresh": true,
+        "camera_health": {
+          "state": "degraded",
+          "reason": "gstreamer_started",
+          "last_reliable_at": null,
+          "as_of": "2026-11-05T00:50:00.134679Z",
+          "retrying": true
+        },
+        "decoder": {
+          "state": "degraded",
+          "reason": "gstreamer_started",
+          "retrying": true,
+          "stream_session_id": "3c92caea-ec8c-4744-b270-db0c2b3e006a",
+          "camera_process_pid": 53,
+          "decoder_pid": null,
+          "last_frame_at": null,
+          "last_frame_age_seconds": null,
+          "reconnects": 3,
+          "decoder_errors": 3,
+          "decoder_starts": 3,
+          "last_ffmpeg_exit_code": null,
+          "retry_reason": null,
+          "retry_backoff_seconds": 0.0,
+          "sanitized_stderr": null,
+          "status_sample_age_seconds": 25.346
+        }
+      }
+    ],
+    "runtime_processes": {
+      "unique_camera_processes": 1,
+      "camera_process_cpu_cores_sum": 0.123,
+      "camera_process_rss_mb_sum": 2153.05,
+      "camera_process_pss_mb_sum": 2079.65,
+      "rss_sum_note": "Each process PID is counted once; RSS still includes shared pages, so use container_cgroup memory for pod consumption"
+    },
+    "system": {
+      "schema_version": "1.0",
+      "message_type": "system_health",
+      "observed_at": "2026-11-05T00:49:59.568917+00:00",
+      "host": {
+        "ram_used_mb": 4072.7,
+        "ram_total_mb": 31575.6,
+        "ram_pct": 12.9,
+        "cpu_pct": 1.5,
+        "swap_pct": 0.0
+      },
+      "worker": {
+        "rss_mb": 222.1,
+        "threads": 9,
+        "open_fds": 12
+      },
+      "container_cgroup": {
+        "scope": "container_cgroup",
+        "measurement_status": "measured",
+        "cpu_cores_used": 0.171,
+        "cpu_capacity_cores": 16.0,
+        "cpu_limit_cores": null,
+        "cpu_capacity_utilization_pct": 1.07,
+        "memory_current_mb": 2740.67,
+        "memory_limit_mb": null,
+        "memory_limit_utilization_pct": null,
+        "pids_current": 212
+      },
+      "accelerators": {
+        "GPU": {
+          "scope": "node_device",
+          "hardware_utilization_pct": 25.47,
+          "hardware_measurement_status": "measured",
+          "utilization_counter": "/sys/class/drm/card1/device/drm/card1/gt/gt1/rc6_residency_ms",
+          "utilization_semantics": "non_rc6_active_residency; node-wide GT activity, not per-process engine busy",
+          "current_frequency_mhz": 950.0,
+          "max_frequency_mhz": 2350.0
+        },
+        "NPU": {
+          "scope": "node_device",
+          "hardware_utilization_pct": 0.0,
+          "hardware_measurement_status": "measured",
+          "busy_counter": "/sys/class/accel/accel0/device/npu_busy_time_us",
+          "memory_used_bytes": 313511936,
+          "current_frequency_mhz": 0.0,
+          "max_frequency_mhz": 1600.0
+        }
+      },
+      "decode": {
+        "backend": "vaapi",
+        "device": "/dev/dri/renderD128",
+        "available": true
+      },
+      "inference": {
+        "backend": "openvino",
+        "device": "CPU,GPU,NPU",
+        "available": true,
+        "models_loaded": [
+          "anpr_ocr",
+          "anpr_plate_detection",
+          "body_embedding",
+          "face_detection",
+          "face_embedding",
+          "face_pose",
+          "fire_smoke_detection",
+          "gait_embedding",
+          "object_tracking",
+          "scene_embedding",
+          "vehicle_person_detection"
+        ],
+        "models_loaded_scope": "active_camera_pipeline_stages"
+      },
+      "sample_age_seconds": 0.565,
+      "fresh": true
+    },
+    "handoff_scheduler": {
+      "schema_version": "1.0",
+      "scope": "cv_handoff_scheduler",
+      "observed_at": 1793839750.278491,
+      "socket_path": "/run/sentinel-delivery/agent.sock",
+      "retained_packages": 0,
+      "retained_bytes": 0,
+      "replaceable_packages": 0,
+      "replaceable_bytes": 0,
+      "maximum_retained_packages": 8,
+      "maximum_retained_bytes": 268435456,
+      "maximum_in_flight": 4,
+      "counters": {
+        "admitted": 202,
+        "durable": 202,
+        "duplicate": 0,
+        "backpressure": 15,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "last_error": null,
+      "scheduler_running": true
+    },
+    "accelerators": {
+      "GPU": {
+        "scope": "node_device",
+        "hardware_utilization_pct": 25.47,
+        "hardware_measurement_status": "measured",
+        "utilization_counter": "/sys/class/drm/card1/device/drm/card1/gt/gt1/rc6_residency_ms",
+        "utilization_semantics": "non_rc6_active_residency; node-wide GT activity, not per-process engine busy",
+        "current_frequency_mhz": 950.0,
+        "max_frequency_mhz": 2350.0,
+        "attributed_stage_wall_ms_per_second": 0.0,
+        "attributed_model_calls_in_window": 0
+      },
+      "NPU": {
+        "scope": "node_device",
+        "hardware_utilization_pct": 0.0,
+        "hardware_measurement_status": "measured",
+        "busy_counter": "/sys/class/accel/accel0/device/npu_busy_time_us",
+        "memory_used_bytes": 313511936,
+        "current_frequency_mhz": 0.0,
+        "max_frequency_mhz": 1600.0,
+        "attributed_stage_wall_ms_per_second": 0.0,
+        "attributed_model_calls_in_window": 0
+      }
+    },
+    "measurement_notes": {
+      "fps": "rates over the latest completed telemetry window",
+      "processing_latency": "wall time inside the named edge stage",
+      "event_production_latency": "source observed_at to CV handoff admission; durable package status is owned by the delivery agent",
+      "accelerator_attributed_wall": "camera-attributed model-call wall time, not utilization",
+      "hardware_utilization": "node-device counter; null when no supported busy counter is available",
+      "cpu": "camera process CPU is cores used; container usage is under system.container_cgroup",
+      "stage_latency": "parent spans marked includes_child_stages must not be summed with children"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+[
+  {
+    "command": null,
+    "cgroups": {
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/user.slice/libpod-7a75934389638e4064d8f42aecb318cf117faa303691beb4fd03ee4256c5d0bc.scope/container": "400000 100000",
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/user.slice/libpod-7a75934389638e4064d8f42aecb318cf117faa303691beb4fd03ee4256c5d0bc.scope": "400000 100000",
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/user.slice": "max 100000"
+    },
+    "saved_cpu_quota": 400000,
+    "saved_cpu_period": 100000
+  },
+  {
+    "command": [
+      "podman",
+      "update",
+      "--cpus",
+      "16",
+      "sentry-qaft-quota-final-check"
+    ],
+    "cgroups": {
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/user.slice/libpod-7a75934389638e4064d8f42aecb318cf117faa303691beb4fd03ee4256c5d0bc.scope/container": "1600000 100000",
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/user.slice/libpod-7a75934389638e4064d8f42aecb318cf117faa303691beb4fd03ee4256c5d0bc.scope": "1600000 100000",
+      "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/user.slice": "max 100000"
+    },
+    "saved_cpu_quota": 400000,
+    "saved_cpu_period": 100000
+  }
+]

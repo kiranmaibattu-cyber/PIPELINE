@@ -1,0 +1,36 @@
+{
+  "argv": [
+    "python3",
+    "/home/admin1/Documents/sentry-validation/repo/scripts/isolated_validation/probe_case.py",
+    "--case",
+    "a4-turbo-off-edge-native-worker-pause-45s",
+    "--profile",
+    "all",
+    "--root",
+    "/home/admin1/Documents/sentry-validation",
+    "--image",
+    "localhost/sentry-v8-opt79-shared-gait-background",
+    "--cameras",
+    "2",
+    "--fps",
+    "8",
+    "--port",
+    "18080",
+    "--startup-timeout",
+    "150",
+    "--warmup-seconds",
+    "15",
+    "--steady-seconds",
+    "130",
+    "--sample-seconds",
+    "10",
+    "--minimum-decode-ratio",
+    "0.90",
+    "--full-usecases",
+    "--recording",
+    "/home/admin1/Documents/sentry-validation/fixtures/crowd-1080p.mp4"
+  ],
+  "overrides": {
+    "SENTRY_TEST_ACTION": "{\"mode\": \"pause_worker\", \"start\": 20, \"duration\": 45}"
+  }
+}

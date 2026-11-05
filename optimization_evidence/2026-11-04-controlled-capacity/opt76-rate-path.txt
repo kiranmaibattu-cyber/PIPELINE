@@ -1,0 +1,9 @@
+933:             'gvafpsthrottle', 'gvamotiondetect', 'gvadetect', 'gvatrack',
+1131:                     'identity name=firefpsgate ! '
+1157:                 'identity name=fpsgate ! '
+1172:                 f'gvatrack tracking-type={tracker_type} ! '
+1198:             fps_gate_pad = pipeline.get_by_name('fpsgate').get_static_pad('sink')
+1204:                     'firefpsgate'
+1384:         from pipeline.dlstreamer_bridge import DlsMotionPolicyGate, DlsPtsRateGate
+1385:         dls_fps_gate = DlsPtsRateGate(fps, int(Gst.SECOND))
+1390:             dls_fire_fps_gate = DlsPtsRateGate(

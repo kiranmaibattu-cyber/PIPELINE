@@ -1,0 +1,181 @@
+{
+  "scope": "baked validator and real Secret files; no camera capacity claim",
+  "results": [
+    {
+      "case": "1-camera-schema-secrets",
+      "expected_acceptance": true,
+      "accepted": true,
+      "passed": true,
+      "error": null
+    },
+    {
+      "case": "8-camera-schema-secrets",
+      "expected_acceptance": true,
+      "accepted": true,
+      "passed": true,
+      "error": null
+    },
+    {
+      "case": "16-camera-schema-secrets",
+      "expected_acceptance": true,
+      "accepted": true,
+      "passed": true,
+      "error": null
+    },
+    {
+      "case": "50-camera-schema-secrets",
+      "expected_acceptance": true,
+      "accepted": true,
+      "passed": true,
+      "error": null
+    },
+    {
+      "case": "default-fps",
+      "expected_acceptance": true,
+      "accepted": true,
+      "passed": true,
+      "error": null
+    },
+    {
+      "case": "default-fps-is-eight",
+      "passed": true
+    },
+    {
+      "case": "51-camera-rejected",
+      "expected_acceptance": false,
+      "accepted": false,
+      "passed": true,
+      "error": "ValueError: desired state cameras: [{'camera_id': 'camera-01', 'source': 'file:/run/secrets/sentinel/cameras/camera-01.url', 'bindings': [{'use_case_id': 'scene-1', 'app': 'scene_search', 'scope': 'full_frame', 'geometry_ids': [], 'object_types': [], 'embedding_profile_ids': ['siglip2-base-v1'], 'sample_interval_seconds': 2}]}, {'camera_id': 'camera-02', 'source': 'file:/run/secrets/sentinel/cameras/camera-02.url', 'bindings': [{'use_case_id': 'scene-2', 'app': 'scene_search', 'scope': 'full_frame', 'geometry_ids': [], 'object_types': [], 'embedding_profile_ids': ['siglip2-base-v1'], 'sample_i"
+    },
+    {
+      "case": "duplicate-camera",
+      "expected_acceptance": false,
+      "accepted": false,
+      "passed": true,
+      "error": "ValueError: duplicate camera_id: camera-01"
+    },
+    {
+      "case": "edge-deployment-mismatch",
+      "expected_acceptance": false,
+      "accepted": false,
+      "passed": true,
+      "error": "ValueError: edge_id must equal deployment_id"
+    },
+    {
+      "case": "duplicate-binding",
+      "expected_acceptance": false,
+      "accepted": false,
+      "passed": true,
+      "error": "ValueError: camera camera-01 has duplicate use_case_id"
+    },
+    {
+      "case": "missing-geometry",
+      "expected_acceptance": false,
+      "accepted": false,
+      "passed": true,
+      "error": "ValueError: scene-1 references missing or incompatible geometry"
+    },
+    {
+      "case": "invalid-fps",
+      "expected_acceptance": false,
+      "accepted": false,
+      "passed": true,
+      "error": "ValueError: desired state cameras.0.fps: 0 is less than or equal to the minimum of 0"
+    },
+    {
+      "case": "invalid-app",
+      "expected_acceptance": false,
+      "accepted": false,
+      "passed": true,
+      "error": "ValueError: desired state cameras.0.bindings.0: False schema does not allow 2"
+    },
+    {
+      "case": "unknown-root-field",
+      "expected_acceptance": false,
+      "accepted": false,
+      "passed": true,
+      "error": "ValueError: desired state : Additional properties are not allowed ('unexpected' was unexpected)"
+    },
+    {
+      "case": "missing-secret",
+      "expected_acceptance": false,
+      "accepted": false,
+      "passed": true,
+      "error": "ValueError: camera camera-01 Secret is missing"
+    },
+    {
+      "case": "bad-secret-url",
+      "expected_acceptance": false,
+      "accepted": false,
+      "passed": true,
+      "error": "ValueError: camera camera-01 Secret must contain a supported URL"
+    },
+    {
+      "case": "wrong-secret-name",
+      "expected_acceptance": false,
+      "accepted": false,
+      "passed": true,
+      "error": "ValueError: camera camera-01 Secret path/name is invalid"
+    },
+    {
+      "case": "accepted-scheme-rtsp",
+      "expected_acceptance": true,
+      "accepted": true,
+      "passed": true,
+      "error": null
+    },
+    {
+      "case": "accepted-scheme-rtsps",
+      "expected_acceptance": true,
+      "accepted": true,
+      "passed": true,
+      "error": null
+    },
+    {
+      "case": "accepted-scheme-http",
+      "expected_acceptance": true,
+      "accepted": true,
+      "passed": true,
+      "error": null
+    },
+    {
+      "case": "accepted-scheme-https",
+      "expected_acceptance": true,
+      "accepted": true,
+      "passed": true,
+      "error": null
+    },
+    {
+      "case": "accepted-scheme-tcp",
+      "expected_acceptance": true,
+      "accepted": true,
+      "passed": true,
+      "error": null
+    },
+    {
+      "case": "outside-secret-root",
+      "expected_acceptance": false,
+      "accepted": false,
+      "passed": true,
+      "error": "ValueError: desired state cameras.0.source: 'file:/tmp/tmpzgs90fvt/camera-01.url' does not match '^file:/run/secrets/sentinel/cameras/[A-Za-z0-9._-]+\\\\.url$'"
+    },
+    {
+      "case": "symlink-outside-secret-root",
+      "expected_acceptance": false,
+      "accepted": false,
+      "passed": true,
+      "error": "ValueError: camera camera-01 Secret path/name is invalid"
+    },
+    {
+      "case": "malformed",
+      "passed": true,
+      "error": "desired-state file is invalid: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"
+    },
+    {
+      "case": "empty",
+      "passed": true,
+      "error": "desired-state file is invalid: Expecting value: line 1 column 1 (char 0)"
+    }
+  ],
+  "passed": true
+}

@@ -47,10 +47,10 @@
       {"if": {"properties": {"app": {"enum": ["vehicle_counting", "vehicle_entry_exit_counts", "anpr", "people_counting", "people_entry_exit_counts", "line_crossing", "fire_smoke"]}}, "required": ["app"]},
        "then": {"properties": {"embedding_profile_ids": false}}}
     ]},
-    "camera": {"type": "object", "additionalProperties": false, "required": ["camera_id", "source", "fps", "bindings"], "properties": {
+    "camera": {"type": "object", "additionalProperties": false, "required": ["camera_id", "source", "bindings"], "properties": {
       "camera_id": {"$ref": "#/$defs/id"},
       "source": {"type": "string", "pattern": "^file:/run/secrets/sentinel/cameras/[A-Za-z0-9._-]+\\.url$"},
-      "fps": {"type": "number", "exclusiveMinimum": 0, "maximum": 60},
+      "fps": {"type": "number", "exclusiveMinimum": 0, "maximum": 60, "default": 8},
       "geometry": {"type": "object", "additionalProperties": false, "properties": {
         "zones": {"type": "array", "items": {"$ref": "#/$defs/polygon"}},
         "counting_lines": {"type": "array", "items": {"$ref": "#/$defs/line"}}

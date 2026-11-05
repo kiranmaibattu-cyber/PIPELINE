@@ -1,0 +1,390 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentinel.apexflo.com/contracts/v7/multi-box-delivery.schema.json",
+  "title": "Sentry V7 per-deployment delivery examples",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "object_request", "accepted_ack", "duplicate_ack",
+    "skip_request", "skip_ack", "stream_request", "stream_state", "gap_progression",
+    "offline_eviction", "lost_state_recovery", "parent_child_skip",
+    "dead_letter_policy", "payload_hashing", "two_deployments_one_box",
+    "ack_validation", "delivery_modes", "local_object_request",
+    "local_skip_request", "local_stream_request", "stream_bootstrap",
+    "receipt_conflict_resolution", "storage_profile"
+  ],
+  "properties": {
+    "schema_version": {"const": "7.0"},
+    "object_request": {"$ref": "#/$defs/object_request"},
+    "accepted_ack": {"allOf": [{"$ref": "#/$defs/ack"}, {"properties": {"status": {"const": "accepted"}}}]},
+    "duplicate_ack": {"allOf": [{"$ref": "#/$defs/ack"}, {"properties": {"status": {"const": "duplicate"}}}]},
+    "skip_request": {"$ref": "#/$defs/skip_request"},
+    "skip_ack": {"$ref": "#/$defs/ack"},
+    "stream_request": {"$ref": "#/$defs/stream_request"},
+    "stream_state": {"$ref": "#/$defs/ack"},
+    "gap_progression": {"$ref": "#/$defs/gap_progression"},
+    "offline_eviction": {"$ref": "#/$defs/offline_eviction"},
+    "lost_state_recovery": {"$ref": "#/$defs/lost_state_recovery"},
+    "parent_child_skip": {"$ref": "#/$defs/parent_child_skip"},
+    "dead_letter_policy": {"$ref": "#/$defs/dead_letter_policy"},
+    "payload_hashing": {"$ref": "#/$defs/payload_hashing"},
+    "two_deployments_one_box": {"$ref": "#/$defs/two_deployments"},
+    "ack_validation": {"$ref": "#/$defs/ack_validation"},
+    "delivery_modes": {"$ref": "#/$defs/delivery_modes"},
+    "local_object_request": {"$ref": "#/$defs/local_object_request"},
+    "local_skip_request": {"$ref": "#/$defs/local_skip_request"},
+    "local_stream_request": {"$ref": "#/$defs/local_stream_request"},
+    "stream_bootstrap": {"$ref": "#/$defs/stream_bootstrap"},
+    "receipt_conflict_resolution": {"$ref": "#/$defs/receipt_conflict_resolution"},
+    "storage_profile": {"$ref": "#/$defs/storage_profile"}
+  },
+  "$defs": {
+    "local_state": {
+      "enum": ["pending", "acked", "dead_letter", "skip_pending", "skipped", "resolved_by_remote_receipt"]
+    },
+    "remote_auth_headers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Authorization", "X-Sentry-Delivery-Mode", "X-Sentry-Box-Credential", "X-Sentry-Placement-Generation"],
+      "properties": {
+        "Authorization": {"type": "string", "pattern": "^Bearer .+$"},
+        "X-Sentry-Delivery-Mode": {"const": "remote_v7"},
+        "X-Sentry-Box-Credential": {"type": "string", "minLength": 1},
+        "X-Sentry-Placement-Generation": {"type": "integer", "minimum": 1}
+      }
+    },
+    "local_auth_headers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Authorization", "X-Sentry-Delivery-Mode", "X-Sentry-Placement-Generation"],
+      "properties": {
+        "Authorization": {"type": "string", "pattern": "^Bearer .+$"},
+        "X-Sentry-Delivery-Mode": {"const": "local_v7"},
+        "X-Sentry-Placement-Generation": {"type": "integer", "minimum": 1}
+      }
+    },
+    "object_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "path", "headers", "object_id", "payload_sha256"],
+      "properties": {
+        "method": {"const": "POST"},
+        "path": {"enum": ["/api/v7/ingest/events", "/api/v7/ingest/evidence", "/api/v7/ingest/embeddings"]},
+        "headers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["Authorization", "X-Sentry-Delivery-Mode", "X-Sentry-Box-Credential", "X-Sentry-Placement-Generation", "X-Sentry-Stream-Sequence"],
+          "properties": {
+            "Authorization": {"type": "string", "pattern": "^Bearer .+$"},
+            "X-Sentry-Delivery-Mode": {"const": "remote_v7"},
+            "X-Sentry-Box-Credential": {"type": "string", "minLength": 1},
+            "X-Sentry-Placement-Generation": {"type": "integer", "minimum": 1},
+            "X-Sentry-Stream-Sequence": {"type": "integer", "minimum": 1}
+          }
+        },
+        "object_id": {"type": "string", "format": "uuid"},
+        "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "ack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "sequence", "deployment_id", "box_id", "placement_generation", "stream_id", "highest_contiguous_sequence", "highest_received_sequence"],
+      "properties": {
+        "status": {"enum": ["accepted", "duplicate"]},
+        "sequence": {"type": "integer", "minimum": 0},
+        "deployment_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$", "minLength": 1, "maxLength": 200},
+        "box_id": {"type": "string", "format": "uuid"},
+        "placement_generation": {"type": "integer", "minimum": 1},
+        "stream_id": {"type": "string", "format": "uuid"},
+        "highest_contiguous_sequence": {"type": "integer", "minimum": 0},
+        "highest_received_sequence": {"type": "integer", "minimum": 0}
+      }
+    },
+    "skip_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "path", "headers", "body"],
+      "properties": {
+        "method": {"const": "POST"},
+        "path": {"const": "/api/v7/ingest/skip"},
+        "headers": {"$ref": "#/$defs/remote_auth_headers"},
+        "body": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sequence", "reason"],
+          "properties": {
+            "sequence": {"type": "integer", "minimum": 1},
+            "reason": {"enum": ["validation_failed", "evidence_expired", "object_unreadable", "outbox_overflow", "retention_expired"]}
+          }
+        }
+      }
+    },
+    "stream_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "path", "headers"],
+      "properties": {
+        "method": {"const": "GET"},
+        "path": {"const": "/api/v7/ingest/stream"},
+        "headers": {"$ref": "#/$defs/remote_auth_headers"}
+      }
+    },
+    "local_object_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "path", "headers", "object_id", "payload_sha256"],
+      "properties": {
+        "method": {"const": "POST"},
+        "path": {"enum": ["/api/v7/ingest/events", "/api/v7/ingest/evidence", "/api/v7/ingest/embeddings"]},
+        "headers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["Authorization", "X-Sentry-Delivery-Mode", "X-Sentry-Placement-Generation", "X-Sentry-Stream-Sequence"],
+          "properties": {
+            "Authorization": {"type": "string", "pattern": "^Bearer .+$"},
+            "X-Sentry-Delivery-Mode": {"const": "local_v7"},
+            "X-Sentry-Placement-Generation": {"type": "integer", "minimum": 1},
+            "X-Sentry-Stream-Sequence": {"type": "integer", "minimum": 1}
+          }
+        },
+        "object_id": {"type": "string", "format": "uuid"},
+        "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "local_skip_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "path", "headers", "body"],
+      "properties": {
+        "method": {"const": "POST"},
+        "path": {"const": "/api/v7/ingest/skip"},
+        "headers": {"$ref": "#/$defs/local_auth_headers"},
+        "body": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sequence", "reason"],
+          "properties": {
+            "sequence": {"type": "integer", "minimum": 1},
+            "reason": {"enum": ["validation_failed", "evidence_expired", "object_unreadable", "outbox_overflow", "retention_expired"]}
+          }
+        }
+      }
+    },
+    "local_stream_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "path", "headers"],
+      "properties": {
+        "method": {"const": "GET"},
+        "path": {"const": "/api/v7/ingest/stream"},
+        "headers": {"$ref": "#/$defs/local_auth_headers"}
+      }
+    },
+    "stream_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deployment_id", "placement_generation", "first_sequence", "highest_contiguous_sequence", "highest_received_sequence"],
+      "properties": {
+        "deployment_id": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$", "minLength": 1, "maxLength": 200},
+        "placement_generation": {"type": "integer", "minimum": 1},
+        "first_sequence": {"const": 1},
+        "highest_contiguous_sequence": {"type": "integer", "minimum": 0},
+        "highest_received_sequence": {"type": "integer", "minimum": 0}
+      }
+    },
+    "gap_progression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["received_before_gap_fill", "before", "gap_fill", "after"],
+      "properties": {
+        "received_before_gap_fill": {
+          "type": "array",
+          "prefixItems": [
+            {"const": 1}, {"const": 2}, {"const": 3}, {"const": 5}, {"const": 6}
+          ],
+          "items": false
+        },
+        "before": {"$ref": "#/$defs/ack"},
+        "gap_fill": {"const": 4},
+        "after": {"$ref": "#/$defs/ack"}
+      }
+    },
+    "offline_eviction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disconnected", "sequence", "reason", "local_state", "state_committed_and_fsynced_before_delete", "payload_bytes_retained", "after_reconnect_state"],
+      "properties": {
+        "disconnected": {"const": true},
+        "sequence": {"type": "integer", "minimum": 1},
+        "reason": {"enum": ["evidence_expired", "outbox_overflow", "retention_expired"]},
+        "local_state": {"const": "skip_pending"},
+        "state_committed_and_fsynced_before_delete": {"const": true},
+        "payload_bytes_retained": {"const": false},
+        "after_reconnect_state": {"const": "skipped"}
+      }
+    },
+    "lost_state_recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["highest_contiguous_sequence", "highest_received_sequence", "next_sequence", "skips", "receipt_conflict_http_status", "receipt_conflict_treated_as_success"],
+      "properties": {
+        "highest_contiguous_sequence": {"type": "integer", "minimum": 0},
+        "highest_received_sequence": {"type": "integer", "minimum": 1},
+        "next_sequence": {"type": "integer", "minimum": 2},
+        "skips": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sequence", "reason"],
+            "properties": {
+              "sequence": {"type": "integer", "minimum": 1},
+              "reason": {"const": "object_unreadable"}
+            }
+          }
+        },
+        "receipt_conflict_http_status": {"const": 409},
+        "receipt_conflict_treated_as_success": {"const": true}
+      }
+    },
+    "parent_child_skip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cascade_owner", "one_skip_request_per_object", "parent", "children", "defensive_child_upload"],
+      "properties": {
+        "cascade_owner": {"const": "runtime"},
+        "one_skip_request_per_object": {"const": true},
+        "parent": {"$ref": "#/$defs/skipped_object"},
+        "children": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/skipped_object"}
+        },
+        "defensive_child_upload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["http_status", "status"],
+          "properties": {"http_status": {"const": 200}, "status": {"const": "duplicate"}}
+        }
+      }
+    },
+    "skipped_object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence", "object_type", "reason", "local_state"],
+      "properties": {
+        "sequence": {"type": "integer", "minimum": 1},
+        "object_type": {"enum": ["observation", "evidence", "embedding"]},
+        "reason": {"enum": ["validation_failed", "evidence_expired", "object_unreadable", "outbox_overflow", "retention_expired"]},
+        "local_state": {"enum": ["skip_pending", "skipped"]}
+      }
+    },
+    "dead_letter_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "maximum_records", "maximum_age_days", "counts_toward_outbox_cap", "payload_bytes_after_skip", "metadata_fields"],
+      "properties": {
+        "path": {"const": "/state/dead-letter"},
+        "maximum_records": {"const": 1000},
+        "maximum_age_days": {"const": 7},
+        "counts_toward_outbox_cap": {"const": true},
+        "payload_bytes_after_skip": {"const": false},
+        "metadata_fields": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 9,
+          "uniqueItems": true,
+          "items": {"enum": ["sequence", "object_type", "object_id", "payload_sha256", "reason", "last_error", "attempts", "created_at", "skipped_at"]}
+        }
+      }
+    },
+    "payload_hashing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation", "evidence_content_sha256", "evidence_delivery_payload_sha256", "embedding"],
+      "properties": {
+        "observation": {"const": "sha256_exact_application_json_body_bytes"},
+        "evidence_content_sha256": {"const": "sha256_raw_image_bytes"},
+        "evidence_delivery_payload_sha256": {"const": "sha256_sentry_canonical_metadata_json_v1_nul_raw_image_bytes"},
+        "embedding": {"const": "sha256_exact_application_json_body_bytes"}
+      }
+    },
+    "two_deployments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["box_id", "one_runtime_process_per_deployment", "one_pvc_per_deployment", "streams"],
+      "properties": {
+        "box_id": {"type": "string", "format": "uuid"},
+        "one_runtime_process_per_deployment": {"const": true},
+        "one_pvc_per_deployment": {"const": true},
+        "streams": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/stream_summary"}
+        }
+      }
+    },
+    "ack_validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deployment_matches", "box_matches", "generation_matches", "contiguous_lte_received", "sequence_lte_received", "watermarks_never_decrease"],
+      "properties": {
+        "deployment_matches": {"const": true},
+        "box_matches": {"const": true},
+        "generation_matches": {"const": true},
+        "contiguous_lte_received": {"const": true},
+        "sequence_lte_received": {"const": true},
+        "watermarks_never_decrease": {"const": true}
+      }
+    },
+    "delivery_modes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["remote", "local"],
+      "properties": {
+        "remote": {"const": "remote_v7"},
+        "local": {"const": "local_v7"}
+      }
+    },
+    "stream_bootstrap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["query_before_upload", "persist_stream_id", "stream_id_stable_across_placement", "unexpected_stream_id_action"],
+      "properties": {
+        "query_before_upload": {"const": true},
+        "persist_stream_id": {"const": true},
+        "stream_id_stable_across_placement": {"const": true},
+        "unexpected_stream_id_action": {"const": "pause_uploads_and_deletion_require_recovery"}
+      }
+    },
+    "receipt_conflict_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["http_status", "store_diagnostic_metadata", "query_stream", "local_state", "send_skip", "renumber"],
+      "properties": {
+        "http_status": {"const": 409},
+        "store_diagnostic_metadata": {"const": true},
+        "query_stream": {"const": true},
+        "local_state": {"const": "resolved_by_remote_receipt"},
+        "send_skip": {"const": false},
+        "renumber": {"const": false}
+      }
+    },
+    "storage_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["access_mode", "storage_class", "volume_mode", "filesystem", "network_filesystems", "qualification"],
+      "properties": {
+        "access_mode": {"const": "ReadWriteOnce"},
+        "storage_class": {"const": "local-path"},
+        "volume_mode": {"const": "Filesystem"},
+        "filesystem": {"enum": ["ext4", "xfs"]},
+        "network_filesystems": {"const": "prohibited_unless_separately_qualified"},
+        "qualification": {"const": "power_loss_and_node_reboot_with_wal_recovery"}
+      }
+    }
+  }
+}

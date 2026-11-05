@@ -1,0 +1,95 @@
+{
+  "scope": "Test receiver conformance using one real CV scene package, CPU only; not production agent durability.",
+  "representative_acknowledgements": {
+    "first_acceptance": {
+      "http_status": 201,
+      "body": {
+        "status": "durable",
+        "package_id": "8f3ad96c-03a8-4dd4-8004-19955331899e",
+        "deployment_id": "v8-capacity-2",
+        "sequences": [
+          {
+            "sequence": 1,
+            "object_type": "observation",
+            "object_id": "33552ca4-f994-4986-8838-ff18593b7a7a"
+          },
+          {
+            "sequence": 2,
+            "object_type": "evidence",
+            "object_id": "a5e9152f-752c-4e2a-a2fe-fe12b628d4a1"
+          },
+          {
+            "sequence": 3,
+            "object_type": "embedding",
+            "object_id": "82692a4e-d8e6-42ee-85bc-40ade88a3932"
+          }
+        ]
+      }
+    },
+    "identical_retry": {
+      "http_status": 200,
+      "body": {
+        "status": "duplicate",
+        "package_id": "8f3ad96c-03a8-4dd4-8004-19955331899e",
+        "deployment_id": "v8-capacity-2",
+        "sequences": [
+          {
+            "sequence": 1,
+            "object_type": "observation",
+            "object_id": "33552ca4-f994-4986-8838-ff18593b7a7a"
+          },
+          {
+            "sequence": 2,
+            "object_type": "evidence",
+            "object_id": "a5e9152f-752c-4e2a-a2fe-fe12b628d4a1"
+          },
+          {
+            "sequence": 3,
+            "object_type": "embedding",
+            "object_id": "82692a4e-d8e6-42ee-85bc-40ade88a3932"
+          }
+        ]
+      }
+    }
+  },
+  "cases": [
+    {
+      "case": "valid-package",
+      "passed": true
+    },
+    {
+      "case": "identical-retry",
+      "passed": true
+    },
+    {
+      "case": "promised-image-missing",
+      "passed": true,
+      "reason": "ValueError: promised evidence missing or duplicated"
+    },
+    {
+      "case": "promised-vector-missing",
+      "passed": true,
+      "reason": "ValueError: promised embedding missing or duplicated"
+    },
+    {
+      "case": "truncated-image",
+      "passed": true,
+      "reason": "ValueError: evidence size mismatch"
+    },
+    {
+      "case": "wrong-image-parent",
+      "passed": true,
+      "reason": "ValueError: evidence parent mismatch"
+    },
+    {
+      "case": "wrong-vector-evidence-link",
+      "passed": true,
+      "reason": "ValueError: embedding evidence mismatch"
+    },
+    {
+      "case": "same-id-different-bytes",
+      "passed": true
+    }
+  ],
+  "passed": true
+}

@@ -33,7 +33,15 @@ def _gate_library() -> ctypes.CDLL:
                 os.environ["LD_LIBRARY_PATH"] = f"{extra}:{prev}"
     for path in _CANDIDATES:
         if path.exists():
-            lib = ctypes.CDLL(str(path))
+            # The gate is linked to the validated OpenCV 4.6 runtime shipped in
+            # /opt/finalcombo.  The camera worker also imports Python cv2 for
+            # crop/evidence processing.  Loading the gate into the default ELF
+            # symbol namespace can bind its C++ OpenCV calls to Python cv2's
+            # different OpenCV build and abort inside attachContext().  Keep
+            # the native gate local and prefer its own dependency symbols.
+            mode = os.RTLD_LOCAL
+            deepbind = getattr(os, "RTLD_DEEPBIND", 0)
+            lib = ctypes.CDLL(str(path), mode=mode | deepbind)
             lib.gpu_motion_create.argtypes = [ctypes.c_size_t]
             lib.gpu_motion_create.restype = ctypes.c_void_p
             lib.gpu_motion_update.argtypes = [

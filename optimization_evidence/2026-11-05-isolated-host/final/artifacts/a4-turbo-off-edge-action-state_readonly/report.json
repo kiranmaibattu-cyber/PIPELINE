@@ -1,0 +1,941 @@
+{
+  "image": "localhost/sentry-v8-opt79-shared-gait-background",
+  "camera_count": 2,
+  "fps_per_camera": 8,
+  "fps_explicit_in_desired_state": true,
+  "source_urls": [
+    "tcp://127.0.0.1:19001",
+    "tcp://127.0.0.1:19002"
+  ],
+  "source_reuse": false,
+  "source_mode": "local_independent_tcp_replays",
+  "motion_gate_enabled": true,
+  "full_usecases": true,
+  "steady_throughput": {
+    "passed": false,
+    "per_camera": {
+      "capacity-01": {
+        "selected_fps": 5.196455069938933,
+        "ratio": 0.6495568837423666
+      },
+      "capacity-02": {
+        "selected_fps": 5.358844290874525,
+        "ratio": 0.6698555363593156
+      }
+    },
+    "duration_seconds": 80.05457458999808
+  },
+  "capacity_qualified": false,
+  "test_scope": "capacity",
+  "end_health": {
+    "ready": true,
+    "worker_running": true,
+    "camera_records": 2,
+    "camera_states": {
+      "healthy": 2
+    },
+    "cameras_with_recent_frames": 2,
+    "target_decode_fps": 16.0,
+    "aggregate_decode_fps": 15.667,
+    "decode_target_ratio": 0.9792,
+    "aggregate_inference_fps": 15.667,
+    "per_camera": {
+      "capacity-01": {
+        "selected_fps": 7.818,
+        "inference_fps": 7.818,
+        "totals": {
+          "decoded_frames": 654,
+          "events_handoff_admitted": 578,
+          "evidence_jpeg_encoded": 223,
+          "fire_bgr_avoided_frames": 164,
+          "fire_model_system_memory_frames": 164,
+          "gait_inference_avoided": 41,
+          "gait_inference_eligible": 4,
+          "handoff_admitted": 578,
+          "inference_frames": 654,
+          "primary_bgr_avoided_frames": 29,
+          "primary_bgr_materialized_frames": 625,
+          "scene_embedding_computed": 42
+        },
+        "pending_admissions": 0,
+        "last_frame_age_seconds": 0.053
+      },
+      "capacity-02": {
+        "selected_fps": 7.849,
+        "inference_fps": 7.849,
+        "totals": {
+          "decoded_frames": 668,
+          "events_handoff_admitted": 588,
+          "evidence_jpeg_encoded": 226,
+          "fire_bgr_avoided_frames": 167,
+          "fire_model_system_memory_frames": 167,
+          "gait_inference_avoided": 41,
+          "gait_inference_eligible": 4,
+          "handoff_admitted": 588,
+          "inference_frames": 668,
+          "primary_bgr_avoided_frames": 30,
+          "primary_bgr_materialized_frames": 638,
+          "scene_embedding_computed": 42
+        },
+        "pending_admissions": 0,
+        "last_frame_age_seconds": 0.655
+      }
+    },
+    "unique_camera_processes": 1,
+    "camera_process_rss_mb": 2497.59,
+    "camera_process_pss_mb": 2408.37,
+    "container_memory_mb": 3187.92,
+    "container_cpu_cores": 1.487,
+    "container_pids": 223,
+    "gpu_utilization_pct": 70.32,
+    "npu_utilization_pct": 20.23,
+    "handoff": {
+      "admitted": 1404,
+      "durable": 1404,
+      "duplicate": 0,
+      "backpressure": 0,
+      "coalesced": 0,
+      "exhausted": 0,
+      "protocol_errors": 0
+    }
+  },
+  "startup_seconds": 22.328,
+  "steady_seconds": 90,
+  "minimum_required_decode_ratio": 0.9,
+  "required_final_stable_samples": 3,
+  "minimum_observed_decode_ratio": 0.9806,
+  "passed": false,
+  "fatal_lines": [
+    "{\"timestamp\":\"2026-11-05T00:59:24.451598Z\",\"level\":\"ERROR\",\"logger\":\"stream_fleet_openvino\",\"message\":\"camera thread failed inside shared DL Streamer group\",\"pid\":52,\"camera_id\":\"capacity-02\",\"stream_session_id\":\"f3b25731-1e81-4dac-863e-628c876cf221\",\"event\":\"camera_thread_unhandled_exception\",\"exception_type\":\"PermissionError\",\"dlstreamer_group\":0,\"exception\":\"Traceback (most recent call last):\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/surface_stream.py\\\", line 1949, in run_surface_camera\\n    face_samples = face_pipeline.process(packet, tracked_people)\\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_samples.py\\\", line 566, in process\\n    self.metrics.tracks(len(faces))\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 34, in tracks\\n    self._update(\\\"tracks_active\\\", max(0, int(count)))\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 63, in _update\\n    self._save_locked()\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 82, in _save_locked\\n    temporary.write_text(json.dumps(self.data, separators=(\\\",\\\", \\\":\\\")), encoding=\\\"utf-8\\\")\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1049, in write_text\\n    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:\\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1015, in open\\n    return io.open(self, mode, buffering, encoding, errors, newline)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\nPermissionError: [Errno 13] Permission denied: '/tmp/sentinel/state/metrics/face-capacity-02.json.tmp'\\n\\nDuring handling of the above exception, another exception occurred:\\n\\nTraceback (most recent call last):\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 1006, in run_camera_thread\\n    _camera_proc_impl(\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 402, in _camera_proc_impl\\n    return run_surface_camera(\\n           ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/surface_stream.py\\\", line 2011, in run_surface_camera\\n    telemetry.close()\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/runtime_telemetry.py\\\", line 240, in close\\n    self.flush(force=True)\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/runtime_telemetry.py\\\", line 215, in flush\\n    return self._flush_serialized(force=force)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/runtime_telemetry.py\\\", line 234, in _flush_serialized\\n    _atomic_json(self.path, payload)\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/runtime_telemetry.py\\\", line 37, in _atomic_json\\n    temporary.write_text(json.dumps(payload, separators=(\\\",\\\", \\\":\\\")), encoding=\\\"utf-8\\\")\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1049, in write_text\\n    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:\\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1015, in open\\n    return io.open(self, mode, buffering, encoding, errors, newline)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\nPermissionError: [Errno 13] Permission denied: '/tmp/sentinel/state/metrics/.runtime-camera-capacity-02.json.52.tmp'\"}",
+    "{\"timestamp\":\"2026-11-05T00:59:24.502076Z\",\"level\":\"ERROR\",\"logger\":\"stream_fleet_openvino\",\"message\":\"camera thread failed inside shared DL Streamer group\",\"pid\":52,\"camera_id\":\"capacity-01\",\"stream_session_id\":\"822ad3b1-97c6-4a76-8d69-eb4529ee2846\",\"event\":\"camera_thread_unhandled_exception\",\"exception_type\":\"PermissionError\",\"dlstreamer_group\":0,\"exception\":\"Traceback (most recent call last):\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/surface_stream.py\\\", line 1949, in run_surface_camera\\n    face_samples = face_pipeline.process(packet, tracked_people)\\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_samples.py\\\", line 566, in process\\n    self.metrics.tracks(len(faces))\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 34, in tracks\\n    self._update(\\\"tracks_active\\\", max(0, int(count)))\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 63, in _update\\n    self._save_locked()\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 82, in _save_locked\\n    temporary.write_text(json.dumps(self.data, separators=(\\\",\\\", \\\":\\\")), encoding=\\\"utf-8\\\")\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1049, in write_text\\n    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:\\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1015, in open\\n    return io.open(self, mode, buffering, encoding, errors, newline)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\nPermissionError: [Errno 13] Permission denied: '/tmp/sentinel/state/metrics/face-capacity-01.json.tmp'\\n\\nDuring handling of the above exception, another exception occurred:\\n\\nTraceback (most recent call last):\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 1006, in run_camera_thread\\n    _camera_proc_impl(\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 402, in _camera_proc_impl\\n    return run_surface_camera(\\n           ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/surface_stream.py\\\", line 2011, in run_surface_camera\\n    telemetry.close()\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/runtime_telemetry.py\\\", line 240, in close\\n    self.flush(force=True)\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/runtime_telemetry.py\\\", line 215, in flush\\n    return self._flush_serialized(force=force)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/runtime_telemetry.py\\\", line 234, in _flush_serialized\\n    _atomic_json(self.path, payload)\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/runtime_telemetry.py\\\", line 37, in _atomic_json\\n    temporary.write_text(json.dumps(payload, separators=(\\\",\\\", \\\":\\\")), encoding=\\\"utf-8\\\")\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1049, in write_text\\n    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:\\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1015, in open\\n    return io.open(self, mode, buffering, encoding, errors, newline)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\nPermissionError: [Errno 13] Permission denied: '/tmp/sentinel/state/metrics/.runtime-camera-capacity-01.json.52.tmp'\"}",
+    "{\"timestamp\":\"2026-11-05T00:59:25.579137Z\",\"level\":\"ERROR\",\"logger\":\"stream_fleet_openvino\",\"message\":\"camera thread failed inside shared DL Streamer group\",\"pid\":52,\"camera_id\":\"capacity-02\",\"stream_session_id\":\"28cf3387-494b-4f40-9522-33f8e9c85d6e\",\"event\":\"camera_thread_unhandled_exception\",\"exception_type\":\"PermissionError\",\"dlstreamer_group\":0,\"exception\":\"Traceback (most recent call last):\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 1006, in run_camera_thread\\n    _camera_proc_impl(\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 402, in _camera_proc_impl\\n    return run_surface_camera(\\n           ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/surface_stream.py\\\", line 749, in run_surface_camera\\n    face_pipeline = FaceSamplePipeline(\\n                    ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_samples.py\\\", line 494, in __init__\\n    self.metrics = FaceMetrics(camera_id)\\n                   ^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 31, in __init__\\n    self._save()\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 77, in _save\\n    self._save_locked()\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 82, in _save_locked\\n    temporary.write_text(json.dumps(self.data, separators=(\\\",\\\", \\\":\\\")), encoding=\\\"utf-8\\\")\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1049, in write_text\\n    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:\\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1015, in open\\n    return io.open(self, mode, buffering, encoding, errors, newline)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\nPermissionError: [Errno 13] Permission denied: '/tmp/sentinel/state/metrics/face-capacity-02.json.tmp'\"}",
+    "{\"timestamp\":\"2026-11-05T00:59:26.606617Z\",\"level\":\"ERROR\",\"logger\":\"stream_fleet_openvino\",\"message\":\"camera thread failed inside shared DL Streamer group\",\"pid\":52,\"camera_id\":\"capacity-01\",\"stream_session_id\":\"a41efb54-b518-4d9b-802e-b413aaf9651a\",\"event\":\"camera_thread_unhandled_exception\",\"exception_type\":\"PermissionError\",\"dlstreamer_group\":0,\"exception\":\"Traceback (most recent call last):\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 1006, in run_camera_thread\\n    _camera_proc_impl(\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 402, in _camera_proc_impl\\n    return run_surface_camera(\\n           ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/surface_stream.py\\\", line 749, in run_surface_camera\\n    face_pipeline = FaceSamplePipeline(\\n                    ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_samples.py\\\", line 494, in __init__\\n    self.metrics = FaceMetrics(camera_id)\\n                   ^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 31, in __init__\\n    self._save()\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 77, in _save\\n    self._save_locked()\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 82, in _save_locked\\n    temporary.write_text(json.dumps(self.data, separators=(\\\",\\\", \\\":\\\")), encoding=\\\"utf-8\\\")\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1049, in write_text\\n    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:\\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1015, in open\\n    return io.open(self, mode, buffering, encoding, errors, newline)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\nPermissionError: [Errno 13] Permission denied: '/tmp/sentinel/state/metrics/face-capacity-01.json.tmp'\"}",
+    "{\"timestamp\":\"2026-11-05T00:59:28.741715Z\",\"level\":\"ERROR\",\"logger\":\"stream_fleet_openvino\",\"message\":\"camera thread failed inside shared DL Streamer group\",\"pid\":52,\"camera_id\":\"capacity-02\",\"stream_session_id\":\"fb36258c-deb3-41f4-990b-0b6863cb7034\",\"event\":\"camera_thread_unhandled_exception\",\"exception_type\":\"PermissionError\",\"dlstreamer_group\":0,\"exception\":\"Traceback (most recent call last):\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 1006, in run_camera_thread\\n    _camera_proc_impl(\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 402, in _camera_proc_impl\\n    return run_surface_camera(\\n           ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/surface_stream.py\\\", line 749, in run_surface_camera\\n    face_pipeline = FaceSamplePipeline(\\n                    ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_samples.py\\\", line 494, in __init__\\n    self.metrics = FaceMetrics(camera_id)\\n                   ^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 31, in __init__\\n    self._save()\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 77, in _save\\n    self._save_locked()\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 82, in _save_locked\\n    temporary.write_text(json.dumps(self.data, separators=(\\\",\\\", \\\":\\\")), encoding=\\\"utf-8\\\")\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1049, in write_text\\n    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:\\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1015, in open\\n    return io.open(self, mode, buffering, encoding, errors, newline)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\nPermissionError: [Errno 13] Permission denied: '/tmp/sentinel/state/metrics/face-capacity-02.json.tmp'\"}",
+    "{\"timestamp\":\"2026-11-05T00:59:30.752060Z\",\"level\":\"ERROR\",\"logger\":\"stream_fleet_openvino\",\"message\":\"camera thread failed inside shared DL Streamer group\",\"pid\":52,\"camera_id\":\"capacity-01\",\"stream_session_id\":\"85ade61c-e570-4922-a0cd-c1ad1eff7c14\",\"event\":\"camera_thread_unhandled_exception\",\"exception_type\":\"PermissionError\",\"dlstreamer_group\":0,\"exception\":\"Traceback (most recent call last):\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 1006, in run_camera_thread\\n    _camera_proc_impl(\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 402, in _camera_proc_impl\\n    return run_surface_camera(\\n           ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/surface_stream.py\\\", line 749, in run_surface_camera\\n    face_pipeline = FaceSamplePipeline(\\n                    ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_samples.py\\\", line 494, in __init__\\n    self.metrics = FaceMetrics(camera_id)\\n                   ^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 31, in __init__\\n    self._save()\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 77, in _save\\n    self._save_locked()\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/face_metrics.py\\\", line 82, in _save_locked\\n    temporary.write_text(json.dumps(self.data, separators=(\\\",\\\", \\\":\\\")), encoding=\\\"utf-8\\\")\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1049, in write_text\\n    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:\\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/usr/lib/python3.12/pathlib.py\\\", line 1015, in open\\n    return io.open(self, mode, buffering, encoding, errors, newline)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\nPermissionError: [Errno 13] Permission denied: '/tmp/sentinel/state/metrics/face-capacity-01.json.tmp'\"}"
+  ],
+  "final": {
+    "ready": true,
+    "worker_running": true,
+    "camera_records": 2,
+    "camera_states": {
+      "healthy": 2
+    },
+    "cameras_with_recent_frames": 2,
+    "target_decode_fps": 16.0,
+    "aggregate_decode_fps": 16.126,
+    "decode_target_ratio": 1.0079,
+    "aggregate_inference_fps": 16.126,
+    "per_camera": {
+      "capacity-01": {
+        "selected_fps": 8.296,
+        "inference_fps": 8.296,
+        "totals": {
+          "decoded_frames": 573,
+          "events_handoff_admitted": 504,
+          "evidence_jpeg_encoded": 201,
+          "fire_bgr_avoided_frames": 144,
+          "fire_model_system_memory_frames": 144,
+          "gait_inference_avoided": 37,
+          "gait_inference_eligible": 4,
+          "handoff_admitted": 504,
+          "inference_frames": 573,
+          "primary_bgr_avoided_frames": 26,
+          "primary_bgr_materialized_frames": 547,
+          "scene_embedding_computed": 37
+        },
+        "pending_admissions": 0,
+        "last_frame_age_seconds": 0.561
+      },
+      "capacity-02": {
+        "selected_fps": 7.83,
+        "inference_fps": 7.83,
+        "totals": {
+          "decoded_frames": 586,
+          "events_handoff_admitted": 519,
+          "evidence_jpeg_encoded": 205,
+          "fire_bgr_avoided_frames": 147,
+          "fire_model_system_memory_frames": 147,
+          "gait_inference_avoided": 39,
+          "gait_inference_eligible": 4,
+          "handoff_admitted": 519,
+          "inference_frames": 586,
+          "primary_bgr_avoided_frames": 26,
+          "primary_bgr_materialized_frames": 560,
+          "scene_embedding_computed": 37
+        },
+        "pending_admissions": 0,
+        "last_frame_age_seconds": 0.398
+      }
+    },
+    "unique_camera_processes": 1,
+    "camera_process_rss_mb": 2497.48,
+    "camera_process_pss_mb": 2408.26,
+    "container_memory_mb": 3187.89,
+    "container_cpu_cores": 1.868,
+    "container_pids": 223,
+    "gpu_utilization_pct": 71.07,
+    "npu_utilization_pct": 32.64,
+    "handoff": {
+      "admitted": 1254,
+      "durable": 1254,
+      "duplicate": 0,
+      "backpressure": 0,
+      "coalesced": 0,
+      "exhausted": 0,
+      "protocol_errors": 0
+    },
+    "sample_phase": "steady",
+    "sample_monotonic_seconds": 30152.266541035
+  },
+  "samples": [
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 35.609,
+      "decode_target_ratio": 2.2256,
+      "aggregate_inference_fps": 35.609,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 17.354,
+          "inference_fps": 17.354,
+          "totals": {
+            "decoded_frames": 60,
+            "events_handoff_admitted": 29,
+            "evidence_jpeg_encoded": 21,
+            "fire_bgr_avoided_frames": 15,
+            "fire_model_system_memory_frames": 15,
+            "handoff_admitted": 29,
+            "inference_frames": 58,
+            "primary_bgr_avoided_frames": 4,
+            "primary_bgr_materialized_frames": 54,
+            "scene_embedding_computed": 4
+          },
+          "pending_admissions": 2,
+          "last_frame_age_seconds": 1.1
+        },
+        "capacity-02": {
+          "selected_fps": 18.255,
+          "inference_fps": 18.255,
+          "totals": {
+            "decoded_frames": 62,
+            "events_handoff_admitted": 29,
+            "evidence_jpeg_encoded": 21,
+            "fire_bgr_avoided_frames": 16,
+            "fire_model_system_memory_frames": 16,
+            "handoff_admitted": 29,
+            "inference_frames": 60,
+            "primary_bgr_avoided_frames": 5,
+            "primary_bgr_materialized_frames": 55,
+            "scene_embedding_computed": 4
+          },
+          "pending_admissions": 2,
+          "last_frame_age_seconds": 0.369
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 2535.16,
+      "camera_process_pss_mb": 2477.12,
+      "container_memory_mb": 3135.36,
+      "container_cpu_cores": 2.803,
+      "container_pids": 210,
+      "gpu_utilization_pct": 77.17,
+      "npu_utilization_pct": 34.18,
+      "handoff": {
+        "admitted": 60,
+        "durable": 60,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      }
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 25.553,
+      "decode_target_ratio": 1.5971,
+      "aggregate_inference_fps": 26.536,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 14.237,
+          "inference_fps": 14.728,
+          "totals": {
+            "decoded_frames": 157,
+            "events_handoff_admitted": 99,
+            "evidence_jpeg_encoded": 71,
+            "fire_bgr_avoided_frames": 39,
+            "fire_model_system_memory_frames": 39,
+            "gait_inference_avoided": 6,
+            "gait_inference_eligible": 1,
+            "handoff_admitted": 99,
+            "inference_frames": 156,
+            "primary_bgr_avoided_frames": 6,
+            "primary_bgr_materialized_frames": 150,
+            "scene_embedding_computed": 10
+          },
+          "pending_admissions": 1,
+          "last_frame_age_seconds": 6.344
+        },
+        "capacity-02": {
+          "selected_fps": 11.316,
+          "inference_fps": 11.808,
+          "totals": {
+            "decoded_frames": 157,
+            "events_handoff_admitted": 99,
+            "evidence_jpeg_encoded": 71,
+            "fire_bgr_avoided_frames": 39,
+            "fire_model_system_memory_frames": 39,
+            "gait_inference_avoided": 6,
+            "gait_inference_eligible": 1,
+            "handoff_admitted": 99,
+            "inference_frames": 156,
+            "primary_bgr_avoided_frames": 6,
+            "primary_bgr_materialized_frames": 150,
+            "scene_embedding_computed": 10
+          },
+          "pending_admissions": 1,
+          "last_frame_age_seconds": 6.921
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 2596.72,
+      "camera_process_pss_mb": 2538.68,
+      "container_memory_mb": 3192.87,
+      "container_cpu_cores": 2.087,
+      "container_pids": 210,
+      "gpu_utilization_pct": 74.27,
+      "npu_utilization_pct": 27.72,
+      "handoff": {
+        "admitted": 208,
+        "durable": 208,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 30072.211966445
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 1,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 7.997,
+      "decode_target_ratio": 0.4998,
+      "aggregate_inference_fps": 7.997,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 0.0,
+          "inference_fps": 0.0,
+          "totals": {},
+          "pending_admissions": null,
+          "last_frame_age_seconds": 0.516
+        },
+        "capacity-02": {
+          "selected_fps": 7.997,
+          "inference_fps": 7.997,
+          "totals": {
+            "decoded_frames": 32,
+            "events_handoff_admitted": 23,
+            "evidence_jpeg_encoded": 17,
+            "fire_bgr_avoided_frames": 8,
+            "fire_model_system_memory_frames": 8,
+            "handoff_admitted": 23,
+            "inference_frames": 32,
+            "primary_bgr_materialized_frames": 32,
+            "scene_embedding_computed": 2
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.079
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 2109.62,
+      "camera_process_pss_mb": 2020.4,
+      "container_memory_mb": 3057.93,
+      "container_cpu_cores": 1.555,
+      "container_pids": 224,
+      "gpu_utilization_pct": 71.42,
+      "npu_utilization_pct": 19.07,
+      "handoff": {
+        "admitted": 246,
+        "durable": 246,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 30082.218444806
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 16.371,
+      "decode_target_ratio": 1.0232,
+      "aggregate_inference_fps": 15.871,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 7.874,
+          "inference_fps": 7.874,
+          "totals": {
+            "decoded_frames": 83,
+            "events_handoff_admitted": 39,
+            "evidence_jpeg_encoded": 29,
+            "fire_bgr_avoided_frames": 21,
+            "fire_model_system_memory_frames": 21,
+            "handoff_admitted": 39,
+            "inference_frames": 83,
+            "primary_bgr_avoided_frames": 6,
+            "primary_bgr_materialized_frames": 77,
+            "scene_embedding_computed": 6
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.746
+        },
+        "capacity-02": {
+          "selected_fps": 8.497,
+          "inference_fps": 7.997,
+          "totals": {
+            "decoded_frames": 114,
+            "events_handoff_admitted": 75,
+            "evidence_jpeg_encoded": 54,
+            "fire_bgr_avoided_frames": 29,
+            "fire_model_system_memory_frames": 29,
+            "handoff_admitted": 75,
+            "inference_frames": 113,
+            "primary_bgr_avoided_frames": 6,
+            "primary_bgr_materialized_frames": 107,
+            "scene_embedding_computed": 8
+          },
+          "pending_admissions": 1,
+          "last_frame_age_seconds": 0.351
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 2445.28,
+      "camera_process_pss_mb": 2356.06,
+      "container_memory_mb": 3128.85,
+      "container_cpu_cores": 1.899,
+      "container_pids": 224,
+      "gpu_utilization_pct": 70.48,
+      "npu_utilization_pct": 33.52,
+      "handoff": {
+        "admitted": 339,
+        "durable": 339,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 30092.224856017
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 15.645,
+      "decode_target_ratio": 0.9778,
+      "aggregate_inference_fps": 15.645,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 7.852,
+          "inference_fps": 7.852,
+          "totals": {
+            "decoded_frames": 164,
+            "events_handoff_admitted": 105,
+            "evidence_jpeg_encoded": 73,
+            "fire_bgr_avoided_frames": 41,
+            "fire_model_system_memory_frames": 41,
+            "gait_inference_avoided": 7,
+            "gait_inference_eligible": 1,
+            "handoff_admitted": 105,
+            "inference_frames": 164,
+            "primary_bgr_avoided_frames": 7,
+            "primary_bgr_materialized_frames": 157,
+            "scene_embedding_computed": 11
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.643
+        },
+        "capacity-02": {
+          "selected_fps": 7.793,
+          "inference_fps": 7.793,
+          "totals": {
+            "decoded_frames": 195,
+            "events_handoff_admitted": 124,
+            "evidence_jpeg_encoded": 82,
+            "fire_bgr_avoided_frames": 49,
+            "fire_model_system_memory_frames": 49,
+            "gait_inference_avoided": 7,
+            "gait_inference_eligible": 1,
+            "handoff_admitted": 124,
+            "inference_frames": 195,
+            "primary_bgr_avoided_frames": 11,
+            "primary_bgr_materialized_frames": 184,
+            "scene_embedding_computed": 13
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.339
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 2448.57,
+      "camera_process_pss_mb": 2359.35,
+      "container_memory_mb": 3132.65,
+      "container_cpu_cores": 1.536,
+      "container_pids": 223,
+      "gpu_utilization_pct": 69.38,
+      "npu_utilization_pct": 18.87,
+      "handoff": {
+        "admitted": 449,
+        "durable": 449,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 30102.232324396
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 15.789,
+      "decode_target_ratio": 0.9868,
+      "aggregate_inference_fps": 15.789,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 7.873,
+          "inference_fps": 7.873,
+          "totals": {
+            "decoded_frames": 246,
+            "events_handoff_admitted": 183,
+            "evidence_jpeg_encoded": 106,
+            "fire_bgr_avoided_frames": 62,
+            "fire_model_system_memory_frames": 62,
+            "gait_inference_avoided": 7,
+            "gait_inference_eligible": 1,
+            "handoff_admitted": 183,
+            "inference_frames": 246,
+            "primary_bgr_avoided_frames": 11,
+            "primary_bgr_materialized_frames": 235,
+            "scene_embedding_computed": 16
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.773
+        },
+        "capacity-02": {
+          "selected_fps": 7.916,
+          "inference_fps": 7.916,
+          "totals": {
+            "decoded_frames": 277,
+            "events_handoff_admitted": 201,
+            "evidence_jpeg_encoded": 114,
+            "fire_bgr_avoided_frames": 70,
+            "fire_model_system_memory_frames": 70,
+            "gait_inference_avoided": 13,
+            "gait_inference_eligible": 2,
+            "handoff_admitted": 201,
+            "inference_frames": 277,
+            "primary_bgr_avoided_frames": 12,
+            "primary_bgr_materialized_frames": 265,
+            "scene_embedding_computed": 18
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.871
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 2451.82,
+      "camera_process_pss_mb": 2362.6,
+      "container_memory_mb": 3141.39,
+      "container_cpu_cores": 1.537,
+      "container_pids": 223,
+      "gpu_utilization_pct": 70.32,
+      "npu_utilization_pct": 23.59,
+      "handoff": {
+        "admitted": 601,
+        "durable": 601,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 30112.239240077
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 15.829,
+      "decode_target_ratio": 0.9893,
+      "aggregate_inference_fps": 15.829,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 7.994,
+          "inference_fps": 7.994,
+          "totals": {
+            "decoded_frames": 327,
+            "events_handoff_admitted": 250,
+            "evidence_jpeg_encoded": 124,
+            "fire_bgr_avoided_frames": 82,
+            "fire_model_system_memory_frames": 82,
+            "gait_inference_avoided": 14,
+            "gait_inference_eligible": 2,
+            "handoff_admitted": 250,
+            "inference_frames": 327,
+            "primary_bgr_avoided_frames": 16,
+            "primary_bgr_materialized_frames": 311,
+            "scene_embedding_computed": 21
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 1.123
+        },
+        "capacity-02": {
+          "selected_fps": 7.835,
+          "inference_fps": 7.835,
+          "totals": {
+            "decoded_frames": 358,
+            "events_handoff_admitted": 287,
+            "evidence_jpeg_encoded": 139,
+            "fire_bgr_avoided_frames": 90,
+            "fire_model_system_memory_frames": 90,
+            "gait_inference_avoided": 14,
+            "gait_inference_eligible": 2,
+            "handoff_admitted": 287,
+            "inference_frames": 358,
+            "primary_bgr_avoided_frames": 16,
+            "primary_bgr_materialized_frames": 342,
+            "scene_embedding_computed": 23
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 1.142
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 2480.62,
+      "camera_process_pss_mb": 2391.4,
+      "container_memory_mb": 3170.15,
+      "container_cpu_cores": 1.79,
+      "container_pids": 223,
+      "gpu_utilization_pct": 71.77,
+      "npu_utilization_pct": 37.19,
+      "handoff": {
+        "admitted": 761,
+        "durable": 761,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 30122.246168266
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 15.727,
+      "decode_target_ratio": 0.9829,
+      "aggregate_inference_fps": 15.727,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 7.877,
+          "inference_fps": 7.877,
+          "totals": {
+            "decoded_frames": 409,
+            "events_handoff_admitted": 329,
+            "evidence_jpeg_encoded": 154,
+            "fire_bgr_avoided_frames": 103,
+            "fire_model_system_memory_frames": 103,
+            "gait_inference_avoided": 33,
+            "gait_inference_eligible": 4,
+            "handoff_admitted": 329,
+            "inference_frames": 409,
+            "primary_bgr_avoided_frames": 18,
+            "primary_bgr_materialized_frames": 391,
+            "scene_embedding_computed": 26
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.299
+        },
+        "capacity-02": {
+          "selected_fps": 7.85,
+          "inference_fps": 7.85,
+          "totals": {
+            "decoded_frames": 440,
+            "events_handoff_admitted": 361,
+            "evidence_jpeg_encoded": 161,
+            "fire_bgr_avoided_frames": 110,
+            "fire_model_system_memory_frames": 110,
+            "gait_inference_avoided": 33,
+            "gait_inference_eligible": 4,
+            "handoff_admitted": 361,
+            "inference_frames": 440,
+            "primary_bgr_avoided_frames": 20,
+            "primary_bgr_materialized_frames": 420,
+            "scene_embedding_computed": 28
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.138
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 2485.39,
+      "camera_process_pss_mb": 2396.17,
+      "container_memory_mb": 3174.69,
+      "container_cpu_cores": 1.494,
+      "container_pids": 223,
+      "gpu_utilization_pct": 69.52,
+      "npu_utilization_pct": 20.63,
+      "handoff": {
+        "admitted": 906,
+        "durable": 906,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 30132.253282742
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 15.69,
+      "decode_target_ratio": 0.9806,
+      "aggregate_inference_fps": 16.176,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 7.773,
+          "inference_fps": 8.259,
+          "totals": {
+            "decoded_frames": 491,
+            "events_handoff_admitted": 421,
+            "evidence_jpeg_encoded": 180,
+            "fire_bgr_avoided_frames": 123,
+            "fire_model_system_memory_frames": 123,
+            "gait_inference_avoided": 33,
+            "gait_inference_eligible": 4,
+            "handoff_admitted": 421,
+            "inference_frames": 491,
+            "primary_bgr_avoided_frames": 21,
+            "primary_bgr_materialized_frames": 470,
+            "scene_embedding_computed": 31
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.523
+        },
+        "capacity-02": {
+          "selected_fps": 7.917,
+          "inference_fps": 7.917,
+          "totals": {
+            "decoded_frames": 505,
+            "events_handoff_admitted": 429,
+            "evidence_jpeg_encoded": 183,
+            "fire_bgr_avoided_frames": 127,
+            "fire_model_system_memory_frames": 127,
+            "gait_inference_avoided": 34,
+            "gait_inference_eligible": 4,
+            "handoff_admitted": 429,
+            "inference_frames": 505,
+            "primary_bgr_avoided_frames": 21,
+            "primary_bgr_materialized_frames": 484,
+            "scene_embedding_computed": 32
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.127
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 2497.38,
+      "camera_process_pss_mb": 2408.15,
+      "container_memory_mb": 3186.71,
+      "container_cpu_cores": 1.558,
+      "container_pids": 223,
+      "gpu_utilization_pct": 69.77,
+      "npu_utilization_pct": 23.75,
+      "handoff": {
+        "admitted": 1079,
+        "durable": 1079,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 30142.260131223
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 16.126,
+      "decode_target_ratio": 1.0079,
+      "aggregate_inference_fps": 16.126,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 8.296,
+          "inference_fps": 8.296,
+          "totals": {
+            "decoded_frames": 573,
+            "events_handoff_admitted": 504,
+            "evidence_jpeg_encoded": 201,
+            "fire_bgr_avoided_frames": 144,
+            "fire_model_system_memory_frames": 144,
+            "gait_inference_avoided": 37,
+            "gait_inference_eligible": 4,
+            "handoff_admitted": 504,
+            "inference_frames": 573,
+            "primary_bgr_avoided_frames": 26,
+            "primary_bgr_materialized_frames": 547,
+            "scene_embedding_computed": 37
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.561
+        },
+        "capacity-02": {
+          "selected_fps": 7.83,
+          "inference_fps": 7.83,
+          "totals": {
+            "decoded_frames": 586,
+            "events_handoff_admitted": 519,
+            "evidence_jpeg_encoded": 205,
+            "fire_bgr_avoided_frames": 147,
+            "fire_model_system_memory_frames": 147,
+            "gait_inference_avoided": 39,
+            "gait_inference_eligible": 4,
+            "handoff_admitted": 519,
+            "inference_frames": 586,
+            "primary_bgr_avoided_frames": 26,
+            "primary_bgr_materialized_frames": 560,
+            "scene_embedding_computed": 37
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.398
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 2497.48,
+      "camera_process_pss_mb": 2408.26,
+      "container_memory_mb": 3187.89,
+      "container_cpu_cores": 1.868,
+      "container_pids": 223,
+      "gpu_utilization_pct": 71.07,
+      "npu_utilization_pct": 32.64,
+      "handoff": {
+        "admitted": 1254,
+        "durable": 1254,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 30152.266541035
+    }
+  ],
+  "isolation": {
+    "requested": false,
+    "camera_number": null,
+    "target_interrupted": null,
+    "peers_healthy": null,
+    "target_recovered": null,
+    "passed": true,
+    "samples": []
+  },
+  "package_summary": {
+    "package_count": 1411,
+    "event_types": {
+      "camera_health": 8,
+      "scene_sample": 107,
+      "object_present": 239,
+      "zone_count": 89,
+      "person_feature_sample": 246,
+      "track_lost": 369,
+      "plate_read": 6,
+      "plate_outcome": 22,
+      "presence_recovered": 255,
+      "presence_ended_unknown": 68,
+      "zone_entry": 2
+    },
+    "evidence_objects": 600,
+    "embedding_objects": 353,
+    "embedding_profiles": {
+      "siglip2-base-v1": 107,
+      "transreid-ssl-v18.1": 204,
+      "adaface-ir101-v18.1": 32,
+      "gaitbase-v18.1": 10
+    }
+  },
+  "full_usecases_minimum_outputs_passed": true,
+  "artifact_directory": "/tmp/sentry-v8-capacity-2.11r7yt33"
+}

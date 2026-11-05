@@ -1,0 +1,34 @@
+{
+  "json_schema_version": "2.2.0",
+  "input_preproc": [
+    {
+      "format": "image",
+      "params": {
+        "resize": "aspect-ratio",
+        "padding": {
+          "stride_x": 0,
+          "stride_y": 0,
+          "fill_value": [114.0, 114.0, 114.0]
+        },
+        "range": [0.0, 1.0],
+        "color_space": "RGB"
+      }
+    }
+  ],
+  "output_postproc": [
+    {
+      "converter": "yolo_v26",
+      "labels": [
+        "bus",
+        "car",
+        "minivan",
+        "motorcycle",
+        "rickshaw",
+        "truck",
+        "bicycle",
+        "person",
+        "others"
+      ]
+    }
+  ]
+}

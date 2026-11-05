@@ -1,0 +1,194 @@
+[
+  {
+    "time": 1793843952.9688354,
+    "command": [
+      "k3s",
+      "kubectl",
+      "--kubeconfig",
+      "/home/admin1/Documents/sentry-validation/k3s-disposable/kubeconfig.yaml",
+      "get",
+      "--raw=/readyz"
+    ],
+    "returncode": 1,
+    "stdout_tail": "",
+    "stderr_tail": "ststarthook/start-apiextensions-controllers ok\\n[+]poststarthook/crd-informer-synced ok\\n[+]poststarthook/start-system-namespaces-controller ok\\n[+]poststarthook/peer-endpoint-reconciler-controller ok\\n[+]poststarthook/start-cluster-authentication-info-controller ok\\n[+]poststarthook/start-kube-apiserver-identity-lease-controller ok\\n[+]poststarthook/start-kube-apiserver-identity-lease-garbage-collector ok\\n[+]poststarthook/storage-readiness ok\\n[+]poststarthook/start-legacy-token-tracking-controller ok\\n[+]poststarthook/start-service-ip-repair-controllers ok\\n[-]poststarthook/rbac/bootstrap-roles failed: reason withheld\\n[-]poststarthook/scheduling/bootstrap-system-priority-classes failed: reason withheld\\n[+]poststarthook/priority-and-fairness-config-producer ok\\n[+]poststarthook/bootstrap-controller ok\\n[+]poststarthook/start-kubernetes-service-cidr-controller ok\\n[+]poststarthook/aggregator-reload-proxy-client-cert ok\\n[+]poststarthook/start-kube-aggregator-informers ok\\n[+]poststarthook/apiservice-status-local-available-controller ok\\n[+]poststarthook/apiservice-status-remote-available-controller ok\\n[+]poststarthook/apiservice-registration-controller ok\\n[+]poststarthook/apiservice-discovery-controller ok\\n[+]poststarthook/kube-apiserver-autoregistration ok\\n[+]autoregister-completion ok\\n[+]poststarthook/apiservice-openapi-controller ok\\n[+]poststarthook/apiservice-openapiv3-controller ok\\n[+]shutdown ok\\nreadyz check failed\") has prevented the request from succeeding\n"
+  },
+  {
+    "time": 1793843956.1374414,
+    "command": [
+      "k3s",
+      "kubectl",
+      "--kubeconfig",
+      "/home/admin1/Documents/sentry-validation/k3s-disposable/kubeconfig.yaml",
+      "get",
+      "--raw=/readyz"
+    ],
+    "returncode": 0,
+    "stdout_tail": "ok",
+    "stderr_tail": ""
+  },
+  {
+    "time": 1793844010.661995,
+    "command": [
+      "k3s",
+      "ctr",
+      "images",
+      "import",
+      "/home/admin1/Documents/sentry-validation/opt79.docker.tar"
+    ],
+    "returncode": 0,
+    "stdout_tail": "localhost/sentry v8 opt79 shared gait ba\tsaved\t\napplication/vnd.docker.distribution.manifest.v2+json sha256:d8f626f6c641067657346d24bb6012cdbe0e07f5b8081e5d40cacf2bf48eb670\nImporting\telapsed: 54.4s\ttotal:   0.0 B\t(0.0 B/s)\t\n",
+    "stderr_tail": ""
+  },
+  {
+    "time": 1793844011.952273,
+    "command": [
+      "k3s",
+      "kubectl",
+      "--kubeconfig",
+      "/home/admin1/Documents/sentry-validation/k3s-disposable/kubeconfig.yaml",
+      "apply",
+      "-f",
+      "/home/admin1/Documents/sentry-validation/artifacts/kubernetes/manifest.json"
+    ],
+    "returncode": 0,
+    "stdout_tail": "namespace/sentry-validation created\nconfigmap/inputs created\nsecret/camera-urls created\npod/sentry-validation created\n",
+    "stderr_tail": ""
+  },
+  {
+    "time": 1793844108.176435,
+    "command": [
+      "k3s",
+      "kubectl",
+      "--kubeconfig",
+      "/home/admin1/Documents/sentry-validation/k3s-disposable/kubeconfig.yaml",
+      "-n",
+      "sentry-validation",
+      "patch",
+      "configmap",
+      "inputs",
+      "--type=merge",
+      "-p",
+      "{\"data\": {\"desired_state.json\": \"{\\\"contract\\\": \\\"sentry-v8\\\", \\\"schema_version\\\": \\\"8.0\\\", \\\"edge_id\\\": \\\"v8-capacity-1\\\", \\\"deployment_id\\\": \\\"v8-capacity-1\\\", \\\"revision\\\": 2, \\\"cameras\\\": [{\\\"camera_id\\\": \\\"capacity-01\\\", \\\"source\\\": \\\"file:/run/secrets/sentinel/cameras/capacity-01.url\\\", \\\"geometry\\\": {\\\"zones\\\": [{\\\"id\\\": \\\"zone-1\\\", \\\"name\\\": \\\"Full\\\", \\\"poly\\\": [[0.02, 0.02], [0.99, 0.01], [0.99, 0.99], [0.01, 0.99]]}], \\\"counting_lines\\\": [{\\\"id\\\": \\\"line-1\\\", \\\"name\\\": \\\"Middle\\\", \\\"a\\\": [0.05, 0.5], \\\"b\\\": [0.95, 0.5], \\\"direction_mapping\\\": {\\\"left_to_right\\\": \\\"out\\\", \\\"right_to_left\\\": \\\"in\\\"}}]}, \\\"bindings\\\": [{\\\"use_case_id\\\": \\\"count-1\\\", \\\"app\\\": \\\"vehicle_counting\\\", \\\"scope\\\": \\\"geometry\\\", \\\"geometry_ids\\\": [\\\"zone-1\\\"], \\\"object_types\\\": [\\\"vehicle\\\"]}, {\\\"use_case_id\\\": \\\"anpr-1\\\", \\\"app\\\": \\\"anpr\\\", \\\"scope\\\": \\\"geometry\\\", \\\"geometry_ids\\\": [\\\"zone-1\\\"], \\\"object_types\\\": [\\\"vehicle\\\"]}, {\\\"use_case_id\\\": \\\"people-count-1\\\", \\\"app\\\": \\\"people_counting\\\", \\\"scope\\\": \\\"full_frame\\\", \\\"geometry_ids\\\": [], \\\"object_types\\\": [\\\"person\\\"]}, {\\\"use_case_id\\\": \\\"vehicle-presence-1\\\", \\\"app\\\": \\\"vehicle_presence\\\", \\\"scope\\\": \\\"geometry\\\", \\\"geometry_ids\\\": [\\\"zone-1\\\"], \\\"object_types\\\": [\\\"vehicle\\\"]}, {\\\"use_case_id\\\": \\\"person-presence-1\\\", \\\"app\\\": \\\"person_presence\\\", \\\"scope\\\": \\\"geometry\\\", \\\"geometry_ids\\\": [\\\"zone-1\\\"], \\\"object_types\\\": [\\\"person\\\"]}, {\\\"use_case_id\\\": \\\"crossing-1\\\", \\\"app\\\": \\\"vehicle_entry_exit_counts\\\", \\\"scope\\\": \\\"geometry\\\", \\\"geometry_ids\\\": [\\\"line-1\\\"], \\\"object_types\\\": [\\\"vehicle\\\"]}, {\\\"use_case_id\\\": \\\"identity-1\\\", \\\"app\\\": \\\"person_identity\\\", \\\"scope\\\": \\\"full_frame\\\", \\\"geometry_ids\\\": [], \\\"object_types\\\": [\\\"person\\\"], \\\"embedding_profile_ids\\\": [\\\"adaface-ir101-v18.1\\\", \\\"transreid-ssl-v18.1\\\", \\\"gaitbase-v18.1\\\"]}, {\\\"use_case_id\\\": \\\"scene-1\\\", \\\"app\\\": \\\"scene_search\\\", \\\"scope\\\": \\\"full_frame\\\", \\\"geometry_ids\\\": [], \\\"object_types\\\": [], \\\"embedding_profile_ids\\\": [\\\"siglip2-base-v1\\\"], \\\"sample_interval_seconds\\\": 2, \\\"scene_trigger_use_case_ids\\\": [\\\"vehicle-presence-1\\\", \\\"person-presence-1\\\"]}, {\\\"use_case_id\\\": \\\"hazard-1\\\", \\\"app\\\": \\\"fire_smoke\\\", \\\"scope\\\": \\\"geometry\\\", \\\"geometry_ids\\\": [\\\"zone-1\\\"], \\\"object_types\\\": []}], \\\"fps\\\": 8}]}\"}}"
+    ],
+    "returncode": 0,
+    "stdout_tail": "configmap/inputs patched\n",
+    "stderr_tail": ""
+  },
+  {
+    "time": 1793844164.4016747,
+    "command": [
+      "k3s",
+      "kubectl",
+      "--kubeconfig",
+      "/home/admin1/Documents/sentry-validation/k3s-disposable/kubeconfig.yaml",
+      "-n",
+      "sentry-validation",
+      "exec",
+      "sentry-validation",
+      "-c",
+      "agent",
+      "--",
+      "cat",
+      "/state/agent-status.json"
+    ],
+    "returncode": 0,
+    "stdout_tail": "{\"packages\":211,\"next_sequence\":391,\"event_types\":{\"camera_health\":6,\"zone_count\":31,\"scene_sample\":37,\"object_present\":36,\"person_feature_sample\":32,\"zone_entry\":2,\"track_lost\":32,\"plate_outcome\":3,\"presence_recovered\":2,\"presence_ended_unknown\":30},\"cameras\":{\"capacity-01\":211},\"evidence_bytes\":8121138,\"embeddings\":69}",
+    "stderr_tail": ""
+  },
+  {
+    "time": 1793844164.5673018,
+    "command": [
+      "k3s",
+      "kubectl",
+      "--kubeconfig",
+      "/home/admin1/Documents/sentry-validation/k3s-disposable/kubeconfig.yaml",
+      "-n",
+      "sentry-validation",
+      "exec",
+      "sentry-validation",
+      "-c",
+      "agent",
+      "--",
+      "cat",
+      "/state/packages.jsonl"
+    ],
+    "returncode": 0,
+    "stdout_tail": "me\":null,\"hazard\":null,\"hazard_episode_id\":null,\"evidence\":[\"face_crop\"],\"embeddings\":[\"adaface-ir101-v18.1\"],\"observed_at\":\"2026-11-05T02:02:52.612535Z\",\"config_revision\":2,\"source_frame_id\":\"capacity-01:1070\",\"stream_session_id\":\"4f07e341-b74d-4aac-99d2-e62658ac356a\",\"use_case_id\":\"identity-1\",\"sequences\":[{\"sequence\":387,\"object_type\":\"observation\",\"object_id\":\"14b85076-4de6-4908-9256-caa7ccbba948\"},{\"sequence\":388,\"object_type\":\"evidence\",\"object_id\":\"9c0a9c1f-5e18-4d3e-8712-757bdcf11f21\"},{\"sequence\":389,\"object_type\":\"embedding\",\"object_id\":\"74da0ba4-76ac-4f2f-855a-aaf2bf4a5c4c\"}],\"package_digest\":\"a9f03cdda9d4778babcb1d6d2864ae40addfd0d928ef120b81bd535ccfe06584\",\"accepted_at\":\"2026-11-05T02:02:44.058656+00:00\",\"accepted_mono\":33865.632060759,\"kind\":\"face\"}\n{\"package_id\":\"72bf6e04-cc1d-4194-b1d0-d9a158db00d1\",\"camera_id\":\"capacity-01\",\"event_type\":\"zone_count\",\"presence_id\":null,\"track_id\":null,\"plate_text\":null,\"plate_outcome\":null,\"hazard\":null,\"hazard_episode_id\":null,\"evidence\":[],\"embeddings\":[],\"observed_at\":\"2026-11-05T02:02:53.112535Z\",\"config_revision\":2,\"source_frame_id\":\"capacity-01:1074\",\"stream_session_id\":\"4f07e341-b74d-4aac-99d2-e62658ac356a\",\"use_case_id\":\"people-count-1\",\"sequences\":[{\"sequence\":390,\"object_type\":\"observation\",\"object_id\":\"3f146956-3a94-4140-b379-a5df675a5f7d\"}],\"package_digest\":\"acae144494c17a4b92812fe51a9f282205d8390f34d7d4a6a44f1f96aab980ca\",\"accepted_at\":\"2026-11-05T02:02:44.349945+00:00\",\"accepted_mono\":33865.92334624,\"kind\":null}\n",
+    "stderr_tail": ""
+  },
+  {
+    "time": 1793844164.6674063,
+    "command": [
+      "k3s",
+      "kubectl",
+      "--kubeconfig",
+      "/home/admin1/Documents/sentry-validation/k3s-disposable/kubeconfig.yaml",
+      "-n",
+      "sentry-validation",
+      "get",
+      "pod",
+      "sentry-validation",
+      "-o",
+      "json"
+    ],
+    "returncode": 0,
+    "stdout_tail": "              \"readOnly\": true,\n                        \"recursiveReadOnly\": \"Disabled\"\n                    },\n                    {\n                        \"mountPath\": \"/run/sentinel-delivery\",\n                        \"name\": \"delivery\"\n                    },\n                    {\n                        \"mountPath\": \"/dev/dri\",\n                        \"name\": \"dri\"\n                    },\n                    {\n                        \"mountPath\": \"/dev/accel\",\n                        \"name\": \"accel\"\n                    },\n                    {\n                        \"mountPath\": \"/var/run/secrets/kubernetes.io/serviceaccount\",\n                        \"name\": \"kube-api-access-qwpwx\",\n                        \"readOnly\": true,\n                        \"recursiveReadOnly\": \"Disabled\"\n                    }\n                ]\n            }\n        ],\n        \"hostIP\": \"192.168.1.64\",\n        \"hostIPs\": [\n            {\n                \"ip\": \"192.168.1.64\"\n            }\n        ],\n        \"observedGeneration\": 1,\n        \"phase\": \"Running\",\n        \"podIP\": \"192.168.1.64\",\n        \"podIPs\": [\n            {\n                \"ip\": \"192.168.1.64\"\n            }\n        ],\n        \"qosClass\": \"Burstable\",\n        \"resources\": {\n            \"limits\": {\n                \"cpu\": \"4\",\n                \"memory\": \"8Gi\"\n            },\n            \"requests\": {\n                \"cpu\": \"975m\",\n                \"memory\": \"3Gi\"\n            }\n        },\n        \"startTime\": \"2026-11-05T02:00:11Z\"\n    }\n}\n",
+    "stderr_tail": ""
+  },
+  {
+    "time": 1793844164.8269484,
+    "command": [
+      "k3s",
+      "kubectl",
+      "--kubeconfig",
+      "/home/admin1/Documents/sentry-validation/k3s-disposable/kubeconfig.yaml",
+      "-n",
+      "sentry-validation",
+      "logs",
+      "sentry-validation",
+      "-c",
+      "cv"
+    ],
+    "returncode": 0,
+    "stdout_tail": "r\",\"message\":\"system: ram=13.6% cpu=1.7% rss=223.4MB threads=9\",\"pid\":9,\"camera_id\":null,\"stream_session_id\":null,\"event\":\"log_message\"}\n{\"timestamp\":\"2026-11-05T02:02:35.660811Z\",\"level\":\"INFO\",\"logger\":\"monitor\",\"message\":\"system: ram=13.6% cpu=2.0% rss=223.4MB threads=9\",\"pid\":9,\"camera_id\":null,\"stream_session_id\":null,\"event\":\"log_message\"}\n{\"timestamp\":\"2026-11-05T02:02:37.662346Z\",\"level\":\"INFO\",\"logger\":\"monitor\",\"message\":\"system: ram=13.6% cpu=1.6% rss=223.4MB threads=9\",\"pid\":9,\"camera_id\":null,\"stream_session_id\":null,\"event\":\"log_message\"}\n{\"timestamp\":\"2026-11-05T02:02:39.663896Z\",\"level\":\"INFO\",\"logger\":\"monitor\",\"message\":\"system: ram=13.6% cpu=1.7% rss=223.4MB threads=9\",\"pid\":9,\"camera_id\":null,\"stream_session_id\":null,\"event\":\"log_message\"}\n{\"timestamp\":\"2026-11-05T02:02:40.062321Z\",\"level\":\"INFO\",\"logger\":\"stream_fleet_openvino\",\"message\":\"cam[capacity-01] hot config applied from /tmp/sentinel/generated/cameras.generated.json\",\"pid\":52,\"camera_id\":\"capacity-01\",\"stream_session_id\":\"4f07e341-b74d-4aac-99d2-e62658ac356a\",\"event\":\"log_message\"}\n{\"timestamp\":\"2026-11-05T02:02:41.665479Z\",\"level\":\"INFO\",\"logger\":\"monitor\",\"message\":\"system: ram=13.6% cpu=4.4% rss=223.4MB threads=9\",\"pid\":9,\"camera_id\":null,\"stream_session_id\":null,\"event\":\"log_message\"}\n{\"timestamp\":\"2026-11-05T02:02:43.667009Z\",\"level\":\"INFO\",\"logger\":\"monitor\",\"message\":\"system: ram=13.6% cpu=4.7% rss=223.4MB threads=9\",\"pid\":9,\"camera_id\":null,\"stream_session_id\":null,\"event\":\"log_message\"}\n",
+    "stderr_tail": ""
+  },
+  {
+    "time": 1793844164.9673133,
+    "command": [
+      "k3s",
+      "kubectl",
+      "--kubeconfig",
+      "/home/admin1/Documents/sentry-validation/k3s-disposable/kubeconfig.yaml",
+      "-n",
+      "sentry-validation",
+      "describe",
+      "pod",
+      "sentry-validation"
+    ],
+    "returncode": 0,
+    "stdout_tail": "jected data from multiple sources)\n    TokenExpirationSeconds:  3607\n    ConfigMapName:           kube-root-ca.crt\n    Optional:                false\n    DownwardAPI:             true\nQoS Class:                   Burstable\nNode-Selectors:              <none>\nTolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s\n                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s\nEvents:\n  Type     Reason     Age                    From     Message\n  ----     ------     ----                   ----     -------\n  Normal   Pulled     2m26s                  kubelet  spec.containers{agent}: Container image \"localhost/sentry-v8-opt79-shared-gait-background:latest\" already present on machine and can be accessed by the pod\n  Normal   Created    2m26s                  kubelet  spec.containers{agent}: Container created\n  Normal   Started    2m26s                  kubelet  spec.containers{agent}: Container started\n  Normal   Pulled     2m26s                  kubelet  spec.containers{cv}: Container image \"localhost/sentry-v8-opt79-shared-gait-background:latest\" already present on machine and can be accessed by the pod\n  Normal   Created    2m26s                  kubelet  spec.containers{cv}: Container created\n  Normal   Started    2m26s                  kubelet  spec.containers{cv}: Container started\n  Warning  Unhealthy  2m16s (x2 over 2m19s)  kubelet  spec.containers{cv}: Readiness probe failed: HTTP probe failed with statuscode: 503\n",
+    "stderr_tail": ""
+  },
+  {
+    "time": 1793844195.0968328,
+    "command": [
+      "k3s",
+      "kubectl",
+      "--kubeconfig",
+      "/home/admin1/Documents/sentry-validation/k3s-disposable/kubeconfig.yaml",
+      "-n",
+      "sentry-validation",
+      "delete",
+      "pod",
+      "sentry-validation",
+      "--ignore-not-found=true",
+      "--wait=true",
+      "--timeout=30s"
+    ],
+    "returncode": 1,
+    "stdout_tail": "pod \"sentry-validation\" deleted from sentry-validation namespace\n",
+    "stderr_tail": "error: timed out waiting for the condition on pods/sentry-validation\n"
+  }
+]

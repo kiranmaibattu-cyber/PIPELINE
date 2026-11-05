@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from contextlib import nullcontext
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 import hashlib
 import logging
 import math
@@ -22,6 +24,7 @@ from .face_samples import FaceSamplePipeline
 from .sentinel_v8_handoff import V8HandoffClient
 from .structured_logging import set_stream_session_id
 from .runtime_status import write_camera_health_status
+from .frame_work_cache import FrameWorkCache
 
 
 logger = logging.getLogger(__name__)
@@ -77,6 +80,13 @@ class V8EventPipeline:
         self.session_id = str(stream_session_id or uuid.uuid4())
         set_stream_session_id(self.session_id)
         self.scene, self.body, self.gait = scene, body, gait
+        # One in-flight job, joined before the next frame. Internal opt-in until
+        # ordered-output and workload qualification pass.
+        self._gait_worker = (ThreadPoolExecutor(max_workers=1,
+                             thread_name_prefix="gait-" + camera_id)
+                             if gait is not None and os.getenv("SENTINEL_GAIT_WORKER", "0") == "1"
+                             else None)
+        self._pending_gait = None
         self.telemetry = telemetry
         target_fps = float((config.get("processing") or {}).get("fps", 5.0))
         self.policy = AdaptivePolicyResolver(camera_id, target_fps=target_fps)
@@ -125,6 +135,11 @@ class V8EventPipeline:
         self._publish_policy()
 
     def close(self):
+        worker = getattr(self, "_gait_worker", None)
+        if worker is not None:
+            worker.shutdown(wait=True, cancel_futures=True)
+            self._gait_worker = None
+            self._pending_gait = None
         self.store.close()
 
     def reconfigure(self, camera_config: dict[str, Any]) -> None:
@@ -317,6 +332,21 @@ class V8EventPipeline:
             return nullcontext()
         return self.telemetry.measure(stage, device=device)
 
+    def _observe_shared_scene_execution(self) -> None:
+        """Expose shared-executor timing without changing scene policy."""
+        if self.telemetry is None or self.scene is None:
+            return
+        queue_wait = getattr(self.scene, "scheduler_queue_wait_seconds", None)
+        device_time = getattr(self.scene, "scheduler_device_inference_seconds", None)
+        if queue_wait is not None:
+            self.telemetry.observe_latency(
+                "scene_search.scheduler_queue_wait", float(queue_wait)
+            )
+        if device_time is not None:
+            self.telemetry.observe_latency(
+                "scene_search.device_inference", float(device_time)
+            )
+
     def _publish_policy(self) -> None:
         identity = self.policy.section("identity")
         zone = self.policy.section("zone")
@@ -345,11 +375,28 @@ class V8EventPipeline:
             "vehicle_presence", "person_presence",
         }
 
-    def _evidence(self, event, frame_id, image, kind, bounds, frame_shape, now):
-        ok, encoded = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), 88])
-        if not ok:
-            raise RuntimeError("JPEG evidence encoding failed")
-        body = encoded.tobytes()
+    def _frame_work_cache(self):
+        if not hasattr(self, "_image_work_cache"):
+            self._image_work_cache = FrameWorkCache()
+        return self._image_work_cache
+
+    def _evidence(self, event, frame_id, image, kind, bounds, frame_shape, now,
+                  *, content_key=None):
+        with self._measure("evidence.jpeg"):
+            if content_key is None:
+                # Most evidence is unique. Avoid a raw-image hash/cache lookup
+                # unless the caller has identified reusable same-frame work.
+                ok, encoded = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), 88])
+                if not ok:
+                    raise RuntimeError("JPEG evidence encoding failed")
+                body = encoded.tobytes()
+                digest = "sha256:" + hashlib.sha256(body).hexdigest()
+                reused = False
+            else:
+                (body, digest), reused = self._frame_work_cache().jpeg(
+                    frame_id, image, content_key=content_key)
+        if self.telemetry is not None:
+            self.telemetry.count("evidence_jpeg_reused" if reused else "evidence_jpeg_encoded")
         height, width = frame_shape[:2]
         evidence_id = str(uuid.uuid4())
         metadata = {"schema_version": "7.0", "evidence_id": evidence_id,
@@ -358,7 +405,7 @@ class V8EventPipeline:
                     "source_bbox_normalized": bbox_normalized(bounds, width, height) if bounds else None,
                     "content_type": "image/jpeg", "width": int(image.shape[1]),
                     "height": int(image.shape[0]), "size_bytes": len(body),
-                    "sha256": "sha256:" + hashlib.sha256(body).hexdigest()}
+                    "sha256": digest}
         return metadata, body
 
     def _embedding(self, event, evidence, frame_id, vector, profile, kind, now, presence_id,
@@ -514,6 +561,79 @@ class V8EventPipeline:
         """
         return False
 
+    def _periodic_scene_due(self, now: float) -> bool:
+        if self.scene is None:
+            return False
+        scene_policy = self.policy.snapshot()["scene"]
+        if not scene_policy["optional_sampling_allowed"]:
+            return False
+        multiplier = float(scene_policy["pressure_interval_multiplier"])
+        for binding in self.bindings:
+            if binding["app"] != "scene_search":
+                continue
+            areas = (
+                binding["geometry_ids"]
+                if binding["scope"] == "geometry" else [None]
+            )
+            interval = float(binding["sample_interval_seconds"]) * multiplier
+            if any(
+                now - self.last_scene.get((binding["use_case_id"], zone_id), 0)
+                >= interval
+                for zone_id in areas
+            ):
+                return True
+        return False
+
+    def primary_pixels_required(self, now: float, detections) -> bool:
+        """Decide whether an admitted tracked sample needs original pixels.
+
+        This is an execution decision only. Empty detector observations still
+        enter presence-loss, count, dwell and health policy with their original
+        timestamp; they simply avoid a VA-to-BGR download when no pixel
+        consumer is due.
+        """
+        if any(
+            getattr(item, "model_name", None) in {
+                "vehicle", "license_plate", "smoke_fire"
+            }
+            and not getattr(item, "metadata", {}).get("predicted")
+            for item in detections
+        ):
+            return True
+        return self.policy.image_sample_due(now) or self._periodic_scene_due(now)
+
+    def hazard_pixels_required(self, detections, now: float) -> bool:
+        """Return true only when this hazard observation can emit evidence."""
+        policy = self.policy.section("fire_smoke")
+        minimum = float(policy["event_min_confidence"])
+        needed = int(policy["positive_confirmations"])
+        window = float(policy["positive_window_seconds"])
+        positives = [
+            item for item in detections
+            if getattr(item, "model_name", None) == "smoke_fire"
+            and getattr(item, "class_name", None) in {"fire", "smoke"}
+            and float(getattr(item, "confidence", 0.0)) >= minimum
+        ]
+        if not positives:
+            return False
+        for binding in self.bindings:
+            if binding["app"] != "fire_smoke":
+                continue
+            zones = binding["geometry_ids"] if binding["scope"] == "geometry" else [None]
+            for zone_id in zones:
+                for item in positives:
+                    key = (binding["use_case_id"], zone_id, item.class_name)
+                    state = self.hazards.get(key)
+                    if state is None or state.get("episode") is not None:
+                        continue
+                    recent = [
+                        sample for sample in state.get("positive_samples", [])
+                        if now - sample[0] <= window
+                    ]
+                    if len(recent) + 1 >= needed:
+                        return True
+        return False
+
     def process_quiet(self, now: float, index: int, frame=None) -> None:
         """Advance lifecycle state for a frame where models did not run.
 
@@ -534,7 +654,36 @@ class V8EventPipeline:
             from types import SimpleNamespace
             self._scenes(SimpleNamespace(frame=frame), now, f"{self.camera_id}:{index}")
 
+    def process_hazards(self, packet) -> None:
+        """Advance only fire/smoke policy from its independent DLS branch.
+
+        This branch has exact source pixels and PTS, but deliberately does not
+        participate in object presence, counts, dwell, identity or scene
+        cadence.  Those remain driven by the primary tracked frame stream.
+        """
+        observed = getattr(packet, "frame_observed_at", None)
+        received = getattr(packet, "frame_received_at", None)
+        now = observed or received or time.time()
+        self.timestamp_source = "source_pts" if observed is not None else "edge_received_at"
+        frame_id = f"{self.camera_id}:hazard:{packet.index}"
+        self._hazards(packet, now, frame_id)
+
     def process(self, packet, faces=()):
+        try:
+            self._process_frame(packet, faces)
+        except BaseException:
+            # A failed frame must not leave its background job mutating gait
+            # state while teardown closes models or a later frame starts.
+            self._finish_gait(emit=False)
+            raise
+        else:
+            self._finish_gait()
+        finally:
+            release = getattr(getattr(self, "gait", None), "release_frame", None)
+            if release is not None:
+                release(self.camera_id, (self.session_id, packet.index))
+
+    def _process_frame(self, packet, faces=()):
         observed = getattr(packet, "frame_observed_at", None)
         received = getattr(packet, "frame_received_at", None)
         now = observed or received or time.time()
@@ -542,7 +691,8 @@ class V8EventPipeline:
         self.last_reliable_at = now
         frame_id = f"{self.camera_id}:{packet.index}"
         frame = packet.frame
-        height, width = frame.shape[:2]
+        frame_shape = frame.shape
+        height, width = frame_shape[:2]
         if not self.scene_pressure and now - self.last_health >= 30:
             self.last_health = now
             self._persist(self._event("camera_health", now, None, state="healthy", reason="none",
@@ -562,12 +712,13 @@ class V8EventPipeline:
             getattr(packet, "analytics_state", {}).get("adaptive_tracker_policy"),
             getattr(packet, "analytics_state", {}).get("adaptive_tracker_observation"),
             getattr(packet, "analytics_state", {}).get("model_queue_wait_seconds"),
+            frame_shape=frame_shape,
         )
         self.policy.observe_face_pipeline(
             getattr(packet, "analytics_state", {}).get("adaptive_face_observation")
         )
         for face in faces:
-            self.policy.observe_face(face, frame.shape)
+            self.policy.observe_face(face, frame_shape)
         if policy_changed or packet.index % 25 == 0:
             self._publish_policy()
         active_keys = {("person" if item.class_name == "pedestrian" else "vehicle", str(item.metadata["track_id"])) for item in detections}
@@ -707,6 +858,11 @@ class V8EventPipeline:
         if crops:
             with self._measure("person_identity.body_embedding", "NPU"):
                 vectors = self.body.embed([crop for _, crop in crops])
+            if self.telemetry is not None:
+                for timings in getattr(self.body, "last_timings", []):
+                    for stage, seconds in timings.items():
+                        self.telemetry.observe_latency(
+                            "person_identity.body_" + stage, seconds)
         else:
             vectors = []
         result = {}
@@ -857,12 +1013,19 @@ class V8EventPipeline:
             if self.scene is not None and "siglip2-base-v1" in owner.get("embedding_profile_ids", []):
                 with self._measure("object_presence.semantic_embedding", "GPU"):
                     vector = self.scene.embed(crop)
+                self._observe_shared_scene_execution()
                 embedding = self._embedding(event, media[0], frame_id, vector,
                                             "siglip2-base-v1", "semantic", now, state["id"])
                 embeddings.append(embedding)
                 event["embedding_ids"] = [embedding["embedding_id"]]
         self._persist(event, evidence, embeddings)
         state["last_object"] = now
+
+    def _feature_due(self, state, kind, quality, now):
+        previous = state["last_feature"].get(kind)
+        improvement = .2 if kind == "gait" else .15 if kind == "body" else .1
+        return not (previous and (quality < previous[0] + improvement
+                                 or now - previous[1] < self.feature_cooldown))
 
     def _features(self, packet, item, state, containing, face, body_vector, now, frame_id):
         bindings = [binding for binding in self.bindings if binding["app"] == "person_identity"
@@ -891,25 +1054,77 @@ class V8EventPipeline:
             quality = self._body_quality(body_crop) if body_crop is not None else 0.0
             candidates.append(("body", body_vector, quality, item.bbox, "transreid-ssl-v18.1", None))
         if self.gait is not None and "gaitbase-v18.1" in profiles and packet.index % 3 == 0:
-            key = state["id"]
-            with self._measure("person_identity.gait_processing", "NPU"):
-                result = self.gait.collect(
-                    packet.frame, [item], self.camera_id,
-                    {int(state["track_id"]): key}, captured_at=now,
-                )
-            vector = result.get(int(state["track_id"]))
-            if vector is not None:
-                count = len(self.gait.buffers[key])
-                if count >= int(identity_policy["gait_min_silhouettes"]):
-                    sequence = {"sequence_started_at": utc(self.gait.buffer_times[key][0]),
-                                "sequence_ended_at": utc(self.gait.buffer_times[key][-1]),
-                                "usable_silhouette_count": count}
-                    candidates.append(("gait", vector, min(1.0, count / 30), item.bbox, "gaitbase-v18.1", sequence))
+            worker = getattr(self, "_gait_worker", None)
+            if worker is None:
+                candidates.extend(self._collect_gait(packet, item, state, identity_policy, now))
+            else:
+                # Drain before taking the snapshot: a repeated presence must
+                # see any earlier gait emission's cooldown/quality decision.
+                self._finish_gait()
+                state_snapshot = {"id": state["id"], "track_id": state["track_id"],
+                                  "last_feature": dict(state["last_feature"])}
+                future = worker.submit(self._collect_gait, packet, deepcopy(item),
+                                       state_snapshot, dict(identity_policy), now)
+                self._pending_gait = (future, self.session_id, packet, state,
+                                      dict(binding), now, frame_id)
+        self._emit_feature_candidates(packet, state, binding, candidates, now, frame_id)
+
+    def _collect_gait(self, packet, item, state, identity_policy, now):
+        key = state["id"]
+        def accept_gait_sequence(track_id, count):
+            eligible = (count >= int(identity_policy["gait_min_silhouettes"])
+                        and self._feature_due(state, "gait", min(1.0, count / 30), now))
+            if self.telemetry is not None:
+                self.telemetry.count("gait_inference_eligible" if eligible
+                                     else "gait_inference_avoided")
+            return eligible
+        # Collection includes CPU background subtraction and often no
+        # inference at all. Attribute accelerator work only at the actual
+        # model invocation inside collect().
+        with self._measure("person_identity.gait_processing"):
+            result = self.gait.collect(
+                packet.frame, [item], self.camera_id,
+                {int(state["track_id"]): key}, captured_at=now,
+                accept_sequence=accept_gait_sequence,
+                observe=self.telemetry.observe_latency if self.telemetry is not None else None,
+                frame_key=(self.session_id, packet.index),
+            )
+        if self.telemetry is not None and now - getattr(self, "_gait_stats_at", 0) >= 5:
+            self._gait_stats_at = now
+            buffers = self.gait.buffers
+            self.telemetry.set_gauge("gait_retained_presences", len(buffers))
+            self.telemetry.set_gauge("gait_retained_silhouettes",
+                                     sum(len(values) for values in buffers.values()))
+            # Payload only: excludes NumPy/Python overhead and the native
+            # background model. This must not be described as process RSS.
+            self.telemetry.set_gauge("gait_silhouette_payload_bytes",
+                                     sum(mask.nbytes for values in buffers.values() for mask in values))
+            self.telemetry.set_gauge("gait_retained_track_centers", len(self.gait.centers))
+        vector = result.get(int(state["track_id"]))
+        if vector is not None:
+            count = len(self.gait.buffers[key])
+            if count >= int(identity_policy["gait_min_silhouettes"]):
+                sequence = {"sequence_started_at": utc(self.gait.buffer_times[key][0]),
+                            "sequence_ended_at": utc(self.gait.buffer_times[key][-1]),
+                            "usable_silhouette_count": count}
+                return [("gait", vector, min(1.0, count / 30), item.bbox, "gaitbase-v18.1", sequence)]
+        return []
+
+    def _finish_gait(self, emit=True):
+        pending = getattr(self, "_pending_gait", None)
+        if pending is None:
+            return
+        self._pending_gait = None
+        future, session, packet, state, binding, now, frame_id = pending
+        with self._measure("person_identity.gait_result_wait"):
+            candidates = future.result()
+        if emit and session == self.session_id:
+            self._emit_feature_candidates(packet, state, binding, candidates, now, frame_id)
+
+    def _emit_feature_candidates(self, packet, state, binding, candidates, now, frame_id):
         for kind, vector, quality, box, profile, sequence in candidates:
             previous = state["last_feature"].get(kind)
-            improvement = .2 if kind == "gait" else .15 if kind == "body" else .1
-            if previous and (quality < previous[0] + improvement
-                             or now - previous[1] < self.feature_cooldown):
+            if not self._feature_due(state, kind, quality, now):
                 continue
             if kind == "face":
                 self._offer_face_candidate(packet, state, binding, vector, quality, box, now, frame_id)
@@ -941,7 +1156,10 @@ class V8EventPipeline:
         self.face_candidates[state["id"]] = {
             "presence_id": state["id"], "track_id": state["track_id"],
             "use_case_id": binding["use_case_id"], "quality": quality,
-            "vector": np.asarray(vector, np.float32).copy(), "image": crop,
+            # _crop returns a view. Keep only the selected original-pixel face
+            # region instead of retaining the complete source frame through
+            # NumPy's base reference for the whole selection window.
+            "vector": np.asarray(vector, np.float32).copy(), "image": crop.copy(),
             "bounds": bounds, "frame_shape": packet.frame.shape,
             "frame_id": frame_id, "captured_at": now, "deadline": deadline,
             "sample_reason": "first_qualified" if "face" not in state["last_feature"] else "quality_improved",
@@ -1103,7 +1321,8 @@ class V8EventPipeline:
         gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if crop.ndim == 3 else crop
         return float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
-    def _plate_candidate(self, packet, plate, text, confidence, containing, now, frame_id):
+    def _plate_candidate(self, packet, plate, text, confidence, containing, now, frame_id,
+                         frame_snapshot=None):
         crop, _ = self._crop(packet.frame, plate.bbox)
         width = max(1.0, float(plate.bbox[2] - plate.bbox[0]))
         height = max(1.0, float(plate.bbox[3] - plate.bbox[1]))
@@ -1120,7 +1339,10 @@ class V8EventPipeline:
             "width": width, "height": height, "sharpness": sharpness,
             "aspect_ratio": width / max(1.0, height),
             "bbox": tuple(float(value) for value in plate.bbox),
-            "frame": packet.frame.copy(), "frame_shape": packet.frame.shape,
+            # One immutable original-frame snapshot is shared by every ANPR
+            # binding/candidate produced from this source observation.
+            "frame": frame_snapshot if frame_snapshot is not None else packet.frame.copy(),
+            "frame_shape": packet.frame.shape,
             "frame_id": frame_id, "captured_at": now,
             "containing": set(containing),
         }
@@ -1227,6 +1449,7 @@ class V8EventPipeline:
 
     def _plates(self, packet, now, frame_id):
         height, width = packet.frame.shape[:2]
+        frame_snapshot = None
         for plate in packet.detections:
             if plate.model_name != "license_plate" or plate.parent_id is None:
                 continue
@@ -1242,7 +1465,9 @@ class V8EventPipeline:
                     continue
                 use_case_id = binding["use_case_id"]
                 attempt = self._plate_attempt(state, use_case_id, now)
-                attempt["last_frame"] = packet.frame.copy()
+                if frame_snapshot is None:
+                    frame_snapshot = packet.frame.copy()
+                attempt["last_frame"] = frame_snapshot
                 attempt["last_frame_id"] = frame_id
                 attempt["last_captured_at"] = now
                 attempt["last_bbox"] = tuple(float(value) for value in plate.bbox)
@@ -1270,7 +1495,10 @@ class V8EventPipeline:
                 if observation_token not in attempt["seen_ocr_observations"]:
                     attempt["seen_ocr_observations"].add(observation_token)
                     attempt["candidates"].append(
-                        self._plate_candidate(packet, plate, text, confidence, containing, now, frame_id)
+                        self._plate_candidate(
+                            packet, plate, text, confidence, containing, now, frame_id,
+                            frame_snapshot=frame_snapshot,
+                        )
                     )
                     attempt["candidates"] = attempt["candidates"][-24:]
                 previous = state["plates"].get(use_case_id)
@@ -1431,15 +1659,37 @@ class V8EventPipeline:
             crop, bounds = self._crop(packet.frame, bounds)
         if crop is None or crop.size == 0:
             return
-        with self._measure("scene_search.embedding", "GPU"):
-            vector = self.scene.embed(crop)
+        # Only overlapping scene bindings can request this scope repeatedly.
+        # A single binding already coalesces interval/trigger work via last_scene.
+        shared_scope = sum(
+            1 for item in self.bindings if item["app"] == "scene_search"
+            and ((zone_id is None and item["scope"] == "full_frame")
+                 or (zone_id is not None and item["scope"] == "geometry"
+                     and zone_id in item["geometry_ids"]))
+        ) > 1
+        cache = self._frame_work_cache() if shared_scope else None
+        content_key = cache.key(frame_id, crop) if cache is not None else None
+        vector_key = ("scene", id(self.scene), content_key)
+        vector = cache.get(vector_key) if cache is not None else None
+        if vector is None:
+            with self._measure("scene_search.embedding", "GPU"):
+                vector = self.scene.embed(crop)
+            self._observe_shared_scene_execution()
+            if cache is not None:
+                vector = np.asarray(vector).copy()
+                vector.setflags(write=False)
+                cache.put(vector_key, vector, vector.nbytes)
+            if self.telemetry is not None:
+                self.telemetry.count("scene_embedding_computed")
+        elif self.telemetry is not None:
+            self.telemetry.count("scene_embedding_reused")
         fields = {"trigger": trigger, "scope": binding["scope"], "zone_id": zone_id}
         if triggering_observation_id is not None:
             fields["triggering_observation_id"] = triggering_observation_id
         event = self._event("scene_sample", now, frame_id, binding["use_case_id"], **fields)
         media = self._evidence(event, frame_id, crop,
                                "frame" if zone_id is None else "scene_region_crop", bounds,
-                               packet.frame.shape, now)
+                               packet.frame.shape, now, content_key=content_key)
         embedding = self._embedding(event, media[0], frame_id, vector,
                                     "siglip2-base-v1", "semantic", now, None)
         event["evidence_ids"] = [media[0]["evidence_id"]]

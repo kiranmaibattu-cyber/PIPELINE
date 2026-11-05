@@ -13,6 +13,8 @@ import uuid
 import cv2
 import numpy as np
 from PIL import Image
+from .gait_morphology import clean_person_regions
+from .parallel_background import create_gait_background
 
 BODY_MODEL_ID = "transreid_ssl_int8"
 BODY_MODEL_VERSION = "v1"
@@ -143,8 +145,16 @@ class OpenVINOGaitExtractor:
         self.gait([sequence])
 
     def collect(self, frame: np.ndarray, people: list[Any], camera_id: str,
-                keys: dict[int, str], captured_at: float | None = None) -> dict[int, np.ndarray]:
-        masks = self._silhouettes(frame, people, camera_id)
+                keys: dict[int, str], captured_at: float | None = None,
+                accept_sequence=None, observe=None, frame_key=None) -> dict[int, np.ndarray]:
+        started = time.perf_counter()
+        masks = (self._silhouettes(frame, people, camera_id) if frame_key is None else
+                 self._silhouettes(frame, people, camera_id, frame_key=frame_key))
+        if observe is not None:
+            observe("person_identity.gait_silhouette_preprocessing",
+                    time.perf_counter() - started)
+            for stage, seconds in getattr(self, "last_silhouette_timings", {}).items():
+                observe("person_identity.gait_" + stage, seconds)
         output: dict[int, np.ndarray] = {}
         for person, mask in zip(people, masks):
             track_id = int(person.metadata["track_id"])
@@ -168,9 +178,27 @@ class OpenVINOGaitExtractor:
                 del self.buffer_times[key][:-self.max_sequence]
             if len(buffer) < self.min_sequence:
                 continue
+            # Always update silhouettes/motion/history first. The caller may
+            # omit stateless inference only when its existing emission gates
+            # reject this exact sequence regardless of the vector values.
+            if accept_sequence is not None and not accept_sequence(track_id, len(buffer)):
+                continue
             indices = np.linspace(0, len(buffer) - 1, self.sequence_length).round().astype(int)
             sequence = np.stack(buffer)[indices].astype(np.float32) / 255.0
+            started = time.perf_counter()
             result = np.asarray(self.gait([sequence[None]])[self.gait_output])
+            if observe is not None:
+                observe("person_identity.gait_model_wall_time",
+                        time.perf_counter() - started,
+                        device=getattr(self, "actual_device", None))
+                engine = getattr(self, "engine", None)
+                for field, stage in (
+                    ("queue_wait_seconds", "gait_scheduler_queue_wait"),
+                    ("device_inference_seconds", "gait_executor_wall_time"),
+                ):
+                    value = getattr(engine, field, None)
+                    if value is not None:
+                        observe("person_identity." + stage, float(value))
             vector = _l2(result, self.dimension)
             self.cache[key] = vector
             output[track_id] = vector
@@ -191,20 +219,63 @@ class OpenVINOGaitExtractor:
         if old_key in self.cache:
             self.cache[new_key] = self.cache.pop(old_key)
 
-    def _silhouettes(self, frame: np.ndarray, people: list[Any], camera_id: str):
+    def _silhouettes(self, frame: np.ndarray, people: list[Any], camera_id: str, frame_key=None):
         background = self.backgrounds.get(camera_id)
         if background is None:
-            background = cv2.createBackgroundSubtractorMOG2(
-                history=300, varThreshold=25, detectShadows=False
-            )
+            background = create_gait_background()
             self.backgrounds[camera_id] = background
-        foreground = background.apply(frame)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        foreground = cv2.morphologyEx(foreground, cv2.MORPH_OPEN, kernel)
-        foreground = cv2.morphologyEx(
-            foreground, cv2.MORPH_CLOSE, kernel, iterations=2
-        )
-        return [opengait_pretreat(self._crop(foreground, p.bbox)) for p in people]
+        # The explicit key is (stream session, selected frame index). Never
+        # infer frame identity from an array address, timestamp or track ID.
+        share = frame_key is not None and os.getenv("SENTINEL_GAIT_SHARED_BACKGROUND", "1") == "1"
+        if not hasattr(self, "_foreground_cache"):
+            self._foreground_cache = {}
+        key = (frame_key, frame.shape, frame.dtype.str, id(background))
+        cached = self._foreground_cache.get(camera_id) if share else None
+        reused = cached is not None and cached[0] == key
+        timings = {}
+        if reused:
+            foreground = cached[1]
+            timings["background_reuse"] = 0.0
+        else:
+            started = time.perf_counter()
+            foreground = background.apply(frame)
+            timings["background_update"] = time.perf_counter() - started
+            # Keep one foreground mask per camera, never the source BGR frame.
+            # Missing identity/rollback invalidates any earlier reusable mask.
+            if share:
+                self._foreground_cache[camera_id] = (key, foreground)
+            else:
+                self._foreground_cache.pop(camera_id, None)
+        # Each person still gets its own original-coordinate crop, morphology,
+        # normalization, motion/history and sequence/emission gates.
+        started = time.perf_counter()
+        regions = clean_person_regions(foreground, [p.bbox for p in people])
+        morphology_seconds = time.perf_counter() - started
+        started = time.perf_counter()
+        masks = [opengait_pretreat(mask) for mask in regions]
+        self.last_silhouette_timings = {
+            **timings,
+            "region_morphology": morphology_seconds,
+            "silhouette_normalization": time.perf_counter() - started,
+        }
+        return masks
+
+    def release_frame(self, camera_id: str, frame_key) -> None:
+        cached = getattr(self, "_foreground_cache", {}).get(camera_id)
+        if cached is not None and cached[0][0] == frame_key:
+            self._foreground_cache.pop(camera_id, None)
+
+    def close_backgrounds(self) -> None:
+        backgrounds = getattr(self, 'backgrounds', {})
+        for background in backgrounds.values():
+            close = getattr(background, 'close', None)
+            if close is not None:
+                close()
+        backgrounds.clear()
+        getattr(self, '_foreground_cache', {}).clear()
+
+    def close(self) -> None:
+        self.close_backgrounds()
 
     @staticmethod
     def _crop(image: np.ndarray, bbox):

@@ -1,0 +1,64 @@
+{
+  "model_profile": "vehicle-person-qaft-int8",
+  "checkpoint_sha256": "8fa716bf26f92037522256a50a38fa6fb1de830277bf6f440c02146f8beae000",
+  "source": "PIPELINE/vehicle_person_qaft_int8",
+  "input": "float32 NCHW RGB /255, letterbox640, padding114",
+  "classes": [
+    "bus",
+    "car",
+    "minivan",
+    "motorcycle",
+    "rickshaw",
+    "truck",
+    "bicycle",
+    "person",
+    "others"
+  ],
+  "native_primary_batch": 1,
+  "dynamic_source_retained": true,
+  "files": {
+    "model.xml": {
+      "sha256": "697f1c5641c68cd2e84d25019c9f1fe13469f11224270286450598a6cfcf688a",
+      "bytes": 824777
+    },
+    "model.bin": {
+      "sha256": "d70e2a9a5a47c3e0da5db59a3c389de636ee10dcbef1f5d6ebe721993a9ff28c",
+      "bytes": 2542992
+    },
+    "model_static_b1.xml": {
+      "sha256": "2c2c45652b442b51fcc7ff4255c0b7cc2f521de010961d102084eb0097b14936",
+      "bytes": 795437
+    },
+    "model_static_b1.bin": {
+      "sha256": "d70e2a9a5a47c3e0da5db59a3c389de636ee10dcbef1f5d6ebe721993a9ff28c",
+      "bytes": 2542992
+    }
+  },
+  "ir": {
+    "model.xml": {
+      "input": "?,3,640,640",
+      "quantizers": 86,
+      "outputs": [
+        [
+          -1,
+          300,
+          6
+        ]
+      ]
+    },
+    "model_static_b1.xml": {
+      "input": "1,3,640,640",
+      "quantizers": 86,
+      "outputs": [
+        [
+          1,
+          300,
+          6
+        ]
+      ]
+    }
+  },
+  "conversion": "OpenVINO2026.2 read/reshape/save compress_to_fp16=False; no compile, inference, calibration or retraining",
+  "validation_status": "integration prepared; runtime/inference/performance tests stopped at user request",
+  "unchanged": "V8 contract, production gates, tracker and secondary models"
+}

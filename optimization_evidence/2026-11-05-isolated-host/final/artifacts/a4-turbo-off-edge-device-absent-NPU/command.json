@@ -1,0 +1,40 @@
+{
+  "argv": [
+    "python3",
+    "/home/admin1/Documents/sentry-validation/repo/scripts/isolated_validation/probe_case.py",
+    "--case",
+    "a4-turbo-off-edge-device-absent-NPU",
+    "--profile",
+    "all",
+    "--root",
+    "/home/admin1/Documents/sentry-validation",
+    "--image",
+    "localhost/sentry-v8-opt79-shared-gait-background",
+    "--cameras",
+    "1",
+    "--fps",
+    "8",
+    "--port",
+    "18080",
+    "--startup-timeout",
+    "150",
+    "--warmup-seconds",
+    "15",
+    "--steady-seconds",
+    "35",
+    "--sample-seconds",
+    "10",
+    "--minimum-decode-ratio",
+    "0.90",
+    "--full-usecases",
+    "--recording",
+    "/home/admin1/Documents/sentry-validation/fixtures/crowd-1080p.mp4",
+    "--startup-timeout",
+    "35",
+    "--container-env",
+    "WORKER_CAMERA_INITIALIZATION_SECONDS=20"
+  ],
+  "overrides": {
+    "SENTRY_TEST_HIDE_NPU": "1"
+  }
+}

@@ -1,0 +1,53 @@
+class SourcePtsClock:
+    """Anchor media PTS to the edge receive clock at decoder ingress.
+
+    Downstream model latency must not move event time. A backwards PTS jump is
+    treated as a new media epoch (file loop, sender restart, or reconnect).
+    """
+
+    def __init__(self) -> None:
+        self.anchor_pts: int | None = None
+        self.anchor_wall: float | None = None
+        self.last_pts: int | None = None
+
+    def observe(self, pts: int, received_at: float, *, clock_hz: float) -> float:
+        pts = int(pts)
+        received_at = float(received_at)
+        if clock_hz <= 0:
+            raise ValueError("source PTS clock must be positive")
+        if self.anchor_pts is None or (
+            self.last_pts is not None and pts < self.last_pts
+        ):
+            self.anchor_pts = pts
+            self.anchor_wall = received_at
+        self.last_pts = pts
+        return float(self.anchor_wall) + (pts - int(self.anchor_pts)) / clock_hz
+
+
+class SourcePtsSampler:
+    """Select at most ``fps`` surfaces per second using source media PTS.
+
+    GStreamer's ``videorate`` does not reliably negotiate a live MPEG-TS TCP
+    stream while its buffers are still VA surfaces on the deployed Intel
+    stack. Sampling at the appsink keeps decode zero-copy and keeps the
+    tracker/policy input cadence based on source time rather than model delay.
+    """
+
+    def __init__(self, fps: float, *, clock_hz: float) -> None:
+        if fps <= 0 or clock_hz <= 0:
+            raise ValueError("source sampler fps and clock must be positive")
+        self.interval = max(1, int(round(float(clock_hz) / float(fps))))
+        self.next_pts: int | None = None
+        self.last_pts: int | None = None
+
+    def accept(self, pts: int) -> bool:
+        pts = int(pts)
+        if self.last_pts is not None and pts < self.last_pts:
+            self.next_pts = None
+        self.last_pts = pts
+        if self.next_pts is not None and pts < self.next_pts:
+            return False
+        self.next_pts = pts + self.interval
+        return True
+
+

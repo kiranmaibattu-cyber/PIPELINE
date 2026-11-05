@@ -1,0 +1,1727 @@
+"""Camera-local production policy with Sentinel V8 handoff and V7 wire payloads."""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from contextlib import nullcontext
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+import hashlib
+import logging
+import math
+import os
+import re
+import statistics
+import time
+from time import perf_counter
+from typing import Any
+import uuid
+
+import cv2
+import numpy as np
+
+from .adaptive_policy import AdaptivePolicyResolver
+from .face_samples import FaceSamplePipeline
+from .sentinel_v8_handoff import V8HandoffClient
+from .structured_logging import set_stream_session_id
+from .runtime_status import write_camera_health_status
+from .frame_work_cache import FrameWorkCache
+
+
+logger = logging.getLogger(__name__)
+
+
+def utc(value: float) -> str:
+    return datetime.fromtimestamp(value, timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def inside(point, points) -> bool:
+    x, y = point
+    result = False
+    previous = points[-1]
+    for current in points:
+        ax, ay = current
+        bx, by = previous
+        if (ay > y) != (by > y) and x < (bx - ax) * (y - ay) / ((by - ay) or 1e-9) + ax:
+            result = not result
+        previous = current
+    return result
+
+
+def boundary_distance(point, points) -> float:
+    px, py = point
+    nearest = float("inf")
+    for a, b in zip(points, points[1:] + points[:1]):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        length_squared = dx * dx + dy * dy
+        fraction = max(0.0, min(1.0, ((px - a[0]) * dx + (py - a[1]) * dy) / length_squared)) if length_squared else 0.0
+        nearest = min(nearest, math.hypot(px - a[0] - fraction * dx,
+                                         py - a[1] - fraction * dy))
+    return nearest
+
+
+def bbox_normalized(box, width, height):
+    x1, y1, x2, y2 = box
+    return {"x1": max(0.0, min(1.0, float(x1) / width)),
+            "y1": max(0.0, min(1.0, float(y1) / height)),
+            "x2": max(0.0, min(1.0, float(x2) / width)),
+            "y2": max(0.0, min(1.0, float(y2) / height))}
+
+
+class V8EventPipeline:
+    def __init__(self, camera_id: str, config: dict[str, Any], *, scene=None, body=None,
+                 gait=None, telemetry=None, stream_session_id: str | None = None,
+                 handoff_client: V8HandoffClient | None = None):
+        self.camera_id = camera_id
+        self.config = (config.get("analytics") or {}).get("v8_events", {}).get("v8") or {}
+        self.bindings = list(self.config["bindings"])
+        geometry = self.config.get("geometry") or {}
+        self.zones = {item["id"]: item for item in geometry.get("zones") or []}
+        self.lines = {item["id"]: item for item in geometry.get("counting_lines") or []}
+        self.session_id = str(stream_session_id or uuid.uuid4())
+        set_stream_session_id(self.session_id)
+        self.scene, self.body, self.gait = scene, body, gait
+        # One in-flight job, joined before the next frame. Internal opt-in until
+        # ordered-output and workload qualification pass.
+        self._gait_worker = (ThreadPoolExecutor(max_workers=1,
+                             thread_name_prefix="gait-" + camera_id)
+                             if gait is not None and os.getenv("SENTINEL_GAIT_WORKER", "0") == "1"
+                             else None)
+        self._pending_gait = None
+        self.telemetry = telemetry
+        target_fps = float((config.get("processing") or {}).get("fps", 5.0))
+        self.policy = AdaptivePolicyResolver(camera_id, target_fps=target_fps)
+        self.tracks: dict[tuple[str, str], dict[str, Any]] = {}
+        self.presences: dict[str, dict[str, Any]] = {}
+        self.counts: dict[tuple[str, str | None], dict[str, Any]] = {}
+        self.last_scene: dict[tuple[str, str | None], float] = {}
+        self.scene_pressure_limit = int(os.getenv(
+            "SENTINEL_SCENE_MAX_PENDING_BYTES", str(128 * 1024 ** 2)
+        ))
+        self.scene_pressure_checked_at = 0.0
+        self.scene_pressure = False
+        self.scene_gap_started_at: float | None = None
+        self.scene_pressure_reported_at = 0.0
+        self.hazards: dict[tuple[str, str | None], dict[str, Any]] = {}
+        self.face_candidates: dict[str, dict[str, Any]] = {}
+        self.face_selection_window = float(self.policy.section("identity")["face_selection_window_seconds"])
+        self.zone_boundary_margin = float(self.policy.section("zone")["boundary_margin"])
+        self.candidate_max_gap = float(os.getenv("SENTINEL_CANDIDATE_MAX_GAP_SECONDS", "1.5"))
+        self.hazard_min_confidence = float(self.policy.section("fire_smoke")["event_min_confidence"])
+        self.feature_cooldown = float(self.policy.section("identity")["feature_cooldown_seconds"])
+        self.plate_outcome_delay = float(os.getenv("SENTINEL_PLATE_OUTCOME_DELAY_SECONDS", "3"))
+        self.plate_confidence_improvement = float(os.getenv("SENTINEL_PLATE_CONFIDENCE_IMPROVEMENT", "0.10"))
+        self.plate_update_cooldown = float(os.getenv("SENTINEL_PLATE_UPDATE_COOLDOWN_SECONDS", "5"))
+        self.plate_change_min_confidence = float(os.getenv("SENTINEL_PLATE_CHANGE_MIN_CONFIDENCE", "0.90"))
+        self.plate_change_margin = float(os.getenv("SENTINEL_PLATE_CHANGE_MARGIN", "0.10"))
+        self.plate_low_confidence_replace = float(os.getenv("SENTINEL_PLATE_LOW_CONFIDENCE_REPLACE", "0.50"))
+        anpr_policy = self.policy.section("anpr")
+        self.plate_candidate_window = float(anpr_policy["candidate_window_seconds"])
+        self.plate_emit_min_reads = int(anpr_policy["confirm_min_reads"])
+        self.plate_emit_min_confidence = float(anpr_policy["ocr_emit_min_confidence"])
+        self.plate_single_read_confidence = float(anpr_policy["single_read_confidence"])
+        self.plate_fast_emit_confidence = float(os.getenv("SENTINEL_PLATE_FAST_EMIT_CONFIDENCE", "0.85"))
+        self.presence_close_unobserved_after = float(os.getenv("SENTINEL_PRESENCE_UNOBSERVED_AFTER_SECONDS", "2"))
+        self.presence_close_ended_after = float(os.getenv("SENTINEL_PRESENCE_ENDED_UNKNOWN_AFTER_SECONDS", "8"))
+        self.presence_wide_unobserved_after = float(os.getenv("SENTINEL_WIDE_PRESENCE_UNOBSERVED_AFTER_SECONDS", "4.5"))
+        self.presence_wide_ended_after = float(os.getenv("SENTINEL_WIDE_PRESENCE_ENDED_UNKNOWN_AFTER_SECONDS", "18"))
+        self.vehicle_recovery_gap = float(os.getenv("SENTINEL_VEHICLE_RECOVERY_GAP_SECONDS", "12"))
+        if handoff_client is None:
+            raise ValueError("V8 requires the deployment-scoped delivery-agent handoff scheduler")
+        self.store = handoff_client
+        self.last_health = 0.0
+        self.health_state = "healthy"
+        self.last_reliable_at: float | None = None
+        self.timestamp_source = "edge_received_at"
+        self._publish_policy()
+
+    def close(self):
+        worker = getattr(self, "_gait_worker", None)
+        if worker is not None:
+            worker.shutdown(wait=True, cancel_futures=True)
+            self._gait_worker = None
+            self._pending_gait = None
+        self.store.close()
+
+    def reconfigure(self, camera_config: dict[str, Any]) -> None:
+        updated = (camera_config.get("analytics") or {}).get("v8_events", {}).get("v8") or {}
+        if int(updated.get("config_revision", 0)) <= int(self.config["config_revision"]):
+            return
+        now = time.time()
+        for candidate in self.face_candidates.values():
+            candidate["deadline"] = now
+        self._flush_face_candidates(now)
+        previous_zones = self.zones
+        previous_lines = self.lines
+        self.config = updated
+        self.bindings = list(updated["bindings"])
+        geometry = updated.get("geometry") or {}
+        self.zones = {item["id"]: item for item in geometry.get("zones") or []}
+        self.lines = {item["id"]: item for item in geometry.get("counting_lines") or []}
+        changed_zones = {
+            identifier for identifier in set(previous_zones) | set(self.zones)
+            if previous_zones.get(identifier) != self.zones.get(identifier)
+        }
+        changed_lines = {
+            identifier for identifier in set(previous_lines) | set(self.lines)
+            if previous_lines.get(identifier) != self.lines.get(identifier)
+        }
+        binding_by_id = {item["use_case_id"]: item for item in self.bindings}
+        for state in self.presences.values():
+            owner = state["owner"]
+            replacement = None if owner is None else binding_by_id.get(owner["use_case_id"])
+            if replacement is not None and replacement["app"] != owner["app"]:
+                replacement = None
+
+            affected_episodes = set(state["episodes"]) & changed_zones
+            if affected_episodes:
+                for zone_id in affected_episodes:
+                    state["episodes"][zone_id]["observation_state"] = "ended_unknown"
+                if replacement is not None:
+                    self._emit_material_change_presence(state, replacement, now)
+                for zone_id in affected_episodes:
+                    state["episodes"].pop(zone_id, None)
+
+            for zone_id in changed_zones:
+                state["zone_state"].pop(zone_id, None)
+                state["zone_votes"].pop(zone_id, None)
+                state.setdefault("zone_candidate_since", {}).pop(zone_id, None)
+            state["line_state"] = {
+                key: value for key, value in state["line_state"].items()
+                if key[1] not in changed_lines and key[0] in binding_by_id
+            }
+            state["last_cross"] = {
+                key: value for key, value in state.get("last_cross", {}).items()
+                if key[1] not in changed_lines and key[0] in binding_by_id
+            }
+
+            width_height = state.get("frame_size")
+            if width_height is None:
+                state["owner"] = replacement
+                continue
+            width, height = width_height
+            box = state["box"]
+            point = ((box[0] + box[2]) / (2 * width), box[3] / height)
+            containing = {zone_id for zone_id, zone in self.zones.items() if inside(point, zone["poly"])}
+            state["owner"] = self._owner(state["kind"], containing)
+        enabled_ids = set(binding_by_id)
+        if changed_zones or changed_lines:
+            # Measurements and negative-confirmation state from the old view
+            # must not leak into the revised view. The next evaluated frames
+            # establish fresh count, scene and hazard state.
+            self.counts.clear()
+            self.last_scene.clear()
+            self.hazards.clear()
+            self._persist(self._event(
+                "camera_health", now, None, state="degraded", reason="view_changed",
+                as_of=utc(now),
+                last_reliable_at=utc(self.last_reliable_at)
+                if self.last_reliable_at is not None else None,
+                sampling_gap_seconds=0,
+            ))
+            self.last_health = now
+        else:
+            self.counts = {key: value for key, value in self.counts.items() if key[0] in enabled_ids}
+            self.last_scene = {key: value for key, value in self.last_scene.items() if key[0] in enabled_ids}
+            self.hazards = {key: value for key, value in self.hazards.items() if key[0] in enabled_ids}
+
+    def _emit_material_change_presence(self, state, owner, now) -> None:
+        frame_size = state.get("frame_size")
+        if frame_size is None:
+            return
+        width, height = frame_size
+        source_frame_id = state.get("last_frame_id")
+        if source_frame_id is None:
+            return
+        event = self._event(
+            "object_present", now, source_frame_id, owner["use_case_id"],
+            presence_id=state["id"], track_id=state["track_id"],
+            object_type=state["kind"],
+            vehicle_type=state.get("vehicle_type") if state["kind"] == "vehicle" else None,
+            reason="material_change",
+            bbox_normalized=bbox_normalized(state["box"], width, height),
+            confidence=max(0.0, min(1.0, float(state.get("confidence", 0.0)))),
+            first_seen_at=utc(state["first_seen"]),
+            zone_episodes=self._episodes(state),
+        )
+        self._persist(event)
+        state["last_object"] = now
+
+    def camera_status(self, status: str, reason: str) -> str:
+        now = time.time()
+        if status == self.health_state:
+            return self.session_id
+        if status == "unavailable":
+            for candidate in self.face_candidates.values():
+                candidate["deadline"] = now
+            self._flush_face_candidates(now)
+            for state in self.presences.values():
+                if not state.get("confirmed") or state["lost"]:
+                    continue
+                state["lost"] = True
+                for episode in state["episodes"].values():
+                    episode["observation_state"] = "unobserved"
+                if self._lifecycle_enabled(state):
+                    self._persist(self._event("track_lost", now, None,
+                                              presence_id=state["id"], track_id=state["track_id"],
+                                              object_type=state["kind"], last_seen_at=utc(state["last_seen"]),
+                                              zone_episodes=self._episodes(state),
+                                              reason="stream_interrupted"))
+            self.health_state = "unavailable"
+            self._persist(self._event("camera_health", now, None,
+                                      state="unavailable", reason=reason, as_of=utc(now),
+                                      last_reliable_at=utc(self.last_reliable_at) if self.last_reliable_at is not None else None,
+                                      sampling_gap_seconds=max(0.0, now - self.last_reliable_at) if self.last_reliable_at is not None else 0.0))
+            return self.session_id
+        if status == "healthy" and self.health_state == "unavailable":
+            for candidate in self.face_candidates.values():
+                candidate["deadline"] = now
+            self._flush_face_candidates(now)
+            for state in self.presences.values():
+                if not state.get("confirmed"):
+                    continue
+                for episode in state["episodes"].values():
+                    episode["observation_state"] = "ended_unknown"
+                if self._lifecycle_enabled(state):
+                    self._persist(self._event("presence_ended_unknown", now, None,
+                                              presence_id=state["id"], track_id=state["track_id"],
+                                              object_type=state["kind"], last_seen_at=utc(state["last_seen"]),
+                                              zone_episodes=self._episodes(state)))
+            self.tracks.clear()
+            self.presences.clear()
+            self.counts.clear()
+            self.last_scene.clear()
+            self.session_id = str(uuid.uuid4())
+            set_stream_session_id(self.session_id)
+            self.health_state = "healthy"
+            self.last_health = now
+            self._persist(self._event("camera_health", now, None,
+                                      state="healthy", reason="none", as_of=utc(now),
+                                      last_reliable_at=utc(now), sampling_gap_seconds=0))
+        return self.session_id
+
+    def _event(self, event_type, now, frame_id, use_case_id=None, **fields):
+        return {"schema_version": "7.0", "observation_id": str(uuid.uuid4()),
+                "deployment_id": self.config["deployment_id"], "camera_id": self.camera_id,
+                "config_revision": int(self.config["config_revision"]),
+                "stream_session_id": self.session_id, "use_case_id": use_case_id,
+                "event_type": event_type, "observed_at": utc(now),
+                "source_frame_id": frame_id, **fields}
+
+    def _persist(self, event, evidence=(), embeddings=()):
+        started = perf_counter()
+        accepted = self.store.persist(event, list(evidence), list(embeddings))
+        elapsed = perf_counter() - started
+        if event.get("event_type") == "camera_health":
+            try:
+                write_camera_health_status(self.camera_id, event)
+            except OSError:
+                logger.exception("could not update latest camera health status")
+        if self.telemetry is not None:
+            self.telemetry.observe_latency(
+                "delivery_agent.handoff_admission",
+                elapsed,
+            )
+            self.telemetry.count(
+                "handoff_admitted" if accepted else "handoff_rejected"
+            )
+            if accepted:
+                self.telemetry.event_handoff_admitted(event, elapsed)
+
+    def _measure(self, stage: str, device: str | None = None):
+        if self.telemetry is None:
+            return nullcontext()
+        return self.telemetry.measure(stage, device=device)
+
+    def _observe_shared_scene_execution(self) -> None:
+        """Expose shared-executor timing without changing scene policy."""
+        if self.telemetry is None or self.scene is None:
+            return
+        queue_wait = getattr(self.scene, "scheduler_queue_wait_seconds", None)
+        device_time = getattr(self.scene, "scheduler_device_inference_seconds", None)
+        if queue_wait is not None:
+            self.telemetry.observe_latency(
+                "scene_search.scheduler_queue_wait", float(queue_wait)
+            )
+        if device_time is not None:
+            self.telemetry.observe_latency(
+                "scene_search.device_inference", float(device_time)
+            )
+
+    def _publish_policy(self) -> None:
+        identity = self.policy.section("identity")
+        zone = self.policy.section("zone")
+        anpr = self.policy.section("anpr")
+        hazard = self.policy.section("fire_smoke")
+        self.face_selection_window = float(identity["face_selection_window_seconds"])
+        self.feature_cooldown = float(identity["feature_cooldown_seconds"])
+        self.zone_boundary_margin = float(zone["boundary_margin"])
+        self.hazard_min_confidence = float(hazard["event_min_confidence"])
+        self.plate_candidate_window = float(anpr["candidate_window_seconds"])
+        self.plate_emit_min_reads = int(anpr["confirm_min_reads"])
+        self.plate_emit_min_confidence = float(anpr["ocr_emit_min_confidence"])
+        self.plate_single_read_confidence = float(anpr["single_read_confidence"])
+        if self.telemetry is not None:
+            self.telemetry.set_resolved_policy(self.policy.snapshot())
+            self.telemetry.set_timestamp_source(self.timestamp_source)
+
+    def _stable_hits(self, kind: str) -> int:
+        return int(self.policy.section("presence", kind)["stable_hits"])
+
+    @staticmethod
+    def _lifecycle_enabled(state: dict[str, Any]) -> bool:
+        """Lifecycle facts cross the boundary only for an owned subject use case."""
+        owner = state.get("owner")
+        return owner is not None and owner.get("app") in {
+            "vehicle_presence", "person_presence",
+        }
+
+    def _frame_work_cache(self):
+        if not hasattr(self, "_image_work_cache"):
+            self._image_work_cache = FrameWorkCache()
+        return self._image_work_cache
+
+    def _evidence(self, event, frame_id, image, kind, bounds, frame_shape, now,
+                  *, content_key=None):
+        with self._measure("evidence.jpeg"):
+            if content_key is None:
+                # Most evidence is unique. Avoid a raw-image hash/cache lookup
+                # unless the caller has identified reusable same-frame work.
+                ok, encoded = cv2.imencode(".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), 88])
+                if not ok:
+                    raise RuntimeError("JPEG evidence encoding failed")
+                body = encoded.tobytes()
+                digest = "sha256:" + hashlib.sha256(body).hexdigest()
+                reused = False
+            else:
+                (body, digest), reused = self._frame_work_cache().jpeg(
+                    frame_id, image, content_key=content_key)
+        if self.telemetry is not None:
+            self.telemetry.count("evidence_jpeg_reused" if reused else "evidence_jpeg_encoded")
+        height, width = frame_shape[:2]
+        evidence_id = str(uuid.uuid4())
+        metadata = {"schema_version": "7.0", "evidence_id": evidence_id,
+                    "observation_id": event["observation_id"], "evidence_type": kind,
+                    "captured_at": utc(now), "source_frame_id": frame_id,
+                    "source_bbox_normalized": bbox_normalized(bounds, width, height) if bounds else None,
+                    "content_type": "image/jpeg", "width": int(image.shape[1]),
+                    "height": int(image.shape[0]), "size_bytes": len(body),
+                    "sha256": digest}
+        return metadata, body
+
+    def _embedding(self, event, evidence, frame_id, vector, profile, kind, now, presence_id,
+                   quality=None, sequence=None):
+        models = {
+            "adaface-ir101-v18.1": ("AdaFace-IR101-INT8", "adaface_ir101_int8-v1", "aligned112-rgb-v1", 512),
+            "transreid-ssl-v18.1": ("transreid_ssl_int8", "v1", "rgb256x128-minus1to1-v1", 384),
+            "gaitbase-v18.1": ("gaitbase_int8", "v1", "mog2-opengait-30x64x44-v1", 4096),
+            "siglip2-base-v1": ("google/siglip2-base-patch16-224", "75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2", "rgb224-minus1to1-v1", 768),
+        }
+        model_id, version, preprocessing, dimension = models[profile]
+        vector = np.asarray(vector, np.float32).reshape(-1)
+        if len(vector) != dimension or not np.isfinite(vector).all() or not math.isclose(float(np.linalg.norm(vector)), 1.0, abs_tol=1e-3):
+            raise ValueError(f"invalid {profile} embedding")
+        item = {"schema_version": "7.0", "embedding_id": str(uuid.uuid4()),
+                "observation_id": event["observation_id"], "use_case_id": event["use_case_id"],
+                "evidence_id": evidence["evidence_id"], "profile_id": profile,
+                "kind": kind, "vector": [float(value) for value in vector],
+                "captured_at": utc(now), "source_frame_id": frame_id,
+                "presence_id": presence_id, "model_id": model_id,
+                "model_version": version, "preprocessing_id": preprocessing,
+                "normalization": "l2"}
+        if quality is not None:
+            item["quality"] = max(0.0, min(1.0, float(quality)))
+        if sequence is not None:
+            item.update(sequence)
+        return item
+
+    def _matches(self, binding, kind, containing):
+        if kind not in binding["object_types"]:
+            return False
+        return binding["scope"] == "full_frame" or bool(set(binding["geometry_ids"]) & containing)
+
+    def _owner(self, kind, containing):
+        eligible = [item for item in self.bindings
+                    if item["app"] in {"vehicle_presence", "person_presence", "person_identity", "anpr"}
+                    and self._matches(item, kind, containing)]
+        eligible.sort(key=lambda item: (
+            item["app"] not in {"vehicle_presence", "person_presence"},
+            item["use_case_id"],
+        ))
+        return eligible[0] if eligible else None
+
+    @staticmethod
+    def _episodes(state):
+        return list(state["episodes"].values())
+
+    @staticmethod
+    def _center(box):
+        return ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2)
+
+    @staticmethod
+    def _box_size(box):
+        return max(1.0, float(box[2] - box[0])), max(1.0, float(box[3] - box[1]))
+
+    @staticmethod
+    def _vehicle_type(class_name):
+        if class_name == "minivan":
+            return "van"
+        return class_name if class_name in {"car", "truck", "van", "bus", "motorcycle"} else "other"
+
+    def _presence_timeouts(self, state):
+        policy = self.policy.section("presence", state.get("kind"))
+        unobserved = float(policy["unobserved_after_seconds"])
+        ended = float(policy["ended_unknown_after_seconds"])
+        width_height = state.get("frame_size")
+        if width_height is None:
+            return unobserved, ended
+        width, height = width_height
+        box_width, box_height = self._box_size(state["box"])
+        norm_width = box_width / max(1.0, float(width))
+        norm_height = box_height / max(1.0, float(height))
+        if max(norm_width, norm_height) < 0.12 or min(norm_width, norm_height) < 0.05:
+            # Distant subjects are the most likely to disappear for several
+            # evaluated frames even though they have not left the view. Give
+            # those presences additional camera-local recovery hysteresis,
+            # while retaining a finite unknown-ending bound. Tracker
+            # predictions still do not refresh last_seen or confirm presence.
+            return min(10.0, unobserved * 2.0), min(22.0, ended * 1.1)
+        return unobserved, ended
+
+    def _recovery_distance_limit(self, state, box):
+        width_height = state.get("frame_size")
+        frame_scale = 320.0
+        if width_height is not None:
+            frame_scale = max(160.0, 0.17 * math.hypot(*width_height))
+        old_w, old_h = self._box_size(state["box"])
+        new_w, new_h = self._box_size(box)
+        subject_scale = 2.5 * max(old_w, old_h, new_w, new_h)
+        tracker_limit = float(self.policy.section("tracking").get("max_distance_px", 320.0))
+        return min(520.0, max(120.0, frame_scale, subject_scale, tracker_limit))
+
+    def _reassociate(self, kind, box, vector, now, active_keys, class_name=None):
+        if kind == "person":
+            if vector is None:
+                return None
+            candidates = []
+            for state in self.presences.values():
+                if state["kind"] != kind or not state["lost"] or state["track_key"] in active_keys:
+                    continue
+                _, ended_after = self._presence_timeouts(state)
+                if now - state["last_seen"] > ended_after or state.get("body_vector") is None:
+                    continue
+                if np.linalg.norm(np.subtract(self._center(box), self._center(state["box"]))) > self._recovery_distance_limit(state, box):
+                    continue
+                similarity = float(np.dot(vector, state["body_vector"]))
+                if similarity >= 0.78:
+                    candidates.append((similarity, state))
+            candidates.sort(key=lambda item: item[0], reverse=True)
+            if not candidates:
+                return None
+            if len(candidates) > 1 and candidates[0][0] - candidates[1][0] < 0.04:
+                return None
+            return candidates[0][1]
+
+        if kind != "vehicle":
+            return None
+        candidates = []
+        for state in self.presences.values():
+            if state["kind"] != kind or not state["lost"] or state["track_key"] in active_keys:
+                continue
+            _, ended_after = self._presence_timeouts(state)
+            if now - state["last_seen"] > min(ended_after, self.vehicle_recovery_gap):
+                continue
+            limit = self._recovery_distance_limit(state, box)
+            distance = float(np.linalg.norm(np.subtract(self._center(box), self._center(state["box"]))))
+            if distance > limit:
+                continue
+            old_w, old_h = self._box_size(state["box"])
+            new_w, new_h = self._box_size(box)
+            size_ratio = max(old_w / new_w, new_w / old_w, old_h / new_h, new_h / old_h)
+            if size_ratio > 2.4:
+                continue
+            previous_type = state.get("vehicle_type")
+            current_type = self._vehicle_type(class_name)
+            type_cost = 0.0 if previous_type in {None, current_type, "other"} or current_type == "other" else 0.25
+            score = distance / limit + min(0.5, abs(math.log(size_ratio))) + type_cost
+            candidates.append((score, state))
+        candidates.sort(key=lambda item: item[0])
+        if not candidates or candidates[0][0] > 0.95:
+            return None
+        if len(candidates) > 1 and candidates[1][0] - candidates[0][0] < 0.20:
+            return None
+        return candidates[0][1]
+
+    def quiet_frame_needed(self, now: float) -> bool:
+        """Return whether pixels are useful while object inference is idle.
+
+        The current built-in motion policy does not force independent scene-only
+        conversion during idle. Scene samples ride on active inference frames and
+        on the periodic sweep frame. This method remains available for future
+        callers that can cheaply provide pixels.
+        """
+        return False
+
+    def _periodic_scene_due(self, now: float) -> bool:
+        if self.scene is None:
+            return False
+        scene_policy = self.policy.snapshot()["scene"]
+        if not scene_policy["optional_sampling_allowed"]:
+            return False
+        multiplier = float(scene_policy["pressure_interval_multiplier"])
+        for binding in self.bindings:
+            if binding["app"] != "scene_search":
+                continue
+            areas = (
+                binding["geometry_ids"]
+                if binding["scope"] == "geometry" else [None]
+            )
+            interval = float(binding["sample_interval_seconds"]) * multiplier
+            if any(
+                now - self.last_scene.get((binding["use_case_id"], zone_id), 0)
+                >= interval
+                for zone_id in areas
+            ):
+                return True
+        return False
+
+    def primary_pixels_required(self, now: float, detections) -> bool:
+        """Decide whether an admitted tracked sample needs original pixels.
+
+        This is an execution decision only. Empty detector observations still
+        enter presence-loss, count, dwell and health policy with their original
+        timestamp; they simply avoid a VA-to-BGR download when no pixel
+        consumer is due.
+        """
+        if any(
+            getattr(item, "model_name", None) in {
+                "vehicle", "license_plate", "smoke_fire"
+            }
+            and not getattr(item, "metadata", {}).get("predicted")
+            for item in detections
+        ):
+            return True
+        return self.policy.image_sample_due(now) or self._periodic_scene_due(now)
+
+    def hazard_pixels_required(self, detections, now: float) -> bool:
+        """Return true only when this hazard observation can emit evidence."""
+        policy = self.policy.section("fire_smoke")
+        minimum = float(policy["event_min_confidence"])
+        needed = int(policy["positive_confirmations"])
+        window = float(policy["positive_window_seconds"])
+        positives = [
+            item for item in detections
+            if getattr(item, "model_name", None) == "smoke_fire"
+            and getattr(item, "class_name", None) in {"fire", "smoke"}
+            and float(getattr(item, "confidence", 0.0)) >= minimum
+        ]
+        if not positives:
+            return False
+        for binding in self.bindings:
+            if binding["app"] != "fire_smoke":
+                continue
+            zones = binding["geometry_ids"] if binding["scope"] == "geometry" else [None]
+            for zone_id in zones:
+                for item in positives:
+                    key = (binding["use_case_id"], zone_id, item.class_name)
+                    state = self.hazards.get(key)
+                    if state is None or state.get("episode") is not None:
+                        continue
+                    recent = [
+                        sample for sample in state.get("positive_samples", [])
+                        if now - sample[0] <= window
+                    ]
+                    if len(recent) + 1 >= needed:
+                        return True
+        return False
+
+    def process_quiet(self, now: float, index: int, frame=None) -> None:
+        """Advance lifecycle state for a frame where models did not run.
+
+        Quiet frames are unknown observations. They may emit health heartbeats,
+        flush already-collected candidates and produce an explicitly requested
+        scene sample, but they cannot age presence state. Only a frame on which
+        object inference actually ran may contribute positive absence evidence.
+        """
+        self.last_reliable_at = now
+        if not self.scene_pressure and now - self.last_health >= 30:
+            self.last_health = now
+            self._persist(self._event("camera_health", now, None, state="healthy", reason="none",
+                                      as_of=utc(now), last_reliable_at=utc(now),
+                                      sampling_gap_seconds=0))
+        self._flush_face_candidates(now)
+        self._plate_idle_timeouts(now)
+        if frame is not None:
+            from types import SimpleNamespace
+            self._scenes(SimpleNamespace(frame=frame), now, f"{self.camera_id}:{index}")
+
+    def process_hazards(self, packet) -> None:
+        """Advance only fire/smoke policy from its independent DLS branch.
+
+        This branch has exact source pixels and PTS, but deliberately does not
+        participate in object presence, counts, dwell, identity or scene
+        cadence.  Those remain driven by the primary tracked frame stream.
+        """
+        observed = getattr(packet, "frame_observed_at", None)
+        received = getattr(packet, "frame_received_at", None)
+        now = observed or received or time.time()
+        self.timestamp_source = "source_pts" if observed is not None else "edge_received_at"
+        frame_id = f"{self.camera_id}:hazard:{packet.index}"
+        self._hazards(packet, now, frame_id)
+
+    def process(self, packet, faces=()):
+        try:
+            self._process_frame(packet, faces)
+        except BaseException:
+            # A failed frame must not leave its background job mutating gait
+            # state while teardown closes models or a later frame starts.
+            self._finish_gait(emit=False)
+            raise
+        else:
+            self._finish_gait()
+        finally:
+            release = getattr(getattr(self, "gait", None), "release_frame", None)
+            if release is not None:
+                release(self.camera_id, (self.session_id, packet.index))
+
+    def _process_frame(self, packet, faces=()):
+        observed = getattr(packet, "frame_observed_at", None)
+        received = getattr(packet, "frame_received_at", None)
+        now = observed or received or time.time()
+        self.timestamp_source = "source_pts" if observed is not None else "edge_received_at"
+        self.last_reliable_at = now
+        frame_id = f"{self.camera_id}:{packet.index}"
+        frame = packet.frame
+        frame_shape = frame.shape
+        height, width = frame_shape[:2]
+        if not self.scene_pressure and now - self.last_health >= 30:
+            self.last_health = now
+            self._persist(self._event("camera_health", now, None, state="healthy", reason="none",
+                                      as_of=utc(now), last_reliable_at=utc(now), sampling_gap_seconds=0))
+        tracked_detections = [item for item in packet.detections
+                              if item.model_name == "vehicle"
+                              and item.metadata.get("track_id") is not None]
+        detections = [item for item in tracked_detections
+                      if not item.metadata.get("predicted")]
+        tracker_keys = {
+            ("person" if item.class_name == "pedestrian" else "vehicle",
+             str(item.metadata["track_id"]))
+            for item in tracked_detections
+        }
+        policy_changed = self.policy.observe_frame(
+            frame, tracked_detections, now,
+            getattr(packet, "analytics_state", {}).get("adaptive_tracker_policy"),
+            getattr(packet, "analytics_state", {}).get("adaptive_tracker_observation"),
+            getattr(packet, "analytics_state", {}).get("model_queue_wait_seconds"),
+            frame_shape=frame_shape,
+        )
+        self.policy.observe_face_pipeline(
+            getattr(packet, "analytics_state", {}).get("adaptive_face_observation")
+        )
+        for face in faces:
+            self.policy.observe_face(face, frame_shape)
+        if policy_changed or packet.index % 25 == 0:
+            self._publish_policy()
+        active_keys = {("person" if item.class_name == "pedestrian" else "vehicle", str(item.metadata["track_id"])) for item in detections}
+        face_by_track = {str(face.track_id): face for face in faces}
+        body_vectors = self._body_vectors(packet, detections, now)
+        for item in detections:
+            kind = "person" if item.class_name == "pedestrian" else "vehicle"
+            stable_hits = self._stable_hits(kind)
+            track_id = str(item.metadata["track_id"])
+            key = (kind, track_id)
+            vector = body_vectors.get(track_id)
+            state = self.tracks.get(key)
+            recovered_from = None
+            if state is None:
+                state = self._reassociate(kind, item.bbox, vector, now, active_keys, item.class_name)
+                if state is None:
+                    state = {"id": str(uuid.uuid4()), "kind": kind, "track_key": key,
+                             "track_id": track_id, "first_seen": now, "last_seen": now,
+                             "hits": 0, "box": item.bbox, "episodes": {}, "zone_state": {},
+                             "zone_votes": {}, "line_state": {}, "owner": None,
+                             "last_object": 0.0, "last_feature": {}, "plates": {},
+                             "plate_attempts": {}, "plate_outcomes": set(),
+                             "lost": False, "body_vector": None,
+                             "confidence": float(item.confidence),
+                             "last_frame_id": frame_id,
+                             "missing_evaluated_since": None,
+                             "missing_evaluations": 0,
+                             "confirmed": False, "zone_candidate_since": {},
+                             "identity_sample_group_id": str(uuid.uuid4()),
+                             "vehicle_type": self._vehicle_type(item.class_name) if kind == "vehicle" else None}
+                    self.presences[state["id"]] = state
+                else:
+                    previous = state["track_id"]
+                    self.tracks.pop(state["track_key"], None)
+                    state["track_key"] = key
+                    state["track_id"] = track_id
+                    recovered_from = previous
+                self.tracks[key] = state
+            elif state["lost"]:
+                recovered_from = track_id
+            previous_last_seen = state["last_seen"]
+            if not state.get("confirmed") and now - previous_last_seen > self.candidate_max_gap:
+                state["hits"] = 0
+                state["first_seen"] = now
+            state["hits"] += 1
+            state["last_seen"] = now
+            state["box"] = item.bbox
+            state["confidence"] = float(item.confidence)
+            state["last_frame_id"] = frame_id
+            state["missing_evaluated_since"] = None
+            state["missing_evaluations"] = 0
+            state["frame_size"] = (width, height)
+            state["lost"] = False
+            if kind == "vehicle":
+                state["vehicle_type"] = self._vehicle_type(item.class_name)
+            if vector is not None:
+                state["body_vector"] = vector
+                state["last_body_at"] = now
+            if state["hits"] < stable_hits:
+                continue
+            just_confirmed = not state.get("confirmed", False)
+            state["confirmed"] = True
+            point = ((item.bbox[0] + item.bbox[2]) / (2 * width), item.bbox[3] / height)
+            containing = {identifier for identifier, zone in self.zones.items() if inside(point, zone["poly"])}
+            if recovered_from is not None:
+                # A successful reassociation is evidence of real track
+                # fragmentation. A subject merely leaving the frame is not.
+                self.policy.observe_fragmentation(now)
+                for zone_id, episode in state["episodes"].items():
+                    if zone_id in containing:
+                        episode["last_confirmed_inside_at"] = utc(now)
+                        episode["observation_state"] = "observed_inside"
+                if self._lifecycle_enabled(state):
+                    self._persist(self._event("presence_recovered", now, frame_id,
+                                              presence_id=state["id"], previous_track_id=recovered_from,
+                                              track_id=track_id, object_type=kind,
+                                              last_seen_at=utc(previous_last_seen),
+                                              zone_episodes=self._episodes(state)))
+            if just_confirmed:
+                state["owner"] = self._owner(kind, containing)
+                presence_zones = {zone_id for binding in self.bindings
+                                  if binding["app"] in {"vehicle_presence", "person_presence"}
+                                  and kind in binding["object_types"]
+                                  for zone_id in binding["geometry_ids"]}
+                for zone_id in containing & presence_zones:
+                    if boundary_distance(point, self.zones[zone_id]["poly"]) < float(
+                        self.policy.section("zone", kind)["boundary_margin"]
+                    ):
+                        continue
+                    state["zone_state"][zone_id] = True
+                    state["episodes"][zone_id] = self._episode(zone_id, now, False)
+            with self._measure("presence.zone_lifecycle"):
+                self._zones(packet, state, containing, point, now, frame_id)
+            with self._measure("line_crossing.policy"):
+                self._lines(packet, state, point, now, frame_id)
+            if state["owner"] is None:
+                state["owner"] = self._owner(kind, containing)
+            owner = state["owner"]
+            if owner and (state["last_object"] == 0 or now - state["last_object"] >= 60):
+                with self._measure("object_presence.emission"):
+                    self._object(packet, item, state, owner, now, frame_id)
+            if kind == "person":
+                with self._measure("person_identity.policy"):
+                    self._features(
+                        packet, item, state, containing, face_by_track.get(track_id),
+                        vector, now, frame_id,
+                    )
+        with self._measure("presence.loss_recovery"):
+            self._lost_and_unknown(active_keys, now, tracker_keys)
+        with self._measure("counting.policy"):
+            self._counts(packet, detections, now, frame_id)
+        with self._measure("anpr.policy"):
+            self._plates(packet, now, frame_id)
+        with self._measure("fire_smoke.policy"):
+            self._hazards(packet, now, frame_id)
+        with self._measure("scene_search.policy"):
+            self._scenes(packet, now, frame_id)
+        with self._measure("person_identity.candidate_flush"):
+            self._flush_face_candidates(now)
+
+    def _body_vectors(self, packet, detections, now):
+        if self.body is None:
+            return {}
+        people = [item for item in detections if item.class_name == "pedestrian"
+                  and item.metadata.get("track_id") is not None]
+        due = [item for item in people if now - self.tracks.get(("person", str(item.metadata["track_id"])), {}).get("last_body_at", 0) >= 1]
+        crops = []
+        identity_policy = self.policy.section("identity")
+        quality_floor = float(identity_policy["body_quality_floor"])
+        min_width = int(identity_policy["body_min_width_px"])
+        min_height = int(identity_policy["body_min_height_px"])
+        for item in due:
+            crop, _ = self._crop(packet.frame, item.bbox)
+            if (crop is not None and crop.shape[0] >= min_height and crop.shape[1] >= min_width
+                    and self._body_quality(crop) >= quality_floor):
+                crops.append((item, crop))
+        if crops:
+            with self._measure("person_identity.body_embedding", "NPU"):
+                vectors = self.body.embed([crop for _, crop in crops])
+            if self.telemetry is not None:
+                for timings in getattr(self.body, "last_timings", []):
+                    for stage, seconds in timings.items():
+                        self.telemetry.observe_latency(
+                            "person_identity.body_" + stage, seconds)
+        else:
+            vectors = []
+        result = {}
+        for (item, _), vector in zip(crops, vectors):
+            track_id = str(item.metadata["track_id"])
+            result[track_id] = np.asarray(vector, np.float32)
+            state = self.tracks.get(("person", track_id))
+            if state:
+                state["last_body_at"] = now
+        return result
+
+    @staticmethod
+    def _body_quality(image):
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        area = min(1.0, image.shape[0] * image.shape[1] / 120000.0)
+        sharpness = min(1.0, float(cv2.Laplacian(gray, cv2.CV_64F).var()) / 800.0)
+        exposure = max(0.0, 1.0 - abs(float(gray.mean()) - 127.5) / 127.5)
+        return max(0.0, min(1.0, .4 * area + .4 * sharpness + .2 * exposure))
+
+    @staticmethod
+    def _crop(frame, box):
+        height, width = frame.shape[:2]
+        x1, y1, x2, y2 = [int(value) for value in box]
+        x1, x2 = max(0, x1), min(width, x2)
+        y1, y2 = max(0, y1), min(height, y2)
+        if x2 <= x1 or y2 <= y1:
+            return None, None
+        return frame[y1:y2, x1:x2].copy(), (x1, y1, x2, y2)
+
+    @staticmethod
+    def _episode(zone_id, now, entry):
+        return {"zone_id": zone_id, "zone_episode_id": str(uuid.uuid4()),
+                "first_observed_inside_at": utc(now), "last_confirmed_inside_at": utc(now),
+                "entry_observed": entry, "observation_state": "observed_inside"}
+
+    def _zones(self, packet, state, containing, point, now, frame_id):
+        policy = self.policy.section("zone", state.get("kind"))
+        required_votes = int(policy["transition_votes"])
+        hold_seconds = float(policy["transition_hold_seconds"])
+        boundary_margin = float(policy["boundary_margin"])
+        bindings_by_zone = {}
+        for binding in self.bindings:
+            if binding["app"] in {"vehicle_presence", "person_presence"} and state["kind"] in binding["object_types"]:
+                for zone_id in binding["geometry_ids"]:
+                    bindings_by_zone.setdefault(zone_id, []).append(binding)
+        for zone_id, bindings in bindings_by_zone.items():
+            if boundary_distance(point, self.zones[zone_id]["poly"]) < boundary_margin:
+                continue
+            current = zone_id in containing
+            previous = state["zone_state"].get(zone_id)
+            votes = state["zone_votes"].get(zone_id, (current, 0))
+            if votes[0] != current:
+                state.setdefault("zone_candidate_since", {})[zone_id] = now
+            votes = (current, votes[1] + 1 if votes[0] == current else 1)
+            state["zone_votes"][zone_id] = votes
+            if previous is None:
+                state["zone_state"][zone_id] = current
+                if current and zone_id not in state["episodes"]:
+                    state["episodes"][zone_id] = self._episode(zone_id, now, False)
+                continue
+            if current == previous:
+                state.setdefault("zone_candidate_since", {}).pop(zone_id, None)
+                if current and zone_id in state["episodes"]:
+                    state["episodes"][zone_id]["last_confirmed_inside_at"] = utc(now)
+                    state["episodes"][zone_id]["observation_state"] = "observed_inside"
+                continue
+            candidate_since = state.setdefault("zone_candidate_since", {}).setdefault(zone_id, now)
+            if votes[1] < required_votes or now - candidate_since < hold_seconds:
+                continue
+            state["zone_state"][zone_id] = current
+            state["zone_candidate_since"].pop(zone_id, None)
+            episode = self._episode(zone_id, now, True) if current else state["episodes"].get(zone_id)
+            if episode is None:
+                continue
+            if current:
+                state["episodes"][zone_id] = episode
+            for binding in bindings:
+                event = self._event("zone_entry" if current else "zone_exit", now, frame_id,
+                                    binding["use_case_id"], presence_id=state["id"],
+                                    track_id=state["track_id"], object_type=state["kind"],
+                                    zone_id=zone_id, zone_episode_id=episode["zone_episode_id"],
+                                    first_observed_inside_at=episode["first_observed_inside_at"],
+                                    transition_at=utc(now))
+                evidence = self._evidence(event, frame_id, packet.frame, "frame", None, packet.frame.shape, now)
+                event["evidence_ids"] = [evidence[0]["evidence_id"]]
+                self._persist(event, [evidence])
+                self._trigger_scene(packet, binding["use_case_id"], event["observation_id"], now, frame_id)
+            if not current:
+                state["episodes"].pop(zone_id, None)
+
+    def _lines(self, packet, state, point, now, frame_id):
+        for binding in self.bindings:
+            if binding["app"] not in {"line_crossing", "vehicle_entry_exit_counts", "people_entry_exit_counts"} or state["kind"] not in binding["object_types"]:
+                continue
+            for line_id in binding["geometry_ids"]:
+                line = self.lines[line_id]
+                a, b = line["a"], line["b"]
+                side = (b[0] - a[0]) * (point[1] - a[1]) - (b[1] - a[1]) * (point[0] - a[0])
+                key = (binding["use_case_id"], line_id)
+                prior = state["line_state"].get(key)
+                state["line_state"][key] = (side, point, now)
+                if prior is None or abs(side) < .005 or abs(prior[0]) < .005 or prior[0] * side >= 0:
+                    continue
+                if math.dist(point, prior[1]) < .02 or now - state.get("last_cross", {}).get(key, 0) < 10:
+                    continue
+                segment = (point[0] - prior[1][0], point[1] - prior[1][1])
+                line_vector = (b[0] - a[0], b[1] - a[1])
+                denominator = line_vector[0] * segment[1] - line_vector[1] * segment[0]
+                if abs(denominator) < 1e-9:
+                    continue
+                relative = (prior[1][0] - a[0], prior[1][1] - a[1])
+                line_position = (relative[0] * segment[1] - relative[1] * segment[0]) / denominator
+                subject_position = (relative[0] * line_vector[1] - relative[1] * line_vector[0]) / denominator
+                if not (0 <= line_position <= 1 and 0 <= subject_position <= 1):
+                    continue
+                direction_raw = "left_to_right" if prior[0] < side else "right_to_left"
+                event = self._event("line_cross", now, frame_id, binding["use_case_id"],
+                                    presence_id=state["id"], track_id=state["track_id"],
+                                    object_type=state["kind"], line_id=line_id,
+                                    direction_raw=direction_raw,
+                                    direction=line["direction_mapping"][direction_raw], crossed_at=utc(now))
+                evidence = self._evidence(event, frame_id, packet.frame, "frame", None, packet.frame.shape, now)
+                event["evidence_ids"] = [evidence[0]["evidence_id"]]
+                self._persist(event, [evidence])
+                state.setdefault("last_cross", {})[key] = now
+                self._trigger_scene(packet, binding["use_case_id"], event["observation_id"], now, frame_id)
+
+    def _object(self, packet, item, state, owner, now, frame_id):
+        crop, bounds = self._crop(packet.frame, item.bbox)
+        if crop is None:
+            return
+        height, width = packet.frame.shape[:2]
+        first = state["last_object"] == 0
+        event = self._event("object_present", now, frame_id, owner["use_case_id"],
+                            presence_id=state["id"], track_id=state["track_id"],
+                            object_type=state["kind"],
+                            vehicle_type=self._vehicle_type(item.class_name)
+                            if state["kind"] == "vehicle" else None,
+                            reason="first_seen" if first else "periodic",
+                            bbox_normalized=bbox_normalized(item.bbox, width, height),
+                            confidence=max(0.0, min(1.0, float(item.confidence))),
+                            first_seen_at=utc(state["first_seen"]), zone_episodes=self._episodes(state))
+        evidence, embeddings = [], []
+        if first:
+            media = self._evidence(event, frame_id, crop, "subject_crop", bounds, packet.frame.shape, now)
+            evidence.append(media)
+            event["evidence_ids"] = [media[0]["evidence_id"]]
+            if self.scene is not None and "siglip2-base-v1" in owner.get("embedding_profile_ids", []):
+                with self._measure("object_presence.semantic_embedding", "GPU"):
+                    vector = self.scene.embed(crop)
+                self._observe_shared_scene_execution()
+                embedding = self._embedding(event, media[0], frame_id, vector,
+                                            "siglip2-base-v1", "semantic", now, state["id"])
+                embeddings.append(embedding)
+                event["embedding_ids"] = [embedding["embedding_id"]]
+        self._persist(event, evidence, embeddings)
+        state["last_object"] = now
+
+    def _feature_due(self, state, kind, quality, now):
+        previous = state["last_feature"].get(kind)
+        improvement = .2 if kind == "gait" else .15 if kind == "body" else .1
+        return not (previous and (quality < previous[0] + improvement
+                                 or now - previous[1] < self.feature_cooldown))
+
+    def _features(self, packet, item, state, containing, face, body_vector, now, frame_id):
+        bindings = [binding for binding in self.bindings if binding["app"] == "person_identity"
+                    and self._matches(binding, "person", containing)]
+        if not bindings:
+            return
+        binding = sorted(bindings, key=lambda value: value["use_case_id"])[0]
+        profiles = set(binding["embedding_profile_ids"])
+        identity_policy = self.policy.section("identity")
+        candidates = []
+        face_width = (float(face.bbox[2] - face.bbox[0]) if face is not None else 0.0)
+        # Native runtime FaceSample objects carry SixDRepNet pose quality. Keep
+        # compatibility with pre-pose sample producers while applying the
+        # adaptive pixel gate to the current production path.
+        face_size_qualified = (
+            face is not None
+            and (not hasattr(face, "pose_quality")
+                 or face_width >= float(identity_policy["face_emit_min_width_px"]))
+        )
+        if (face is not None and "adaface-ir101-v18.1" in profiles
+                and face_size_qualified
+                and float(face.quality) >= float(identity_policy["face_min_quality"])):
+            candidates.append(("face", face.embedding, float(face.quality), face.bbox, "adaface-ir101-v18.1", None))
+        if body_vector is not None and "transreid-ssl-v18.1" in profiles:
+            body_crop, _ = self._crop(packet.frame, item.bbox)
+            quality = self._body_quality(body_crop) if body_crop is not None else 0.0
+            candidates.append(("body", body_vector, quality, item.bbox, "transreid-ssl-v18.1", None))
+        if self.gait is not None and "gaitbase-v18.1" in profiles and packet.index % 3 == 0:
+            worker = getattr(self, "_gait_worker", None)
+            if worker is None:
+                candidates.extend(self._collect_gait(packet, item, state, identity_policy, now))
+            else:
+                # Drain before taking the snapshot: a repeated presence must
+                # see any earlier gait emission's cooldown/quality decision.
+                self._finish_gait()
+                state_snapshot = {"id": state["id"], "track_id": state["track_id"],
+                                  "last_feature": dict(state["last_feature"])}
+                future = worker.submit(self._collect_gait, packet, deepcopy(item),
+                                       state_snapshot, dict(identity_policy), now)
+                self._pending_gait = (future, self.session_id, packet, state,
+                                      dict(binding), now, frame_id)
+        self._emit_feature_candidates(packet, state, binding, candidates, now, frame_id)
+
+    def _collect_gait(self, packet, item, state, identity_policy, now):
+        key = state["id"]
+        def accept_gait_sequence(track_id, count):
+            eligible = (count >= int(identity_policy["gait_min_silhouettes"])
+                        and self._feature_due(state, "gait", min(1.0, count / 30), now))
+            if self.telemetry is not None:
+                self.telemetry.count("gait_inference_eligible" if eligible
+                                     else "gait_inference_avoided")
+            return eligible
+        # Collection includes CPU background subtraction and often no
+        # inference at all. Attribute accelerator work only at the actual
+        # model invocation inside collect().
+        with self._measure("person_identity.gait_processing"):
+            result = self.gait.collect(
+                packet.frame, [item], self.camera_id,
+                {int(state["track_id"]): key}, captured_at=now,
+                accept_sequence=accept_gait_sequence,
+                observe=self.telemetry.observe_latency if self.telemetry is not None else None,
+                frame_key=(self.session_id, packet.index),
+            )
+        if self.telemetry is not None and now - getattr(self, "_gait_stats_at", 0) >= 5:
+            self._gait_stats_at = now
+            buffers = self.gait.buffers
+            self.telemetry.set_gauge("gait_retained_presences", len(buffers))
+            self.telemetry.set_gauge("gait_retained_silhouettes",
+                                     sum(len(values) for values in buffers.values()))
+            # Payload only: excludes NumPy/Python overhead and the native
+            # background model. This must not be described as process RSS.
+            self.telemetry.set_gauge("gait_silhouette_payload_bytes",
+                                     sum(mask.nbytes for values in buffers.values() for mask in values))
+            self.telemetry.set_gauge("gait_retained_track_centers", len(self.gait.centers))
+        vector = result.get(int(state["track_id"]))
+        if vector is not None:
+            count = len(self.gait.buffers[key])
+            if count >= int(identity_policy["gait_min_silhouettes"]):
+                sequence = {"sequence_started_at": utc(self.gait.buffer_times[key][0]),
+                            "sequence_ended_at": utc(self.gait.buffer_times[key][-1]),
+                            "usable_silhouette_count": count}
+                return [("gait", vector, min(1.0, count / 30), item.bbox, "gaitbase-v18.1", sequence)]
+        return []
+
+    def _finish_gait(self, emit=True):
+        pending = getattr(self, "_pending_gait", None)
+        if pending is None:
+            return
+        self._pending_gait = None
+        future, session, packet, state, binding, now, frame_id = pending
+        with self._measure("person_identity.gait_result_wait"):
+            candidates = future.result()
+        if emit and session == self.session_id:
+            self._emit_feature_candidates(packet, state, binding, candidates, now, frame_id)
+
+    def _emit_feature_candidates(self, packet, state, binding, candidates, now, frame_id):
+        for kind, vector, quality, box, profile, sequence in candidates:
+            previous = state["last_feature"].get(kind)
+            if not self._feature_due(state, kind, quality, now):
+                continue
+            if kind == "face":
+                self._offer_face_candidate(packet, state, binding, vector, quality, box, now, frame_id)
+                continue
+            crop_box = box
+            crop, bounds = self._crop(packet.frame, crop_box)
+            if crop is None:
+                continue
+            event = self._event("person_feature_sample", now, frame_id, binding["use_case_id"],
+                                presence_id=state["id"], track_id=state["track_id"],
+                                kind=kind, profile_id=profile, quality=quality,
+                                sample_reason="first_qualified" if previous is None else "quality_improved")
+            media = self._evidence(event, frame_id, crop, "face_crop" if kind == "face" else "subject_crop", bounds, packet.frame.shape, now)
+            embedding = self._embedding(event, media[0], frame_id, vector, profile, kind, now,
+                                        state["id"], quality, sequence)
+            event["evidence_ids"] = [media[0]["evidence_id"]]
+            event["embedding_ids"] = [embedding["embedding_id"]]
+            self._persist(event, [media], [embedding])
+            state["last_feature"][kind] = (quality, now)
+
+    def _offer_face_candidate(self, packet, state, binding, vector, quality, box, now, frame_id):
+        existing = self.face_candidates.get(state["id"])
+        if existing is not None and quality <= existing["quality"]:
+            return
+        crop, bounds = self._crop(packet.frame, self._face_bounds(packet.frame, box))
+        if crop is None:
+            return
+        deadline = existing["deadline"] if existing is not None else now + self.face_selection_window
+        self.face_candidates[state["id"]] = {
+            "presence_id": state["id"], "track_id": state["track_id"],
+            "use_case_id": binding["use_case_id"], "quality": quality,
+            # _crop returns a view. Keep only the selected original-pixel face
+            # region instead of retaining the complete source frame through
+            # NumPy's base reference for the whole selection window.
+            "vector": np.asarray(vector, np.float32).copy(), "image": crop.copy(),
+            "bounds": bounds, "frame_shape": packet.frame.shape,
+            "frame_id": frame_id, "captured_at": now, "deadline": deadline,
+            "sample_reason": "first_qualified" if "face" not in state["last_feature"] else "quality_improved",
+        }
+
+    def _flush_face_candidates(self, now):
+        for presence_id, candidate in list(self.face_candidates.items()):
+            if now < candidate["deadline"]:
+                continue
+            event = self._event("person_feature_sample", candidate["captured_at"],
+                                candidate["frame_id"], candidate["use_case_id"],
+                                presence_id=presence_id, track_id=candidate["track_id"],
+                                kind="face", profile_id="adaface-ir101-v18.1",
+                                quality=candidate["quality"], sample_reason=candidate["sample_reason"])
+            media = self._evidence(event, candidate["frame_id"], candidate["image"],
+                                   "face_crop", candidate["bounds"], candidate["frame_shape"],
+                                   candidate["captured_at"])
+            embedding = self._embedding(event, media[0], candidate["frame_id"],
+                                        candidate["vector"], "adaface-ir101-v18.1", "face",
+                                        candidate["captured_at"], presence_id, candidate["quality"])
+            event["evidence_ids"] = [media[0]["evidence_id"]]
+            event["embedding_ids"] = [embedding["embedding_id"]]
+            self._persist(event, [media], [embedding])
+            state = self.presences.get(presence_id)
+            if state is not None:
+                state["last_feature"]["face"] = (candidate["quality"], candidate["captured_at"])
+            self.face_candidates.pop(presence_id, None)
+
+    @staticmethod
+    def _face_bounds(frame, box):
+        height, width = frame.shape[:2]
+        x1, y1, x2, y2 = [int(round(value)) for value in box]
+        side = min(width, height, max(2, 2 * max(x2 - x1, y2 - y1)))
+        left = max(0, min(width - side, int(round((x1 + x2) / 2 - side / 2))))
+        top = max(0, min(height - side, int(round((y1 + y2) / 2 - side / 2))))
+        return left, top, left + side, top + side
+
+    def _lost_and_unknown(self, active_keys, now, tracker_keys=None):
+        tracker_keys = active_keys if tracker_keys is None else tracker_keys
+        for key, state in list(self.tracks.items()):
+            if key in active_keys:
+                continue
+            if not state.get("confirmed"):
+                gap = now - state["last_seen"]
+                if gap >= 8:
+                    self.tracks.pop(key, None)
+                    self.presences.pop(state["id"], None)
+                continue
+            missing_since = state.get("missing_evaluated_since")
+            if missing_since is None:
+                state["missing_evaluated_since"] = now
+                state["missing_evaluations"] = 1
+                continue
+            state["missing_evaluations"] = int(state.get("missing_evaluations", 1)) + 1
+            gap = now - float(missing_since)
+            unobserved_after, ended_after = self._presence_timeouts(state)
+            if (state["missing_evaluations"] >= 2
+                    and gap >= unobserved_after and key not in tracker_keys
+                    and not state["lost"]):
+                state["lost"] = True
+                for episode in state["episodes"].values():
+                    episode["observation_state"] = "unobserved"
+                if self._lifecycle_enabled(state):
+                    self._persist(self._event("track_lost", now, None, presence_id=state["id"],
+                                              track_id=state["track_id"], object_type=state["kind"],
+                                              last_seen_at=utc(state["last_seen"]), zone_episodes=self._episodes(state),
+                                              reason="unknown"))
+            if (state["missing_evaluations"] >= 2 and gap >= ended_after
+                    and key not in tracker_keys):
+                for episode in state["episodes"].values():
+                    episode["observation_state"] = "ended_unknown"
+                if self._lifecycle_enabled(state):
+                    self._persist(self._event("presence_ended_unknown", now, None,
+                                              presence_id=state["id"], track_id=state["track_id"],
+                                              object_type=state["kind"], last_seen_at=utc(state["last_seen"]),
+                                              zone_episodes=self._episodes(state)))
+                self.tracks.pop(key, None)
+                self.presences.pop(state["id"], None)
+
+    def _plate_idle_timeouts(self, now):
+        outcome_delay = max(
+            self.plate_outcome_delay,
+            float(self.policy.section("anpr")["candidate_window_seconds"]),
+        )
+        for state in self.presences.values():
+            if state["kind"] != "vehicle" or state["lost"]:
+                continue
+            for use_case_id, attempt in state["plate_attempts"].items():
+                if (use_case_id in state["plates"] or use_case_id in state["plate_outcomes"]
+                        or now - attempt["started"] < outcome_delay):
+                    continue
+                selected = self._plate_candidate_ready(attempt, None, now)
+                if selected is not None:
+                    binding = next((item for item in self.bindings
+                                    if item["use_case_id"] == use_case_id), None)
+                    if binding is not None:
+                        self._emit_plate_read(state, binding, selected, None, now)
+                        attempt["started"] = now
+                        attempt["candidates"] = []
+                        attempt["seen_ocr_observations"].clear()
+                        continue
+                self._emit_plate_outcome(state, use_case_id, attempt)
+
+    def _counts(self, packet, detections, now, frame_id):
+        height, width = packet.frame.shape[:2]
+        for binding in self.bindings:
+            kind = "vehicle" if binding["app"] == "vehicle_counting" else "person"
+            if binding["app"] not in {"vehicle_counting", "people_counting"}:
+                continue
+            policy = self.policy.section("count", kind)
+            required_votes = int(policy["debounce_observations"])
+            debounce_seconds = float(policy["debounce_seconds"])
+            heartbeat_seconds = float(policy["heartbeat_seconds"])
+            areas = binding["geometry_ids"] if binding["scope"] == "geometry" else [None]
+            for zone_id in areas:
+                count = 0
+                for item in detections:
+                    item_kind = "person" if item.class_name == "pedestrian" else "vehicle"
+                    key = (item_kind, str(item.metadata["track_id"]))
+                    track_state = self.tracks.get(key)
+                    if item_kind != kind or track_state is None or not track_state.get("confirmed"):
+                        continue
+                    point = ((item.bbox[0] + item.bbox[2]) / (2 * width), item.bbox[3] / height)
+                    if zone_id is None or inside(point, self.zones[zone_id]["poly"]):
+                        count += 1
+                key = (binding["use_case_id"], zone_id)
+                state = self.counts.setdefault(key, {
+                    "value": None, "candidate": None, "votes": 0,
+                    "candidate_since": now, "sent": 0.0,
+                })
+                if state["candidate"] == count:
+                    state["votes"] += 1
+                else:
+                    state["candidate"], state["votes"] = count, 1
+                    state["candidate_since"] = now
+                if (state["votes"] < required_votes
+                        or now - state["candidate_since"] < debounce_seconds
+                        or (state["value"] == count
+                            and now - state["sent"] < heartbeat_seconds)):
+                    continue
+                self._persist(self._event("zone_count", now, frame_id, binding["use_case_id"],
+                                          zone_id=zone_id, object_type=kind, count=count,
+                                          count_semantics="visible_now", as_of=utc(now),
+                                          coverage_state="complete"))
+                state["value"], state["sent"] = count, now
+
+    def _plate_attempt(self, state, use_case_id, now):
+        return state["plate_attempts"].setdefault(use_case_id, {
+            "started": now, "provisional": False, "candidates": [],
+            "seen_ocr_observations": set(),
+            "last_frame": None, "last_frame_id": None, "last_captured_at": now,
+            "last_bbox": None, "last_frame_shape": None,
+        })
+
+    @staticmethod
+    def _plate_sharpness(crop):
+        if crop is None or getattr(crop, "size", 0) == 0:
+            return 0.0
+        gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if crop.ndim == 3 else crop
+        return float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
+    def _plate_candidate(self, packet, plate, text, confidence, containing, now, frame_id,
+                         frame_snapshot=None):
+        crop, _ = self._crop(packet.frame, plate.bbox)
+        width = max(1.0, float(plate.bbox[2] - plate.bbox[0]))
+        height = max(1.0, float(plate.bbox[3] - plate.bbox[1]))
+        sharpness = self._plate_sharpness(crop)
+        self.policy.observe_plate(
+            width=width, height=height, frame_width=packet.frame.shape[1],
+            sharpness=sharpness, ocr_confidence=confidence, text=text,
+        )
+        area_score = min(1.0, (width * height) / 1600.0)
+        sharpness_score = min(1.0, sharpness / 80.0)
+        score = 0.72 * confidence + 0.18 * area_score + 0.10 * sharpness_score
+        return {
+            "text": text, "confidence": confidence, "score": score,
+            "width": width, "height": height, "sharpness": sharpness,
+            "aspect_ratio": width / max(1.0, height),
+            "bbox": tuple(float(value) for value in plate.bbox),
+            # One immutable original-frame snapshot is shared by every ANPR
+            # binding/candidate produced from this source observation.
+            "frame": frame_snapshot if frame_snapshot is not None else packet.frame.copy(),
+            "frame_shape": packet.frame.shape,
+            "frame_id": frame_id, "captured_at": now,
+            "containing": set(containing),
+        }
+
+    def _best_plate_candidate(self, attempt):
+        policy = self.policy.section("anpr")
+        candidates = [candidate for candidate in (attempt.get("candidates") or [])
+                      if candidate["confidence"] >= float(policy["ocr_emit_min_confidence"])
+                      and candidate["width"] >= float(policy["min_plate_width_px"])
+                      and candidate["height"] >= float(policy["min_plate_height_px"])
+                      and candidate["sharpness"] >= float(policy["min_sharpness"])
+                      and 0.8 <= candidate["aspect_ratio"] <= 12.0]
+        if not candidates:
+            return None, 0
+        counts = {}
+        for candidate in candidates:
+            counts[candidate["text"]] = counts.get(candidate["text"], 0) + 1
+        best = max(candidates, key=lambda item: (
+            item["score"] + min(0.15, 0.05 * max(0, counts[item["text"]] - 1)),
+            item["confidence"],
+        ))
+        return best, counts[best["text"]]
+
+    def _plate_read_allowed(self, previous, candidate, sent_at):
+        confidence = candidate["confidence"]
+        text = candidate["text"]
+        if not previous:
+            return True
+        previous_text, _previous_observation_id = previous[:2]
+        previous_confidence = float(previous[2]) if len(previous) > 2 else 0.0
+        previous_sent_at = float(previous[3]) if len(previous) > 3 else 0.0
+        if text == previous_text:
+            return (confidence >= previous_confidence + self.plate_confidence_improvement
+                    and sent_at - previous_sent_at >= self.plate_update_cooldown)
+        fast_replace = (previous_confidence < self.plate_low_confidence_replace
+                        and confidence >= self.plate_change_min_confidence)
+        if fast_replace:
+            return True
+        return (sent_at - previous_sent_at >= self.plate_update_cooldown
+                and confidence >= self.plate_change_min_confidence
+                and confidence >= previous_confidence + self.plate_change_margin)
+
+    def _plate_candidate_ready(self, attempt, previous, now):
+        policy = self.policy.section("anpr")
+        candidate, read_count = self._best_plate_candidate(attempt)
+        if candidate is None:
+            return None
+        emit_min_confidence = float(policy["ocr_emit_min_confidence"])
+        min_reads = int(policy["confirm_min_reads"])
+        candidate_window = float(policy["candidate_window_seconds"])
+        single_read_confidence = float(policy["single_read_confidence"])
+        if candidate["confidence"] < emit_min_confidence:
+            return None
+        if not self._plate_read_allowed(previous, candidate, now):
+            return None
+        elapsed = now - attempt["started"]
+        repeated = read_count >= min_reads
+        fast_repeated = repeated and candidate["confidence"] >= self.plate_fast_emit_confidence
+        high_single_after_window = (
+            elapsed >= candidate_window
+            and candidate["confidence"] >= single_read_confidence
+        )
+        normal_window = elapsed >= candidate_window and repeated
+        if fast_repeated or high_single_after_window or normal_window:
+            return candidate
+        return None
+
+    def _emit_plate_read(self, state, binding, candidate, previous, now):
+        height, width = candidate["frame_shape"][:2]
+        zone_id = next((value for value in binding["geometry_ids"]
+                        if value in candidate["containing"]), None)
+        event = self._event("plate_read", candidate["captured_at"], candidate["frame_id"],
+                            binding["use_case_id"], presence_id=state["id"],
+                            track_id=state["track_id"], zone_id=zone_id,
+                            plate_text=candidate["text"], partial=False,
+                            confidence=candidate["confidence"],
+                            plate_bbox_normalized=bbox_normalized(candidate["bbox"], width, height),
+                            supersedes_observation_id=previous[1] if previous else None)
+        media = self._evidence(event, candidate["frame_id"], candidate["frame"],
+                               "frame", None, candidate["frame_shape"], candidate["captured_at"])
+        event["evidence_ids"] = [media[0]["evidence_id"]]
+        self._persist(event, [media])
+        self.policy.observe_anpr_outcome(True)
+        state["plates"][binding["use_case_id"]] = (
+            candidate["text"], event["observation_id"], candidate["confidence"], now,
+        )
+
+    def _emit_plate_outcome(self, state, use_case_id, attempt, outcome="unreadable"):
+        event_time = float(attempt.get("last_captured_at") or time.time())
+        frame_id = attempt.get("last_frame_id")
+        event = self._event("plate_outcome", event_time, frame_id, use_case_id,
+                            presence_id=state["id"], track_id=state["track_id"],
+                            outcome=outcome)
+        evidence = []
+        frame = attempt.get("last_frame")
+        frame_shape = attempt.get("last_frame_shape")
+        if frame is not None and frame_id is not None and frame_shape is not None:
+            media = self._evidence(event, frame_id, frame, "frame", None, frame_shape, event_time)
+            event["evidence_ids"] = [media[0]["evidence_id"]]
+            evidence.append(media)
+        self._persist(event, evidence)
+        self.policy.observe_anpr_outcome(False)
+        state["plate_outcomes"].add(use_case_id)
+
+    def _plates(self, packet, now, frame_id):
+        height, width = packet.frame.shape[:2]
+        frame_snapshot = None
+        for plate in packet.detections:
+            if plate.model_name != "license_plate" or plate.parent_id is None:
+                continue
+            key = ("vehicle", str(plate.parent_id))
+            state = self.tracks.get(key)
+            if state is None or not state.get("confirmed"):
+                continue
+            text = re.sub(r"[^A-Z0-9? -]", "", str(plate.metadata.get("ocr_text") or "").upper()).strip()[:32]
+            point = ((state["box"][0] + state["box"][2]) / (2 * width), state["box"][3] / height)
+            containing = {zone_id for zone_id, zone in self.zones.items() if inside(point, zone["poly"])}
+            for binding in self.bindings:
+                if binding["app"] != "anpr" or not self._matches(binding, "vehicle", containing):
+                    continue
+                use_case_id = binding["use_case_id"]
+                attempt = self._plate_attempt(state, use_case_id, now)
+                if frame_snapshot is None:
+                    frame_snapshot = packet.frame.copy()
+                attempt["last_frame"] = frame_snapshot
+                attempt["last_frame_id"] = frame_id
+                attempt["last_captured_at"] = now
+                attempt["last_bbox"] = tuple(float(value) for value in plate.bbox)
+                attempt["last_frame_shape"] = packet.frame.shape
+                attempt["provisional"] = attempt["provisional"] or bool(plate.metadata.get("ocr_provisional"))
+                if not text:
+                    plate_crop, _ = self._crop(packet.frame, plate.bbox)
+                    self.policy.observe_plate(
+                        width=max(1.0, float(plate.bbox[2] - plate.bbox[0])),
+                        height=max(1.0, float(plate.bbox[3] - plate.bbox[1])),
+                        frame_width=packet.frame.shape[1],
+                        sharpness=self._plate_sharpness(plate_crop),
+                    )
+                    outcome_delay = max(
+                        self.plate_outcome_delay,
+                        float(self.policy.section("anpr")["candidate_window_seconds"]),
+                    )
+                    if (use_case_id not in state["plate_outcomes"]
+                            and now - attempt["started"] >= outcome_delay):
+                        self._emit_plate_outcome(state, use_case_id, attempt)
+                    continue
+                confidence = plate.metadata.get("ocr_confidence", plate.confidence)
+                confidence = max(0.0, min(1.0, float(confidence)))
+                observation_token = str(plate.metadata.get("ocr_observation_id") or frame_id)
+                if observation_token not in attempt["seen_ocr_observations"]:
+                    attempt["seen_ocr_observations"].add(observation_token)
+                    attempt["candidates"].append(
+                        self._plate_candidate(
+                            packet, plate, text, confidence, containing, now, frame_id,
+                            frame_snapshot=frame_snapshot,
+                        )
+                    )
+                    attempt["candidates"] = attempt["candidates"][-24:]
+                previous = state["plates"].get(use_case_id)
+                selected = self._plate_candidate_ready(attempt, previous, now)
+                if selected is not None:
+                    self._emit_plate_read(state, binding, selected, previous, now)
+                    attempt["started"] = now
+                    attempt["candidates"] = []
+                    attempt["seen_ocr_observations"].clear()
+                    state["plate_outcomes"].discard(use_case_id)
+        for state in self.presences.values():
+            if state["kind"] != "vehicle" or state["lost"]:
+                continue
+            outcome_delay = max(
+                self.plate_outcome_delay,
+                float(self.policy.section("anpr")["candidate_window_seconds"]),
+            )
+            for use_case_id, attempt in state["plate_attempts"].items():
+                if (use_case_id in state["plates"] or use_case_id in state["plate_outcomes"]
+                        or now - attempt["started"] < outcome_delay):
+                    continue
+                selected = self._plate_candidate_ready(attempt, None, now)
+                if selected is not None:
+                    binding = next((item for item in self.bindings
+                                    if item["use_case_id"] == use_case_id), None)
+                    if binding is not None:
+                        self._emit_plate_read(state, binding, selected, None, now)
+                        attempt["started"] = now
+                        attempt["candidates"] = []
+                        attempt["seen_ocr_observations"].clear()
+                        continue
+                self._emit_plate_outcome(state, use_case_id, attempt)
+
+    def _hazards(self, packet, now, frame_id):
+        if not getattr(packet, "analytics_state", {}).get("fire_smoke_evaluated", True):
+            return
+        policy = self.policy.section("fire_smoke")
+        min_confidence = float(policy["event_min_confidence"])
+        positive_needed = int(policy["positive_confirmations"])
+        positive_window = float(policy["positive_window_seconds"])
+        clear_seconds = float(policy["clear_seconds"])
+        clear_needed = int(policy["clear_confirmations"])
+        clear_max_gap = float(policy["clear_max_evaluation_gap_seconds"])
+        for binding in self.bindings:
+            if binding["app"] != "fire_smoke":
+                continue
+            zones = binding["geometry_ids"] if binding["scope"] == "geometry" else [None]
+            for zone_id in zones:
+                for hazard in ("fire", "smoke"):
+                    positives = [item for item in packet.detections if item.model_name == "smoke_fire"
+                                 and item.class_name == hazard and item.confidence >= min_confidence and
+                                 (zone_id is None or inside(((item.bbox[0] + item.bbox[2]) / (2 * packet.frame.shape[1]),
+                                                              (item.bbox[1] + item.bbox[3]) / (2 * packet.frame.shape[0])),
+                                                             self.zones[zone_id]["poly"]))]
+                    key = (binding["use_case_id"], zone_id, hazard)
+                    state = self.hazards.setdefault(key, {
+                        "positive_samples": [], "last_bbox": None,
+                        "negative_started": None, "negative_count": 0,
+                        "last_evaluated_at": None, "episode": None,
+                    })
+                    if (state["last_evaluated_at"] is not None
+                            and now - state["last_evaluated_at"] > clear_max_gap):
+                        state["negative_started"] = None
+                        state["negative_count"] = 0
+                    state["last_evaluated_at"] = now
+                    if positives:
+                        best = max(positives, key=lambda item: item.confidence)
+                        prior_box = state.get("last_bbox")
+                        if prior_box is not None and self._bbox_iou(prior_box, best.bbox) < 0.05:
+                            state["positive_samples"] = []
+                        state["last_bbox"] = tuple(best.bbox)
+                        state["positive_samples"].append((now, float(best.confidence)))
+                        state["positive_samples"] = [sample for sample in state["positive_samples"]
+                                                     if now - sample[0] <= positive_window]
+                        state["negative_started"] = None
+                        state["negative_count"] = 0
+                    else:
+                        state["positive_samples"] = []
+                        state["last_bbox"] = None
+                        if state["negative_started"] is None:
+                            state["negative_started"] = now
+                            state["negative_count"] = 1
+                        else:
+                            state["negative_count"] += 1
+                    scores = [sample[1] for sample in state["positive_samples"]]
+                    if state["episode"] is None and len(scores) >= positive_needed:
+                        state["episode"] = str(uuid.uuid4())
+                        event = self._event("fire_smoke_suspected", now, frame_id, binding["use_case_id"],
+                                            hazard=hazard, zone_id=zone_id,
+                                            score=max(0.0, min(1.0, float(statistics.median(scores)))),
+                                            hazard_episode_id=state["episode"])
+                        media = self._evidence(event, frame_id, packet.frame, "frame", None, packet.frame.shape, now)
+                        event["evidence_ids"] = [media[0]["evidence_id"]]
+                        self._persist(event, [media])
+                    if (state["episode"] is not None and state["negative_started"] is not None
+                            and state["negative_count"] >= clear_needed
+                            and now - state["negative_started"] >= clear_seconds):
+                        self._persist(self._event("fire_smoke_cleared", now, frame_id, binding["use_case_id"],
+                                                  hazard=hazard, zone_id=zone_id,
+                                                  hazard_episode_id=state["episode"]))
+                        state["episode"] = None
+
+    @staticmethod
+    def _bbox_iou(first, second):
+        left = max(float(first[0]), float(second[0]))
+        top = max(float(first[1]), float(second[1]))
+        right = min(float(first[2]), float(second[2]))
+        bottom = min(float(first[3]), float(second[3]))
+        intersection = max(0.0, right - left) * max(0.0, bottom - top)
+        area_a = max(0.0, float(first[2]) - float(first[0])) * max(0.0, float(first[3]) - float(first[1]))
+        area_b = max(0.0, float(second[2]) - float(second[0])) * max(0.0, float(second[3]) - float(second[1]))
+        union = area_a + area_b - intersection
+        return intersection / union if union > 0 else 0.0
+
+    def _scenes(self, packet, now, frame_id):
+        if self.scene is None:
+            return
+        # Refresh pressure before consulting the adaptive scene controls. Event-
+        # triggered samples still pass through _scene_capacity independently.
+        if not self._scene_capacity(now):
+            return
+        scene_policy = self.policy.snapshot()["scene"]
+        if not scene_policy["optional_sampling_allowed"]:
+            return
+        interval_multiplier = float(scene_policy["pressure_interval_multiplier"])
+        for binding in self.bindings:
+            if binding["app"] != "scene_search":
+                continue
+            areas = binding["geometry_ids"] if binding["scope"] == "geometry" else [None]
+            for zone_id in areas:
+                key = (binding["use_case_id"], zone_id)
+                interval = float(binding["sample_interval_seconds"]) * interval_multiplier
+                if now - self.last_scene.get(key, 0) >= interval:
+                    self._scene(packet, binding, zone_id, now, frame_id, "interval")
+
+    def _trigger_scene(self, packet, use_case_id, observation_id, now, frame_id):
+        if self.scene is None:
+            return
+        for binding in self.bindings:
+            if binding["app"] != "scene_search" or use_case_id not in binding.get("scene_trigger_use_case_ids", []):
+                continue
+            for zone_id in binding["geometry_ids"] if binding["scope"] == "geometry" else [None]:
+                if now - self.last_scene.get((binding["use_case_id"], zone_id), 0) >= 1:
+                    self._scene(packet, binding, zone_id, now, frame_id, "event", observation_id)
+
+    def _scene(self, packet, binding, zone_id, now, frame_id, trigger, triggering_observation_id=None):
+        if not self._scene_capacity(now):
+            return
+        height, width = packet.frame.shape[:2]
+        if zone_id is None:
+            crop, bounds = packet.frame, None
+        else:
+            points = self.zones[zone_id]["poly"]
+            bounds = (int(min(point[0] for point in points) * width),
+                      int(min(point[1] for point in points) * height),
+                      int(max(point[0] for point in points) * width),
+                      int(max(point[1] for point in points) * height))
+            crop, bounds = self._crop(packet.frame, bounds)
+        if crop is None or crop.size == 0:
+            return
+        # Only overlapping scene bindings can request this scope repeatedly.
+        # A single binding already coalesces interval/trigger work via last_scene.
+        shared_scope = sum(
+            1 for item in self.bindings if item["app"] == "scene_search"
+            and ((zone_id is None and item["scope"] == "full_frame")
+                 or (zone_id is not None and item["scope"] == "geometry"
+                     and zone_id in item["geometry_ids"]))
+        ) > 1
+        cache = self._frame_work_cache() if shared_scope else None
+        content_key = cache.key(frame_id, crop) if cache is not None else None
+        vector_key = ("scene", id(self.scene), content_key)
+        vector = cache.get(vector_key) if cache is not None else None
+        if vector is None:
+            with self._measure("scene_search.embedding", "GPU"):
+                vector = self.scene.embed(crop)
+            self._observe_shared_scene_execution()
+            if cache is not None:
+                vector = np.asarray(vector).copy()
+                vector.setflags(write=False)
+                cache.put(vector_key, vector, vector.nbytes)
+            if self.telemetry is not None:
+                self.telemetry.count("scene_embedding_computed")
+        elif self.telemetry is not None:
+            self.telemetry.count("scene_embedding_reused")
+        fields = {"trigger": trigger, "scope": binding["scope"], "zone_id": zone_id}
+        if triggering_observation_id is not None:
+            fields["triggering_observation_id"] = triggering_observation_id
+        event = self._event("scene_sample", now, frame_id, binding["use_case_id"], **fields)
+        media = self._evidence(event, frame_id, crop,
+                               "frame" if zone_id is None else "scene_region_crop", bounds,
+                               packet.frame.shape, now, content_key=content_key)
+        embedding = self._embedding(event, media[0], frame_id, vector,
+                                    "siglip2-base-v1", "semantic", now, None)
+        event["evidence_ids"] = [media[0]["evidence_id"]]
+        event["embedding_ids"] = [embedding["embedding_id"]]
+        self._persist(event, [media], [embedding])
+        self.last_scene[(binding["use_case_id"], zone_id)] = now
+
+    def _scene_capacity(self, now):
+        if now - self.scene_pressure_checked_at >= 5 or not self.scene_pressure_checked_at:
+            self.scene_pressure_checked_at = now
+            pending_bytes = int(self.store.metrics_summary()["outbox_bytes"])
+            was_pressured = self.scene_pressure
+            self.scene_pressure = pending_bytes >= self.scene_pressure_limit
+            self.policy.observe_pressure(
+                outbox_pending_bytes=pending_bytes,
+                outbox_limit_bytes=self.scene_pressure_limit,
+            )
+            if was_pressured and not self.scene_pressure:
+                self._persist(self._event("camera_health", now, None,
+                                          state="healthy", reason="none", as_of=utc(now),
+                                          last_reliable_at=utc(now), sampling_gap_seconds=0))
+                self.scene_gap_started_at = None
+                self.last_health = now
+        if not self.scene_pressure:
+            return True
+        newly_pressured = self.scene_gap_started_at is None
+        if self.scene_gap_started_at is None:
+            self.scene_gap_started_at = now
+        if newly_pressured or now - self.scene_pressure_reported_at >= 60:
+            self._persist(self._event("camera_health", now, None,
+                                      state="degraded", reason="backpressure", as_of=utc(now),
+                                      last_reliable_at=utc(now),
+                                      sampling_gap_seconds=max(0.0, now - self.scene_gap_started_at)))
+            self.scene_pressure_reported_at = now
+        return False

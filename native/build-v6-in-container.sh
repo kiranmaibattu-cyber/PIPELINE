@@ -25,7 +25,7 @@ g++ "${common[@]}" -D_GLIBCXX_USE_CXX11_ABI=1 \
   "$ocv/libopencv_video.so.406" "$ocv/libopencv_imgproc.so.406" "$ocv/libopencv_core.so.406" \
   /lib/x86_64-linux-gnu/libOpenCL.so.1 -o "$output/libgpu_motion_gate_fixed_slots.so"
 
-for source in va_y_copy_bridge va_surface_raw; do
+for source in va_y_copy_bridge va_surface_raw va_surface_vehicle; do
   g++ "${common[@]}" -D_GLIBCXX_USE_CXX11_ABI=1 -I"$ov_pkg/include" \
     "${gst_cflags[@]}" "$native_root/src/$source.cpp" "${gst_libs[@]}" \
     "$ov_lib" /usr/lib/x86_64-linux-gnu/libva.so.2 \

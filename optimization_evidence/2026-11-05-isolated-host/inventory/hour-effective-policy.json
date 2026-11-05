@@ -1,0 +1,229 @@
+{
+  "camera_id": "capacity-01",
+  "device_placement": {
+    "anpr_ocr": "MULTI:GPU,NPU/DLStreamer",
+    "anpr_plate_detection": "NPU/DLStreamer",
+    "body_embedding": "NPU/DLStreamer",
+    "decode": "GPU/VAAPI-DLStreamer",
+    "face_detection": "GPU",
+    "face_embedding": "NPU",
+    "face_pose": "NPU",
+    "fire_smoke_detection": "GPU/DLStreamer-OpenCV-BGR",
+    "gait_embedding": "NPU/DLStreamer",
+    "object_tracking": "CPU/gvatrack",
+    "scene_embedding": "GPU/DLStreamer",
+    "vehicle_person_detection": "GPU/DLStreamer-VA"
+  },
+  "policy": {
+    "schema_version": "1.1",
+    "camera_id": "capacity-01",
+    "policy_revision": 5,
+    "changed_at": "2026-11-04T23:05:55.600185Z",
+    "bounded_adaptation": true,
+    "modes": {
+      "tracking": "tolerant_collection",
+      "presence": "tolerant_collection",
+      "zone": "tolerant_collection",
+      "count": "tolerant_collection",
+      "anpr": "tolerant_collection",
+      "identity": "tolerant_collection",
+      "fire_smoke": "balanced"
+    },
+    "object_modes": {
+      "presence": {
+        "person": "tolerant_collection",
+        "vehicle": "tolerant_collection"
+      },
+      "zone": {
+        "person": "tolerant_collection",
+        "vehicle": "tolerant_collection"
+      },
+      "count": {
+        "person": "tolerant_collection",
+        "vehicle": "tolerant_collection"
+      }
+    },
+    "decision_reasons": {
+      "tracking": [
+        "frequent_track_fragmentation"
+      ],
+      "presence": [
+        "frequent_track_fragmentation"
+      ],
+      "zone": [
+        "frequent_track_fragmentation"
+      ],
+      "count": [
+        "frequent_track_fragmentation"
+      ],
+      "presence_person": [
+        "distant_objects",
+        "frequent_track_fragmentation"
+      ],
+      "presence_vehicle": [
+        "frequent_track_fragmentation"
+      ],
+      "zone_person": [
+        "distant_objects",
+        "frequent_track_fragmentation"
+      ],
+      "zone_vehicle": [
+        "frequent_track_fragmentation"
+      ],
+      "count_person": [
+        "distant_objects",
+        "frequent_track_fragmentation"
+      ],
+      "count_vehicle": [
+        "frequent_track_fragmentation"
+      ],
+      "anpr": [
+        "plate_observations_need_longer_collection"
+      ],
+      "identity": [
+        "identity_view_needs_longer_selection"
+      ],
+      "fire_smoke": [
+        "normal_scene_visibility"
+      ]
+    },
+    "measurements": {
+      "frames_observed": 28928,
+      "observed_processing_fps": 7.995,
+      "target_processing_fps": 8.0,
+      "frames_with_objects_ratio": 0.9563,
+      "median_object_scale": 0.12964,
+      "median_person_scale": 0.06984,
+      "median_vehicle_scale": 0.33174,
+      "median_person_width_ratio": 0.03281,
+      "median_person_height_ratio": 0.14907,
+      "median_vehicle_width_ratio": 0.27318,
+      "median_vehicle_height_ratio": 0.41574,
+      "real_detection_dropout_ratio": 0.0,
+      "median_frame_sharpness": 2884.25,
+      "median_exposure_quality": 0.8359,
+      "median_plate_width_px": 32.0,
+      "median_plate_height_px": 23.0,
+      "median_plate_width_ratio": 0.016667,
+      "median_plate_sharpness": 541.855,
+      "median_ocr_confidence": 0.4963,
+      "ocr_text_stability_ratio": 0.075,
+      "anpr_unreadable_ratio": 0.8667,
+      "median_face_width_px": 53.0,
+      "median_face_width_ratio": 0.027604,
+      "median_face_quality": 0.6083,
+      "median_face_pose_quality": 0.9124,
+      "face_detection_success_ratio": 0.0,
+      "track_fragmentations_last_60s": 222,
+      "outbox_pressure_ratio": 0.0,
+      "model_queue_wait_seconds": 0.0
+    },
+    "tracking": {
+      "mode": "tolerant_collection",
+      "max_distance_px": 320.0,
+      "max_disappeared_seconds": 9.0
+    },
+    "presence": {
+      "mode": "tolerant_collection",
+      "stable_hits": 4,
+      "unobserved_after_seconds": 5.0,
+      "ended_unknown_after_seconds": 20.0
+    },
+    "zone": {
+      "mode": "tolerant_collection",
+      "boundary_margin": 0.018,
+      "transition_votes": 4,
+      "transition_hold_seconds": 0.8
+    },
+    "count": {
+      "mode": "tolerant_collection",
+      "debounce_observations": 4,
+      "debounce_seconds": 0.8,
+      "heartbeat_seconds": 20.0
+    },
+    "anpr": {
+      "mode": "tolerant_collection",
+      "candidate_window_seconds": 3.5,
+      "ocr_emit_min_confidence": 0.35,
+      "confirm_min_reads": 2,
+      "min_plate_width_px": 16.0,
+      "min_plate_height_px": 5.0,
+      "min_sharpness": 5.0,
+      "single_read_confidence": 0.82
+    },
+    "identity": {
+      "mode": "tolerant_collection",
+      "face_min_quality": 0.3,
+      "face_emit_min_width_px": 28.0,
+      "face_selection_window_seconds": 2.5,
+      "body_quality_floor": 0.2,
+      "body_min_width_px": 28.0,
+      "body_min_height_px": 56.0,
+      "gait_min_silhouettes": 24,
+      "feature_cooldown_seconds": 5.0
+    },
+    "fire_smoke": {
+      "mode": "balanced",
+      "event_min_confidence": 0.65,
+      "positive_confirmations": 5,
+      "positive_window_seconds": 3.0,
+      "clear_seconds": 10.0,
+      "clear_confirmations": 5,
+      "clear_max_evaluation_gap_seconds": 2.5
+    },
+    "object_profiles": {
+      "person": {
+        "presence": {
+          "mode": "tolerant_collection",
+          "stable_hits": 4,
+          "unobserved_after_seconds": 5.0,
+          "ended_unknown_after_seconds": 20.0
+        },
+        "zone": {
+          "mode": "tolerant_collection",
+          "boundary_margin": 0.018,
+          "transition_votes": 4,
+          "transition_hold_seconds": 0.8
+        },
+        "count": {
+          "mode": "tolerant_collection",
+          "debounce_observations": 4,
+          "debounce_seconds": 0.8,
+          "heartbeat_seconds": 20.0
+        }
+      },
+      "vehicle": {
+        "presence": {
+          "mode": "tolerant_collection",
+          "stable_hits": 4,
+          "unobserved_after_seconds": 5.0,
+          "ended_unknown_after_seconds": 20.0
+        },
+        "zone": {
+          "mode": "tolerant_collection",
+          "boundary_margin": 0.018,
+          "transition_votes": 4,
+          "transition_hold_seconds": 0.8
+        },
+        "count": {
+          "mode": "tolerant_collection",
+          "debounce_observations": 4,
+          "debounce_seconds": 0.8,
+          "heartbeat_seconds": 20.0
+        }
+      }
+    },
+    "pressure": {
+      "mode": "normal",
+      "outbox_ratio": 0.0,
+      "model_queue_wait_seconds": 0.0
+    },
+    "scene": {
+      "interval_source": "desired_state",
+      "pressure_interval_multiplier": 1.0,
+      "optional_sampling_allowed": true,
+      "event_trigger_cooldown_seconds": 1.0,
+      "outbox_pressure_limit_bytes": 134217728
+    }
+  }
+}

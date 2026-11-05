@@ -1,0 +1,106 @@
+{
+  "image": "localhost/sentry-v8-opt79-shared-gait-background",
+  "camera_count": 1,
+  "fps_per_camera": 8,
+  "fps_explicit_in_desired_state": true,
+  "source_urls": [
+    "https://127.0.0.1:19090/crowd-1080p.mp4"
+  ],
+  "source_reuse": false,
+  "source_mode": "explicit_live_source",
+  "motion_gate_enabled": true,
+  "full_usecases": true,
+  "steady_throughput": {
+    "passed": false,
+    "per_camera": {},
+    "duration_seconds": 0.0
+  },
+  "capacity_qualified": false,
+  "test_scope": "capacity",
+  "end_health": {
+    "ready": false,
+    "worker_running": false,
+    "camera_records": 0,
+    "camera_states": {},
+    "cameras_with_recent_frames": 0,
+    "target_decode_fps": 8.0,
+    "aggregate_decode_fps": 0,
+    "decode_target_ratio": 0.0,
+    "aggregate_inference_fps": 0,
+    "per_camera": {},
+    "unique_camera_processes": 0,
+    "camera_process_rss_mb": 0.0,
+    "camera_process_pss_mb": 0.0,
+    "container_memory_mb": 176.64,
+    "container_cpu_cores": 0.004,
+    "container_pids": 16,
+    "gpu_utilization_pct": 0.11,
+    "npu_utilization_pct": 0.0,
+    "handoff": {
+      "admitted": 0,
+      "durable": 0,
+      "duplicate": 0,
+      "backpressure": 0,
+      "coalesced": 0,
+      "exhausted": 0,
+      "protocol_errors": 0
+    }
+  },
+  "startup_seconds": null,
+  "steady_seconds": 45,
+  "minimum_required_decode_ratio": 0.9,
+  "required_final_stable_samples": 3,
+  "minimum_observed_decode_ratio": 0.0,
+  "passed": false,
+  "fatal_lines": [
+    "{\"timestamp\":\"2026-11-05T01:27:34.586280Z\",\"level\":\"ERROR\",\"logger\":\"stream_fleet_openvino\",\"message\":\"camera thread failed inside shared DL Streamer group\",\"pid\":52,\"camera_id\":\"capacity-01\",\"stream_session_id\":\"79740ca5-5ade-49e2-accb-210c77c84f64\",\"event\":\"camera_thread_unhandled_exception\",\"exception_type\":\"UnsupportedSurfaceSource\",\"dlstreamer_group\":0,\"exception\":\"Traceback (most recent call last):\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 1006, in run_camera_thread\\n    _camera_proc_impl(\\n  File \\\"/opt/traffic-pilot/services/worker/stream_fleet_openvino.py\\\", line 402, in _camera_proc_impl\\n    return run_surface_camera(\\n           ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/surface_stream.py\\\", line 646, in run_surface_camera\\n    codec = _probe_source(uri, require_fixed_surface=not dls_authoritative)\\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/traffic-pilot/services/worker/pipeline/surface_stream.py\\\", line 148, in _probe_source\\n    raise UnsupportedSurfaceSource(\\npipeline.surface_stream.UnsupportedSurfaceSource: surface path supports RTSP, MPEG-TS over TCP, and local H.264/H.265 files\"}"
+  ],
+  "final": {
+    "ready": false,
+    "worker_running": false,
+    "camera_records": 0,
+    "camera_states": {},
+    "cameras_with_recent_frames": 0,
+    "target_decode_fps": 8.0,
+    "aggregate_decode_fps": 0,
+    "decode_target_ratio": 0.0,
+    "aggregate_inference_fps": 0,
+    "per_camera": {},
+    "unique_camera_processes": 0,
+    "camera_process_rss_mb": 0.0,
+    "camera_process_pss_mb": 0.0,
+    "container_memory_mb": 176.64,
+    "container_cpu_cores": 0.004,
+    "container_pids": 16,
+    "gpu_utilization_pct": 0.11,
+    "npu_utilization_pct": 0.0,
+    "handoff": {
+      "admitted": 0,
+      "durable": 0,
+      "duplicate": 0,
+      "backpressure": 0,
+      "coalesced": 0,
+      "exhausted": 0,
+      "protocol_errors": 0
+    }
+  },
+  "samples": [],
+  "isolation": {
+    "requested": false,
+    "camera_number": null,
+    "target_interrupted": null,
+    "peers_healthy": null,
+    "target_recovered": null,
+    "passed": true,
+    "samples": []
+  },
+  "package_summary": {
+    "package_count": 0,
+    "event_types": {},
+    "evidence_objects": 0,
+    "embedding_objects": 0,
+    "embedding_profiles": {}
+  },
+  "full_usecases_minimum_outputs_passed": false,
+  "artifact_directory": "/tmp/sentry-v8-capacity-1.gpntu3oq"
+}

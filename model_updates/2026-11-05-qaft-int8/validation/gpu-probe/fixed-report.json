@@ -1,0 +1,741 @@
+{
+  "scope": "GPU model execution only; not native pipeline capacity or labelled accuracy",
+  "batch_mode": "fixed",
+  "thresholds": {
+    "detection_confidence": 0.3,
+    "match_iou": 0.95,
+    "max_confidence_delta": 0.01,
+    "max_input_bbox_delta_px": 2
+  },
+  "cases": [
+    {
+      "batch": 1,
+      "shape": [
+        1,
+        300,
+        6
+      ],
+      "execution_devices": "GPU.0",
+      "compiled_runtime_precision_nodes": {
+        "u8": 175,
+        "f32": 8,
+        "f16": 94,
+        "i32": 8
+      },
+      "median_inference_ms": 6.3919080421328545,
+      "sample_ms": [
+        6.3919080421328545,
+        6.085211876779795,
+        7.970370119437575
+      ],
+      "comparisons": [
+        {
+          "passed": true,
+          "reference_detections": 3,
+          "detections": 3,
+          "matched": 3,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        }
+      ],
+      "source_geometry": [
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 3,
+          "class_counts": {
+            "pedestrian": 3
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "batch": 2,
+      "shape": [
+        2,
+        300,
+        6
+      ],
+      "execution_devices": "GPU.0",
+      "compiled_runtime_precision_nodes": {
+        "u8": 175,
+        "f32": 8,
+        "f16": 94,
+        "i32": 8
+      },
+      "median_inference_ms": 10.843992000445724,
+      "sample_ms": [
+        10.843992000445724,
+        9.024031925946474,
+        10.90431003831327
+      ],
+      "comparisons": [
+        {
+          "passed": true,
+          "reference_detections": 3,
+          "detections": 3,
+          "matched": 3,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        },
+        {
+          "passed": true,
+          "reference_detections": 2,
+          "detections": 2,
+          "matched": 2,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        }
+      ],
+      "source_geometry": [
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 3,
+          "class_counts": {
+            "pedestrian": 3
+          }
+        },
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 2,
+          "class_counts": {
+            "pedestrian": 2
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "batch": 3,
+      "shape": [
+        3,
+        300,
+        6
+      ],
+      "execution_devices": "GPU.0",
+      "compiled_runtime_precision_nodes": {
+        "u8": 175,
+        "f32": 8,
+        "f16": 94,
+        "i32": 8
+      },
+      "median_inference_ms": 12.66638608649373,
+      "sample_ms": [
+        12.66638608649373,
+        13.262030901387334,
+        10.542741976678371
+      ],
+      "comparisons": [
+        {
+          "passed": true,
+          "reference_detections": 3,
+          "detections": 3,
+          "matched": 3,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        },
+        {
+          "passed": true,
+          "reference_detections": 2,
+          "detections": 2,
+          "matched": 2,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        },
+        {
+          "passed": true,
+          "reference_detections": 2,
+          "detections": 2,
+          "matched": 2,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        }
+      ],
+      "source_geometry": [
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 3,
+          "class_counts": {
+            "pedestrian": 3
+          }
+        },
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 2,
+          "class_counts": {
+            "pedestrian": 2
+          }
+        },
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 2,
+          "class_counts": {
+            "pedestrian": 2
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "batch": 4,
+      "shape": [
+        4,
+        300,
+        6
+      ],
+      "execution_devices": "GPU.0",
+      "compiled_runtime_precision_nodes": {
+        "u8": 175,
+        "f32": 8,
+        "f16": 94,
+        "i32": 8
+      },
+      "median_inference_ms": 17.316653160378337,
+      "sample_ms": [
+        17.961799865588546,
+        13.58668296597898,
+        17.316653160378337
+      ],
+      "comparisons": [
+        {
+          "passed": true,
+          "reference_detections": 3,
+          "detections": 3,
+          "matched": 3,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        },
+        {
+          "passed": true,
+          "reference_detections": 2,
+          "detections": 2,
+          "matched": 2,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        },
+        {
+          "passed": true,
+          "reference_detections": 2,
+          "detections": 2,
+          "matched": 2,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        },
+        {
+          "passed": true,
+          "reference_detections": 1,
+          "detections": 1,
+          "matched": 1,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        }
+      ],
+      "source_geometry": [
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 3,
+          "class_counts": {
+            "pedestrian": 3
+          }
+        },
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 2,
+          "class_counts": {
+            "pedestrian": 2
+          }
+        },
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 2,
+          "class_counts": {
+            "pedestrian": 2
+          }
+        },
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 1,
+          "class_counts": {
+            "pedestrian": 1
+          }
+        }
+      ],
+      "passed": true
+    },
+    {
+      "batch": 8,
+      "shape": [
+        8,
+        300,
+        6
+      ],
+      "execution_devices": "GPU.0",
+      "compiled_runtime_precision_nodes": {
+        "u8": 175,
+        "f32": 8,
+        "f16": 94,
+        "i32": 8
+      },
+      "median_inference_ms": 32.137195812538266,
+      "sample_ms": [
+        30.288924928754568,
+        33.0167890060693,
+        32.137195812538266
+      ],
+      "comparisons": [
+        {
+          "passed": true,
+          "reference_detections": 3,
+          "detections": 3,
+          "matched": 3,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        },
+        {
+          "passed": true,
+          "reference_detections": 2,
+          "detections": 2,
+          "matched": 2,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        },
+        {
+          "passed": true,
+          "reference_detections": 2,
+          "detections": 2,
+          "matched": 2,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        },
+        {
+          "passed": true,
+          "reference_detections": 1,
+          "detections": 1,
+          "matched": 1,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        },
+        {
+          "passed": true,
+          "reference_detections": 0,
+          "detections": 0,
+          "matched": 0,
+          "matches": [],
+          "raw_max_abs_difference": 0.0
+        },
+        {
+          "passed": true,
+          "reference_detections": 2,
+          "detections": 2,
+          "matched": 2,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        },
+        {
+          "passed": true,
+          "reference_detections": 7,
+          "detections": 7,
+          "matched": 7,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        },
+        {
+          "passed": true,
+          "reference_detections": 9,
+          "detections": 9,
+          "matched": 9,
+          "matches": [
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            },
+            {
+              "iou": 1.0,
+              "confidence_delta": 0.0,
+              "input_bbox_delta_px": 0.0
+            }
+          ],
+          "raw_max_abs_difference": 0.0
+        }
+      ],
+      "source_geometry": [
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 3,
+          "class_counts": {
+            "pedestrian": 3
+          }
+        },
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 2,
+          "class_counts": {
+            "pedestrian": 2
+          }
+        },
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 2,
+          "class_counts": {
+            "pedestrian": 2
+          }
+        },
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 1,
+          "class_counts": {
+            "pedestrian": 1
+          }
+        },
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 0,
+          "class_counts": {}
+        },
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 2,
+          "class_counts": {
+            "car": 1,
+            "bus": 1
+          }
+        },
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 7,
+          "class_counts": {
+            "pedestrian": 7
+          }
+        },
+        {
+          "source_shape": [
+            1080,
+            1920
+          ],
+          "detections": 9,
+          "class_counts": {
+            "car": 2,
+            "pedestrian": 7
+          }
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "input_canvases": 8,
+  "static_execution_devices": "GPU.0",
+  "reference_detection_counts": [
+    3,
+    2,
+    2,
+    1,
+    0,
+    2,
+    7,
+    9
+  ],
+  "passed": true
+}

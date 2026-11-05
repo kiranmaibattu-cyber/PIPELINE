@@ -1,0 +1,43 @@
+{
+  "ok": true,
+  "observed_at": "2026-11-04T21:37:50.454332Z",
+  "liveness": "alive",
+  "ready": false,
+  "worker_running": false,
+  "revision": null,
+  "telemetry": {
+    "sample_interval_seconds": 2.0,
+    "configured_load": {
+      "camera_count": 0,
+      "aggregate_fps": 0,
+      "fps_source": "desired_state_per_camera_or_default_8",
+      "fixed_aggregate_limit": null
+    },
+    "cameras": [],
+    "runtime_processes": {
+      "unique_camera_processes": 0,
+      "camera_process_cpu_cores_sum": 0.0,
+      "camera_process_rss_mb_sum": 0.0,
+      "camera_process_pss_mb_sum": 0.0,
+      "rss_sum_note": "Each process PID is counted once; RSS still includes shared pages, so use container_cgroup memory for pod consumption"
+    },
+    "system": {
+      "status": "telemetry_pending",
+      "sample_age_seconds": null,
+      "fresh": false
+    },
+    "handoff_scheduler": {
+      "status": "scheduler_telemetry_pending"
+    },
+    "accelerators": {},
+    "measurement_notes": {
+      "fps": "rates over the latest completed telemetry window",
+      "processing_latency": "wall time inside the named edge stage",
+      "event_production_latency": "source observed_at to CV handoff admission; durable package status is owned by the delivery agent",
+      "accelerator_attributed_wall": "camera-attributed model-call wall time, not utilization",
+      "hardware_utilization": "node-device counter; null when no supported busy counter is available",
+      "cpu": "camera process CPU is cores used; container usage is under system.container_cgroup",
+      "stage_latency": "parent spans marked includes_child_stages must not be summed with children"
+    }
+  }
+}

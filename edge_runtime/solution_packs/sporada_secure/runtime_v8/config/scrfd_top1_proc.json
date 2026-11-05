@@ -1,0 +1,22 @@
+{
+  "json_schema_version": "2.2.0",
+  "input_preproc": [
+    {
+      "format": "image",
+      "params": {
+        "resize": "aspect-ratio",
+        "padding": {
+          "stride_x": 0,
+          "stride_y": 0,
+          "fill_value": [0.0, 0.0, 0.0]
+        }
+      }
+    }
+  ],
+  "output_postproc": [
+    {
+      "converter": "yolo_v26",
+      "labels": ["face"]
+    }
+  ]
+}

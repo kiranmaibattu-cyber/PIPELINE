@@ -4,10 +4,15 @@ The camera processes retain ownership of decoding, tracking, presence state,
 policy and evidence.  They place only the 640x640 detector canvas in a private
 shared-memory slot and send a small job token to this scheduler.  One central
 OpenVINO ``AsyncInferQueue`` then serves the camera slots in round-robin order.
+An optional bounded collector may combine up to four different cameras into a
+dynamic batch.  Every result is split back to the historical ``[1,N,6]`` shape
+before it crosses into the camera process.
 
 There is at most one outstanding detector job per camera.  Consequently the
 camera cannot overwrite a canvas while OpenVINO is still consuming it, and no
 source/evidence frame ever leaves the camera process through this transport.
+Batch collection delay is reported separately from scheduler backlog so the
+adaptive production policy does not mistake intentional batching for overload.
 """
 from __future__ import annotations
 
@@ -27,6 +32,17 @@ import numpy as np
 
 
 log = logging.getLogger(__name__)
+
+MAX_DYNAMIC_BATCH_SIZE = 4
+MAX_BATCH_WAIT_SECONDS = 0.015
+
+
+def resolve_batch_settings(batch_size: int, batch_wait_seconds: float) -> tuple[int, float]:
+    """Bound internal batching so throughput tuning cannot create long latency."""
+    return (
+        min(MAX_DYNAMIC_BATCH_SIZE, max(1, int(batch_size))),
+        min(MAX_BATCH_WAIT_SECONDS, max(0.0, float(batch_wait_seconds))),
+    )
 
 
 def _safe_name(value: str) -> str:
@@ -97,7 +113,9 @@ class VehicleInferenceTransport:
         self.client_id = uuid.uuid4().hex
         self.sequence = 0
         self.last_queue_wait_seconds = 0.0
+        self.last_batch_collection_seconds = 0.0
         self.last_device_inference_seconds = 0.0
+        self.last_batch_size = 1
 
     def _discard_stale_request(self) -> None:
         try:
@@ -140,10 +158,19 @@ class VehicleInferenceTransport:
             if response.get("job_id") != job_id:
                 # Stale completion from an earlier camera process/session.
                 continue
-            self.last_queue_wait_seconds = float(response.get("queue_wait_seconds", 0.0))
+            # Adaptive pressure policy must see actual scheduler backlog, not
+            # the intentional bounded delay used to collect a batch.
+            self.last_queue_wait_seconds = float(response.get(
+                "scheduler_queue_wait_seconds",
+                response.get("queue_wait_seconds", 0.0),
+            ))
+            self.last_batch_collection_seconds = float(
+                response.get("batch_collection_seconds", 0.0)
+            )
             self.last_device_inference_seconds = float(
                 response.get("device_inference_seconds", 0.0)
             )
+            self.last_batch_size = int(response.get("batch_size", 1))
             return response
 
     def reset(self) -> None:
@@ -166,6 +193,8 @@ class SharedVehicleInferenceScheduler:
         class_ids: set[int],
         class_names: dict[int, str],
         requests: int = 4,
+        max_batch_size: int = 1,
+        batch_wait_seconds: float = 0.008,
     ):
         import openvino as ov
         from detectors.backends.openvino_detector import OpenVINOYOLODetector
@@ -173,6 +202,10 @@ class SharedVehicleInferenceScheduler:
         self.channels = channels
         self.camera_ids = list(channels)
         self.requests = max(1, int(requests))
+        self.max_batch_size, self.batch_wait_seconds = resolve_batch_settings(
+            max_batch_size, batch_wait_seconds
+        )
+        self.max_batch_size = min(self.max_batch_size, max(1, len(self.camera_ids)))
         self._slots = {
             camera_id: VehicleInputSlot(
                 channel.slot_path, channel.width, channel.height, create=False
@@ -188,6 +221,7 @@ class SharedVehicleInferenceScheduler:
             class_ids=class_ids,
             class_names=class_names,
             performance_hint="THROUGHPUT" if self.requests > 1 else "LATENCY",
+            batch_size=None if self.max_batch_size > 1 else 1,
         )
         self.execution_devices = self._detector.exec_devices
         self._queue = ov.AsyncInferQueue(self._detector._compiled, self.requests)
@@ -197,13 +231,24 @@ class SharedVehicleInferenceScheduler:
         self._failure: BaseException | None = None
         self._cursor = 0
         self.completed = 0
+        self.completed_batches = 0
+        self.batch_size_counts = {
+            size: 0 for size in range(1, self.max_batch_size + 1)
+        }
         self.rejected = 0
 
-        # Warm the same compiled model before camera processes announce ready.
+        # Dynamic GPU shapes specialize on first use. Warm every permitted
+        # partial batch before camera processes announce ready so a rare batch
+        # size does not inject a multi-second first-use delay into tracking.
         request = self._detector._compiled.create_infer_request()
-        dummy = np.zeros((640, 640, 3), np.uint8)
-        for _ in range(min(2, self.requests)):
-            self._detector.infer_letterboxed(dummy, request=request)
+        warmup_sizes = (
+            [1] * min(2, self.requests)
+            if self.max_batch_size == 1
+            else list(range(1, self.max_batch_size + 1))
+        )
+        for size in warmup_sizes:
+            dummy = np.zeros((size, 640, 640, 3), np.uint8)
+            self._detector.infer_letterboxed_batch(dummy, request=request)
 
     def start(self) -> "SharedVehicleInferenceScheduler":
         self._thread = threading.Thread(
@@ -238,36 +283,67 @@ class SharedVehicleInferenceScheduler:
         except queue.Full:
             self.rejected += 1
 
+    @staticmethod
+    def _timing(job: dict[str, Any], collection_started: float,
+                inference_started: float) -> tuple[float, float, float]:
+        submitted = float(job["submitted_monotonic"])
+        scheduler_wait = max(0.0, collection_started - submitted)
+        batch_wait = max(0.0, inference_started - max(collection_started, submitted))
+        return scheduler_wait, batch_wait, max(0.0, inference_started - submitted)
+
     def _complete(self, request, userdata) -> None:
-        camera_id, job, started, input_view = userdata
+        batch, collection_started, started, input_batch, held_locks = userdata
+        batch_size = len(batch)
         try:
             output = np.asarray(request.get_output_tensor().data).copy()
-            response = {
-                "job_id": job["job_id"],
-                "output": output,
-                "error": None,
-                "queue_wait_seconds": max(
-                    0.0, started - float(job["submitted_monotonic"])
-                ),
-                "device_inference_seconds": max(0.0, time.monotonic() - started),
-            }
-            self.completed += 1
+            if output.ndim < 1 or output.shape[0] != batch_size:
+                raise RuntimeError(
+                    f"vehicle batch output has shape {output.shape}; "
+                    f"expected first dimension {batch_size}"
+                )
+            device_seconds = max(0.0, time.monotonic() - started)
+            for index, (camera_id, job) in enumerate(batch):
+                scheduler_wait, batch_wait, total_wait = self._timing(
+                    job, collection_started, started
+                )
+                camera_output = (
+                    output if batch_size == 1 else output[index:index + 1].copy()
+                )
+                self._put_response(camera_id, {
+                    "job_id": job["job_id"],
+                    # Preserve the historical [1, N, 6] camera-side contract.
+                    "output": camera_output,
+                    "error": None,
+                    "queue_wait_seconds": total_wait,
+                    "scheduler_queue_wait_seconds": scheduler_wait,
+                    "batch_collection_seconds": batch_wait,
+                    "device_inference_seconds": device_seconds,
+                    "batch_size": batch_size,
+                })
+            self.completed += batch_size
+            self.completed_batches += 1
+            self.batch_size_counts[batch_size] += 1
         except BaseException as exc:  # noqa: BLE001 - OpenVINO callback boundary
-            response = {
-                "job_id": job["job_id"],
-                "output": None,
-                "error": str(exc),
-                "queue_wait_seconds": max(
-                    0.0, started - float(job["submitted_monotonic"])
-                ),
-                "device_inference_seconds": max(0.0, time.monotonic() - started),
-            }
-            self.rejected += 1
+            for camera_id, job in batch:
+                scheduler_wait, batch_wait, total_wait = self._timing(
+                    job, collection_started, started
+                )
+                self._put_response(camera_id, {
+                    "job_id": job["job_id"],
+                    "output": None,
+                    "error": str(exc),
+                    "queue_wait_seconds": total_wait,
+                    "scheduler_queue_wait_seconds": scheduler_wait,
+                    "batch_collection_seconds": batch_wait,
+                    "device_inference_seconds": max(0.0, time.monotonic() - started),
+                    "batch_size": batch_size,
+                })
+            self.rejected += batch_size
         finally:
-            # Keep the mmap-backed ndarray alive until OpenVINO has completed.
-            del input_view
-            self.channels[camera_id].slot_lock.release()
-        self._put_response(camera_id, response)
+            # Keep the assembled batch alive until OpenVINO has completed.
+            del input_batch
+            for slot_lock in held_locks:
+                slot_lock.release()
 
     def _next_job(self):
         count = len(self.camera_ids)
@@ -282,6 +358,42 @@ class SharedVehicleInferenceScheduler:
             return camera_id, job
         return None
 
+    def _collect_batch(self):
+        selected = self._next_job()
+        if selected is None:
+            return [], time.monotonic()
+        collection_started = time.monotonic()
+        batch = [selected]
+        if self.max_batch_size == 1:
+            return batch, collection_started
+        deadline = collection_started + self.batch_wait_seconds
+        while len(batch) < self.max_batch_size and not self._stop.is_set():
+            selected = self._next_job()
+            if selected is not None:
+                batch.append(selected)
+                continue
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            self._stop.wait(min(0.0005, remaining))
+        return batch, collection_started
+
+    def _assemble_batch(self, batch) -> tuple[np.ndarray, list[Any]]:
+        """Copy private camera slots into one inference-owned NHWC batch."""
+        if len(batch) == 1 and self.max_batch_size == 1:
+            # Exact compatibility path: retain the historical mmap view and
+            # hold its camera lock until the OpenVINO callback completes.
+            camera_id, _job = batch[0]
+            slot_lock = self.channels[camera_id].slot_lock
+            slot_lock.acquire()
+            return self._slots[camera_id].array[np.newaxis, ...], [slot_lock]
+        input_batch = np.empty((len(batch), 640, 640, 3), dtype=np.uint8)
+        for index, (camera_id, _job) in enumerate(batch):
+            channel = self.channels[camera_id]
+            with channel.slot_lock:
+                np.copyto(input_batch[index], self._slots[camera_id].array)
+        return input_batch, []
+
     def _run(self) -> None:
         try:
             while not self._stop.is_set():
@@ -293,37 +405,43 @@ class SharedVehicleInferenceScheduler:
                 if not self._queue.is_ready():
                     self._stop.wait(0.0005)
                     continue
-                selected = self._next_job()
-                if selected is None:
+                batch, collection_started = self._collect_batch()
+                if not batch:
                     self._stop.wait(0.001)
                     continue
-                camera_id, job = selected
-                channel = self.channels[camera_id]
-                slot = self._slots[camera_id]
-                # Hold the inter-process slot lock until the callback.  Normally
-                # one outstanding request per camera already prevents overwrite;
-                # the lock additionally protects an in-flight request when a
-                # camera process crashes and its replacement starts immediately.
-                channel.slot_lock.acquire()
-                input_view = slot.array[np.newaxis, ...]
+                input_batch, held_locks = self._assemble_batch(batch)
                 started = time.monotonic()
+                if self.max_batch_size == 1:
+                    # Preserve historical queue-wait semantics when batching
+                    # is disabled: all pre-inference time is scheduler wait,
+                    # and intentional batch collection is exactly zero.
+                    collection_started = started
                 try:
                     self._queue.start_async(
-                        {0: input_view},
-                        userdata=(camera_id, job, started, input_view),
+                        {0: input_batch},
+                        userdata=(
+                            batch, collection_started, started,
+                            input_batch, held_locks,
+                        ),
                     )
                 except BaseException as exc:  # noqa: BLE001
-                    channel.slot_lock.release()
-                    self.rejected += 1
-                    self._put_response(camera_id, {
-                        "job_id": job["job_id"],
-                        "output": None,
-                        "error": str(exc),
-                        "queue_wait_seconds": max(
-                            0.0, started - float(job["submitted_monotonic"])
-                        ),
-                        "device_inference_seconds": 0.0,
-                    })
+                    for slot_lock in held_locks:
+                        slot_lock.release()
+                    self.rejected += len(batch)
+                    for camera_id, job in batch:
+                        scheduler_wait, batch_wait, total_wait = self._timing(
+                            job, collection_started, started
+                        )
+                        self._put_response(camera_id, {
+                            "job_id": job["job_id"],
+                            "output": None,
+                            "error": str(exc),
+                            "queue_wait_seconds": total_wait,
+                            "scheduler_queue_wait_seconds": scheduler_wait,
+                            "batch_collection_seconds": batch_wait,
+                            "device_inference_seconds": 0.0,
+                            "batch_size": len(batch),
+                        })
         except BaseException as exc:  # noqa: BLE001 - scheduler supervision boundary
             self._failure = exc
             log.exception("shared vehicle inference scheduler stopped unexpectedly")

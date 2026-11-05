@@ -4,7 +4,8 @@ FROM ${INTEL_TRAFFIC_RUNTIME_BASE}
 USER 0:0
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/opt/traffic-pilot \
+    PYTHONFAULTHANDLER=1 \
+    PYTHONPATH=/opt/traffic-pilot:/opt/intel/dlstreamer/gstreamer/lib/python3/dist-packages:/opt/intel/dlstreamer/python \
     TRAFFIC_PILOT_ROOT=/opt/traffic-pilot \
     SOLUTION_PACK=sentinel-cv-runtime \
     APEXFABRIC_CONTRACT_VERSION=v8 \
@@ -36,30 +37,95 @@ ENV PYTHONUNBUFFERED=1 \
     FACE_ADAPTIVE_STATE_TTL_SECONDS=20 \
     FACE_ADAPTIVE_IMPROVEMENT_THRESHOLD=0.10 \
     SENTINEL_MOTION_GATE_ENABLED=true \
-    SENTINEL_SURFACE_MOTION_GATE_ENABLED=false \
+    SENTINEL_SURFACE_MOTION_GATE_ENABLED=true \
+    SENTINEL_DLSTREAMER_ENABLED=true \
+    SENTINEL_DLSTREAMER_REQUIRED=true \
+    SENTINEL_DLSTREAMER_SECONDARIES=true \
+    SENTINEL_GVA_TRACKER_TYPE=zero-term-imageless \
+    SENTINEL_GVA_NIREQ=8 \
+    SENTINEL_GVA_FACE_INTERVAL=3 \
+    SENTINEL_GVA_FACE_NIREQ=4 \
+    SENTINEL_ZERO_COPY_VEHICLE=false \
+    SENTINEL_ZERO_COPY_SHADOW=false \
+    SENTINEL_SHARED_VEHICLE_INFERENCE=false \
+    SENTINEL_SHARED_DLSTREAMER_CAMERA_PROCESSES=true \
+    SENTINEL_SHARED_DLSTREAMER_GROUP_SIZE=50 \
+    SENTINEL_NATIVE_GRAPH_MAX_CAMERAS_PER_PROCESS=20 \
+    SENTINEL_SHARED_DLSTREAMER_STARTUP_STAGGER_SECONDS=1 \
+    SENTINEL_MULTI_CAMERA_GST_STARTUP_TIMEOUT_SECONDS=90 \
+    SENTINEL_SHARED_SCENE_INFERENCE=true \
     SENTINEL_DELIVERY_AGENT_SOCKET=/run/sentinel-delivery/agent.sock \
     SENTINEL_CV_HANDOFF_STATUS_PATH=/tmp/sentinel/generated/v8_handoff_status.json \
     SENTINEL_FFMPEG_THREADS=1 \
     SENTINEL_OPENCV_THREADS=1 \
+    OPENCV_OPENCL_RUNTIME=disabled \
     APEX_API_HOST=0.0.0.0 \
     APEX_API_PORT=8080 \
     DESIRED_STATE_RELOAD_INTERVAL=2 \
     HOME=/tmp/sentinel \
     XDG_CACHE_HOME=/tmp/sentinel/cache \
-    LD_LIBRARY_PATH=/usr/local/lib/python3.12/dist-packages/openvino/libs
+    XDG_RUNTIME_DIR=/tmp/sentinel/runtime \
+    GI_TYPELIB_PATH=/opt/intel/dlstreamer/gstreamer/lib/girepository-1.0:/opt/intel/dlstreamer/lib/girepository-1.0:/usr/lib/x86_64-linux-gnu/girepository-1.0 \
+    GST_PLUGIN_PATH=/opt/sentinel-gst-plugins:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0 \
+    LIBVA_DRIVER_NAME=iHD \
+    LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri \
+    PATH=/opt/intel/dlstreamer/gstreamer/bin:/opt/intel/dlstreamer/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    LD_LIBRARY_PATH=/opt/intel/dlstreamer/gstreamer/lib:/opt/intel/dlstreamer/lib:/opt/intel/dlstreamer/lib/gstreamer-1.0:/opt/opencv:/opt/finalcombo/ocvlib:/usr/local/lib/python3.12/dist-packages/openvino/libs:/usr/lib:/usr/local/lib
 
 WORKDIR /opt/traffic-pilot
+
+# Keep the large, stable DL Streamer/OpenVINO layer ahead of application
+# sources so normal runtime fixes do not reinstall the media stack.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates wget gnupg \
+        python3-gi python3-gst-1.0 \
+        gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0 \
+        gstreamer1.0-tools gstreamer1.0-plugins-base \
+        gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+        gstreamer1.0-libav gstreamer1.0-vaapi libprotobuf32t64 \
+    && wget -qO /usr/share/keyrings/dls-key.gpg \
+        https://apt.repos.intel.com/edgeai/dlstreamer/GPG-PUB-KEY-INTEL-DLS.gpg \
+    && wget -qO /tmp/intel-openvino-key.pub \
+        https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
+    && gpg --dearmor --yes --output /usr/share/keyrings/intel-openvino.gpg \
+        /tmp/intel-openvino-key.pub \
+    && echo "deb [signed-by=/usr/share/keyrings/dls-key.gpg] https://apt.repos.intel.com/edgeai/dlstreamer/ubuntu24 ubuntu24 main" \
+        > /etc/apt/sources.list.d/intel-dlstreamer.list \
+    && echo "deb [signed-by=/usr/share/keyrings/intel-openvino.gpg] https://apt.repos.intel.com/openvino ubuntu24 main" \
+        > /etc/apt/sources.list.d/intel-openvino.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends intel-dlstreamer \
+    && mkdir -p /opt/sentinel-gst-plugins \
+    && ln -sf /opt/intel/dlstreamer/lib/libgstvideoanalytics.so \
+        /opt/sentinel-gst-plugins/libgstvideoanalytics.so \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m pip install --break-system-packages --no-cache-dir jsonschema==4.23.0 \
+    && ln -sf /usr/lib/x86_64-linux-gnu/libopenvino_intel_npu_compiler_loader.so \
+        /usr/local/lib/python3.12/dist-packages/openvino/libs/libopenvino_intel_npu_compiler_loader.so
+
+# Keep policy/runtime tuning below the large immutable dependency layer so a
+# tracker-mode qualification does not reinstall the Intel SDK. The later ENV
+# intentionally overrides the compatibility value in the base environment.
+# Candidate placement qualified on the Intel 285H busy replay; same plate IR
+# and GVA preprocessing, with no CPU fallback or production-gate changes.
+ENV SENTINEL_GVA_TRACKER_TYPE=zero-term \
+    PLATE_DEVICE=NPU \
+    SENTINEL_GVA_VEHICLE_MODEL=/models/traffic/openvino/vehicle_person_qaft_int8/model_static_b1.xml
 
 COPY edge_runtime/solution_packs/sporada_secure/runtime_v8/services /opt/traffic-pilot/services
 COPY edge_runtime/solution_packs/sporada_secure/runtime_v8/traffic_pilot_runtime /opt/traffic-pilot/traffic_pilot_runtime
 COPY edge_runtime/solution_packs/sporada_secure/runtime_v8/config /opt/traffic-pilot/config
-COPY models/traffic-v11/openvino /models/traffic/openvino
-COPY models/traffic-v11/vehicle_yolo26n_fp16_dynamic.xml /models/traffic/openvino/vehicle_yolo26n_fp16_dynamic.xml
-COPY models/traffic-v11/vehicle_yolo26n_fp16_dynamic.bin /models/traffic/openvino/vehicle_yolo26n_fp16_dynamic.bin
+COPY models/traffic-v11/openvino/license_plate.xml models/traffic-v11/openvino/license_plate.bin /models/traffic/openvino/
+COPY models/traffic-v11/openvino/ocr.xml models/traffic-v11/openvino/ocr.bin /models/traffic/openvino/
+COPY models/traffic-v11/openvino/smoke_fire.xml models/traffic-v11/openvino/smoke_fire.bin /models/traffic/openvino/
+COPY models/traffic-v11/vehicle_person_qaft_int8/model.xml models/traffic-v11/vehicle_person_qaft_int8/model.bin models/traffic-v11/vehicle_person_qaft_int8/model_static_b1.xml models/traffic-v11/vehicle_person_qaft_int8/model_static_b1.bin models/traffic-v11/vehicle_person_qaft_int8/export_manifest.json models/traffic-v11/vehicle_person_qaft_int8/integration.json /models/traffic/openvino/vehicle_person_qaft_int8/
 COPY models/traffic-v11/face/openvino /models/face/openvino
+COPY models/traffic-v11/face/dlstreamer /models/face/openvino/dlstreamer
 COPY models/scene/openvino /models/scene/openvino
 COPY models/surveillance/transreid_ssl_int8.xml models/surveillance/transreid_ssl_int8.bin /models/surveillance/
 COPY models/surveillance/gaitbase_int8.xml models/surveillance/gaitbase_int8.bin /models/surveillance/
+COPY models/surveillance/gaitbase_dlstreamer_montage.xml models/surveillance/gaitbase_dlstreamer_montage.bin /models/surveillance/
 COPY edge_runtime/solution_packs/sporada_secure/runtime_v8/image_schema /opt/traffic-pilot/image_schema
 COPY newdetails/sentry-v8/observation-examples.json /opt/traffic-pilot/image_schema/observation-examples.json
 COPY newdetails/sentry-v8 /opt/traffic-pilot/contracts/sentry-v8
@@ -67,34 +133,32 @@ COPY SENTINEL_V6_PRODUCTION_POLICY.md /opt/traffic-pilot/contracts/SENTINEL_V6_P
 COPY native/lib /opt/finalcombo
 COPY native/ocvlib /opt/finalcombo/ocvlib
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        python3-gi python3-gst-1.0 \
-        gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0 \
-        gstreamer1.0-tools gstreamer1.0-plugins-base \
-        gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
-        gstreamer1.0-libav gstreamer1.0-vaapi \
-    && rm -rf /var/lib/apt/lists/* \
-    && python -m pip install --break-system-packages --no-cache-dir jsonschema==4.23.0 \
-    && ln -sf /usr/lib/x86_64-linux-gnu/libopenvino_intel_npu_compiler_loader.so \
-        /usr/local/lib/python3.12/dist-packages/openvino/libs/libopenvino_intel_npu_compiler_loader.so \
-    && python -m py_compile traffic_pilot_runtime/*.py \
+RUN python -m py_compile traffic_pilot_runtime/*.py \
         services/worker/stream_fleet_openvino.py \
         services/worker/pipeline/motion_gate.py \
         services/worker/pipeline/surface_gate.py \
         services/worker/pipeline/surface_stream.py \
+        services/worker/pipeline/multi_camera_gst.py \
+        services/worker/pipeline/dlstreamer_bridge.py \
+        services/worker/pipeline/dls_secondary.py \
         services/worker/pipeline/camera_state.py \
         services/worker/pipeline/resource_metrics.py \
         services/worker/pipeline/runtime_telemetry.py \
         services/worker/pipeline/runtime_status.py \
         services/worker/pipeline/shared_vehicle_inference.py \
+        services/worker/pipeline/shared_scene_inference.py \
+        services/worker/pipeline/surface_vehicle.py \
+        services/worker/pipeline/zero_copy_shadow.py \
         services/worker/pipeline/structured_logging.py \
         services/worker/pipeline/scene_embeddings.py \
         services/worker/pipeline/person_reid.py \
         services/worker/pipeline/sentinel_v8_handoff.py \
         services/worker/pipeline/v8_events.py \
         services/worker/detectors/backends/openvino_face.py \
-    && test -f /models/traffic/openvino/vehicle_yolo26n_fp16_dynamic.xml \
+    && test -f /models/traffic/openvino/vehicle_person_qaft_int8/model.xml \
+    && test -f /models/traffic/openvino/vehicle_person_qaft_int8/model.bin \
+    && test -f /models/traffic/openvino/vehicle_person_qaft_int8/model_static_b1.xml \
+    && test -f /models/traffic/openvino/vehicle_person_qaft_int8/model_static_b1.bin \
     && test -f /models/traffic/openvino/license_plate.xml \
     && test -f /models/traffic/openvino/ocr.xml \
     && test -f /models/traffic/openvino/smoke_fire.xml \
@@ -102,22 +166,50 @@ RUN apt-get update \
     && test -f /models/face/openvino/adaface_ir101_int8.xml \
     && test -f /models/face/openvino/best_a0_fp16.xml \
     && test -f /models/face/openvino/best_a0_fp16.bin \
+    && test -f /models/face/openvino/dlstreamer/scrfd_top1x_u8.xml \
+    && test -f /models/face/openvino/dlstreamer/face_align_u8.xml \
     && test -f /models/scene/openvino/siglip2-base-patch16-224.xml \
+    && test -f /models/scene/openvino/siglip2-base-patch16-224-static.xml \
+    && test -f /models/scene/openvino/siglip2-base-patch16-224-static.bin \
     && test -f /models/surveillance/transreid_ssl_int8.xml \
     && test -f /models/surveillance/gaitbase_int8.xml \
+    && test -f /models/surveillance/gaitbase_dlstreamer_montage.xml \
+    && test -f /models/surveillance/gaitbase_dlstreamer_montage.bin \
+    && test -f /opt/traffic-pilot/config/body_reid_model_proc.json \
+    && test -f /opt/traffic-pilot/config/plate_raw_model_proc.json \
+    && test -f /opt/traffic-pilot/config/ocr_raw_model_proc.json \
+    && test -f /opt/traffic-pilot/config/scene_siglip_model_proc.json \
+    && test -f /opt/traffic-pilot/config/gait_montage_model_proc.json \
     && test -f /opt/finalcombo/libgpu_motion_gate_fixed_slots.so \
     && test -f /opt/finalcombo/libva_y_copy_bridge.so \
+    && test -f /opt/finalcombo/libva_surface_vehicle.so \
+    && ! ldd /opt/finalcombo/libgpu_motion_gate_fixed_slots.so | grep -q "not found" \
+    && ! ldd /opt/finalcombo/libva_surface_vehicle.so | grep -q "not found" \
     && test -f /opt/finalcombo/ocvlib/libopencv_core.so.406 \
     && test -f /opt/traffic-pilot/image_schema/desired-state.example.json \
     && test -f /opt/traffic-pilot/image_schema/observation-examples.json \
     && test -f /opt/traffic-pilot/image_schema/delivery-agent-acknowledgement.schema.json \
-    && python /opt/traffic-pilot/contracts/sentry-v8/validate_contract.py \
+    && python /opt/traffic-pilot/contracts/sentry-v8/validate_contract.py
+
+# VA decoder factories are device-dependent and are registered only when
+# /dev/dri is available. The image build has no device, so validate the
+# matching DL Streamer VA plugin here and require vah264dec at runtime.
+RUN rm -f /tmp/gstreamer-registry.bin \
+    && export GST_REGISTRY=/tmp/gstreamer-registry.bin \
     && gst-inspect-1.0 tcpclientsrc >/dev/null \
     && gst-inspect-1.0 tsdemux >/dev/null \
     && gst-inspect-1.0 h264parse >/dev/null \
-    && test -f /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgstvaapi.so \
-    && mkdir -p /tmp/sentinel/cache /tmp/sentinel/state/snapshots /tmp/sentinel/generated \
+    && test -f /opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/libgstva.so \
+    && ! ldd /opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/libgstva.so | grep -q "not found" \
+    && gst-inspect-1.0 gvadetect >/dev/null \
+    && gst-inspect-1.0 gvainference >/dev/null \
+    && gst-inspect-1.0 gvaclassify >/dev/null \
+    && gst-inspect-1.0 gvatrack >/dev/null \
+    && gst-inspect-1.0 gvamotiondetect >/dev/null \
+    && python -c 'import gstgva; assert gstgva.VideoFrame' \
+    && mkdir -p /tmp/sentinel/cache /tmp/sentinel/runtime /tmp/sentinel/state/snapshots /tmp/sentinel/generated \
     && chown -R apexruntime:apexruntime /tmp/sentinel \
+    && chmod 700 /tmp/sentinel/runtime \
     && test "$(id -u apexruntime)" = "10001"
 
 # The pinned base can retain historical solution files in its /opt tree. V8
@@ -126,12 +218,16 @@ RUN apt-get update \
 RUN rm -f \
         /opt/traffic-pilot/services/worker/pipeline/sentinel_v7_delivery.py \
         /opt/traffic-pilot/services/worker/pipeline/v7_events.py \
+        /models/traffic/openvino/vehicle_yolo26n_fp16_dynamic.xml \
+        /models/traffic/openvino/vehicle_yolo26n_fp16_dynamic.bin \
+        /models/traffic/openvino/vehicle_yolo26n_fp16_static_b1.xml \
+        /models/traffic/openvino/vehicle_yolo26n_fp16_static_b1.bin \
     && test ! -e /opt/traffic-pilot/services/worker/pipeline/sentinel_v7_delivery.py \
     && test ! -e /opt/traffic-pilot/services/worker/pipeline/v7_events.py
 
-ARG IMAGE_VERSION=2026.11.02-v8-dev3
-ARG INTEL_TRAFFIC_RUNTIME_BASE_DIGEST=unresolved
-ARG INTEL_TRAFFIC_RUNTIME_BASE_NAME=unresolved
+ARG IMAGE_VERSION=2026.11.05-v8-qaft-int8-model-candidate
+ARG INTEL_TRAFFIC_RUNTIME_BASE_DIGEST=sha256:e9cd281e24864bb01b5fb715a651ae09731e6a12a15518f0ac8e626b9d2ac243
+ARG INTEL_TRAFFIC_RUNTIME_BASE_NAME=localhost/apexfabric-intel-traffic-runtime-base:intel-285h-2026.09.18-v2
 
 LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/sentry_cv" \
       org.opencontainers.image.title="Sentinel CV Runtime" \
@@ -150,11 +246,14 @@ LABEL org.opencontainers.image.source="https://github.com/kiranmaibattu-cyber/se
       io.apexfabric.image.role="cv-runtime" \
       io.apexfabric.solution-pack="sentinel-cv-runtime" \
       io.apexfabric.models.delivery="baked-in" \
+      io.apexfabric.detector.profile="vehicle-person-qaft-int8" \
+      io.apexfabric.detector.active-batch="1" \
+      io.apexfabric.detector.checkpoint.sha256="8fa716bf26f92037522256a50a38fa6fb1de830277bf6f440c02146f8beae000" \
       io.apexfabric.identity.recognition-policy="face-only" \
       io.apexfabric.action-context.included="false" \
       io.apexfabric.policy-clip-capture.included="false" \
-      io.apexfabric.parent-base="${INTEL_TRAFFIC_RUNTIME_BASE_NAME}" \
-      io.apexfabric.runtime-base.digest="${INTEL_TRAFFIC_RUNTIME_BASE_DIGEST}"
+      io.apexfabric.parent-base="localhost/apexfabric-intel-traffic-runtime-base:intel-285h-2026.09.18-v2" \
+      io.apexfabric.runtime-base.digest="sha256:e9cd281e24864bb01b5fb715a651ae09731e6a12a15518f0ac8e626b9d2ac243"
 
 EXPOSE 8080
 USER 10001:10001

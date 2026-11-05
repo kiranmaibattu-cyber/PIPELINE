@@ -1,0 +1,64 @@
+--- Opt79/surface_stream.py
++++ QAFT/surface_stream.py
+@@ -692,7 +692,7 @@
+                  or zero_copy_shadow_enabled
+                  or zero_copy_wake_guard)):
+         veh = OpenVINOYOLODetector(
+-            openvino_model_path("vehicle_yolo26n_fp16_dynamic"), "vehicle",
++            openvino_model_path("vehicle_person_qaft_int8/model"), "vehicle",
+             device=sf.VEHICLE_DEVICE, imgsz=640, performance_hint="LATENCY",
+             confidence=vehicle_confidence,
+             class_ids=sf.VEHICLE_CLASS_IDS, class_names=sf.VEHICLE_CLASS_NAMES)
+@@ -978,16 +978,16 @@
+         confirm_need=int(gate_spec.get('confirm_need', 4)),
+         release_misses=6, sweep_seconds=float(gate_spec.get('sweep_seconds', 5.0)))
+ 
+-    # ``vapostproc`` above makes every branch negotiate a compatible VA display
+-    # context, allowing the original dynamic detector to be shared safely by a
+-    # bounded camera cohort without changing its classes or tensor outputs.
++    # Keep the primary shared GVA graph at its current fixed batch. The QAFT
++    # dynamic source is packaged separately for execution paths supporting it;
++    # fixing this copy's batch preserves all trained quantizers and class IDs.
+     vehicle_model_path = (
+         os.getenv(
+             "SENTINEL_GVA_VEHICLE_MODEL",
+-            "/models/traffic/openvino/vehicle_yolo26n_fp16_static_b1.xml",
++            "/models/traffic/openvino/vehicle_person_qaft_int8/model_static_b1.xml",
+         )
+         if dls_authoritative
+-        else openvino_model_path("vehicle_yolo26n_fp16_dynamic")
++        else openvino_model_path("vehicle_person_qaft_int8/model")
+     )
+     vehicle_model_proc = os.getenv(
+         "SENTINEL_GVA_VEHICLE_MODEL_PROC",
+--- Opt79/stream_fleet_openvino.py
++++ QAFT/stream_fleet_openvino.py
+@@ -482,7 +482,7 @@
+     ))
+     if vehicle_channel is None:
+         veh = OpenVINOYOLODetector(
+-            openvino_model_path("vehicle_yolo26n_fp16_dynamic"), "vehicle",
++            openvino_model_path("vehicle_person_qaft_int8/model"), "vehicle",
+             device=VEHICLE_DEVICE, imgsz=640, confidence=vehicle_confidence,
+             class_ids=VEHICLE_CLASS_IDS, class_names=VEHICLE_CLASS_NAMES,
+         )
+@@ -1202,7 +1202,7 @@
+             ctx, [camera["name"] for camera in cams]
+         )
+         vehicle_scheduler = SharedVehicleInferenceScheduler(
+-            openvino_model_path("vehicle_yolo26n_fp16_dynamic"),
++            openvino_model_path("vehicle_person_qaft_int8/model"),
+             vehicle_confidence,
+             vehicle_channels,
+             device=VEHICLE_DEVICE,
+--- Opt79/worker.json
++++ QAFT/worker.json
+@@ -1,7 +1,7 @@
+ {
+   "models": {
+     "vehicle": {
+-      "path": "/models/traffic/openvino/vehicle_yolo26n_fp16_dynamic.xml",
++      "path": "/models/traffic/openvino/vehicle_person_qaft_int8/model.xml",
+       "backend": "openvino",
+       "tensorrt": false,
+       "batch_size": "streams",

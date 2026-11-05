@@ -1,0 +1,194 @@
+{
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+    {
+      "apiVersion": "v1",
+      "kind": "Namespace",
+      "metadata": {
+        "name": "sentry-validation"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "ConfigMap",
+      "metadata": {
+        "namespace": "sentry-validation",
+        "name": "inputs"
+      },
+      "data": {
+        "desired_state.json": "{\"contract\": \"sentry-v8\", \"schema_version\": \"8.0\", \"edge_id\": \"v8-capacity-1\", \"deployment_id\": \"v8-capacity-1\", \"revision\": 1, \"cameras\": [{\"camera_id\": \"capacity-01\", \"source\": \"file:/run/secrets/sentinel/cameras/capacity-01.url\", \"geometry\": {\"zones\": [{\"id\": \"zone-1\", \"name\": \"Full\", \"poly\": [[0.01, 0.01], [0.99, 0.01], [0.99, 0.99], [0.01, 0.99]]}], \"counting_lines\": [{\"id\": \"line-1\", \"name\": \"Middle\", \"a\": [0.05, 0.5], \"b\": [0.95, 0.5], \"direction_mapping\": {\"left_to_right\": \"out\", \"right_to_left\": \"in\"}}]}, \"bindings\": [{\"use_case_id\": \"count-1\", \"app\": \"vehicle_counting\", \"scope\": \"geometry\", \"geometry_ids\": [\"zone-1\"], \"object_types\": [\"vehicle\"]}, {\"use_case_id\": \"anpr-1\", \"app\": \"anpr\", \"scope\": \"geometry\", \"geometry_ids\": [\"zone-1\"], \"object_types\": [\"vehicle\"]}, {\"use_case_id\": \"people-count-1\", \"app\": \"people_counting\", \"scope\": \"full_frame\", \"geometry_ids\": [], \"object_types\": [\"person\"]}, {\"use_case_id\": \"vehicle-presence-1\", \"app\": \"vehicle_presence\", \"scope\": \"geometry\", \"geometry_ids\": [\"zone-1\"], \"object_types\": [\"vehicle\"]}, {\"use_case_id\": \"person-presence-1\", \"app\": \"person_presence\", \"scope\": \"geometry\", \"geometry_ids\": [\"zone-1\"], \"object_types\": [\"person\"]}, {\"use_case_id\": \"crossing-1\", \"app\": \"vehicle_entry_exit_counts\", \"scope\": \"geometry\", \"geometry_ids\": [\"line-1\"], \"object_types\": [\"vehicle\"]}, {\"use_case_id\": \"identity-1\", \"app\": \"person_identity\", \"scope\": \"full_frame\", \"geometry_ids\": [], \"object_types\": [\"person\"], \"embedding_profile_ids\": [\"adaface-ir101-v18.1\", \"transreid-ssl-v18.1\", \"gaitbase-v18.1\"]}, {\"use_case_id\": \"scene-1\", \"app\": \"scene_search\", \"scope\": \"full_frame\", \"geometry_ids\": [], \"object_types\": [], \"embedding_profile_ids\": [\"siglip2-base-v1\"], \"sample_interval_seconds\": 2, \"scene_trigger_use_case_ids\": [\"vehicle-presence-1\", \"person-presence-1\"]}, {\"use_case_id\": \"hazard-1\", \"app\": \"fire_smoke\", \"scope\": \"geometry\", \"geometry_ids\": [\"zone-1\"], \"object_types\": []}], \"fps\": 8}]}",
+        "agent.py": "#!/usr/bin/env python3\nfrom __future__ import annotations\n\nimport argparse\nfrom email.parser import BytesParser\nfrom email.policy import default as email_policy\nimport hashlib\nimport json\nimport os\nfrom pathlib import Path\nimport socketserver\nimport sys\nimport threading\nimport time\nfrom datetime import datetime, timezone\nfrom typing import Any\n\nfrom jsonschema import Draft202012Validator, FormatChecker\n\n\ndef canonical(value: Any) -> bytes:\n    return json.dumps(\n        value, sort_keys=True, separators=(\",\", \":\"), ensure_ascii=True,\n        allow_nan=False,\n    ).encode(\"utf-8\")\n\n\nclass Store:\n    def __init__(self, schema_dir: Path, log_path: Path, status_path: Path) -> None:\n        package_schema = json.loads(\n            (schema_dir / \"delivery-agent-package.schema.json\").read_text()\n        )\n        package_schema[\"properties\"][\"observation\"] = {\"type\": \"object\"}\n        package_schema[\"properties\"][\"evidence\"][\"items\"][\"properties\"][\"metadata\"] = {\n            \"type\": \"object\"\n        }\n        package_schema[\"properties\"][\"embeddings\"][\"items\"] = {\"type\": \"object\"}\n        self.validator = Draft202012Validator(\n            package_schema,\n            format_checker=FormatChecker(),\n        )\n        self.observation_validator = Draft202012Validator(\n            json.loads((schema_dir / \"observation.schema.json\").read_text()),\n            format_checker=FormatChecker(),\n        )\n        self.evidence_validator = Draft202012Validator(\n            json.loads((schema_dir / \"evidence.schema.json\").read_text()),\n            format_checker=FormatChecker(),\n        )\n        self.embedding_validator = Draft202012Validator(\n            json.loads((schema_dir / \"embedding.schema.json\").read_text()),\n            format_checker=FormatChecker(),\n        )\n        self.log_path = log_path\n        self.status_path = status_path\n        self.lock = threading.Lock()\n        self.packages: dict[str, tuple[str, list[dict[str, Any]]]] = {}\n        self.next_sequence = 1\n        self.counts: dict[str, int] = {}\n        self.cameras: dict[str, int] = {}\n        self.started = time.monotonic()\n        self.dropped_responses = set()\n        self.gallery_counts = {}\n        self.evidence_bytes = 0\n        self.embedding_count = 0\n        # Optional restart fixture: preserve accepted ID/digest/sequence knowledge.\n        # This is an API test receiver, not the production delivery agent.\n        if os.environ.get(\"SENTRY_TEST_RESTORE_ACKS\") and self.log_path.exists():\n            for line in self.log_path.read_text().splitlines():\n                try:\n                    record=json.loads(line)\n                    if \"package_digest\" not in record: continue\n                    self.packages[record[\"package_id\"]]=(record[\"package_digest\"],record[\"sequences\"])\n                    self.next_sequence=max(self.next_sequence,max(x[\"sequence\"] for x in record[\"sequences\"])+1)\n                except (ValueError,KeyError): pass\n\n    @staticmethod\n    def digest(manifest: dict[str, Any], evidence: list[tuple[str, bytes]]) -> str:\n        value = hashlib.sha256(canonical(manifest))\n        for name, body in evidence:\n            value.update(b\"\\0\")\n            value.update(name.encode())\n            value.update(b\"\\0\")\n            value.update(body)\n        return value.hexdigest()\n\n    def accept(self, manifest: dict[str, Any], parts: dict[str, bytes]):\n        self.validator.validate(manifest)\n        self.observation_validator.validate(manifest[\"observation\"])\n        for item in manifest[\"evidence\"]:\n            self.evidence_validator.validate(item[\"metadata\"])\n        for item in manifest[\"embeddings\"]:\n            self.embedding_validator.validate(item)\n        expected_names = [item[\"part_name\"] for item in manifest[\"evidence\"]]\n        if len(expected_names) != len(set(expected_names)) or set(parts) != set(expected_names):\n            raise ValueError(\"multipart evidence parts do not match manifest\")\n        observation = manifest[\"observation\"]\n        observation_id = observation[\"observation_id\"]\n        evidence_ids = set(observation.get(\"evidence_ids\") or [])\n        ordered_parts: list[tuple[str, bytes]] = []\n        for item in manifest[\"evidence\"]:\n            metadata = item[\"metadata\"]\n            body = parts[item[\"part_name\"]]\n            if metadata[\"observation_id\"] != observation_id:\n                raise ValueError(\"evidence parent mismatch\")\n            if metadata[\"evidence_id\"] not in evidence_ids:\n                raise ValueError(\"evidence not listed by observation\")\n            if metadata[\"size_bytes\"] != len(body):\n                raise ValueError(\"evidence size mismatch\")\n            if metadata[\"sha256\"] != \"sha256:\" + hashlib.sha256(body).hexdigest():\n                raise ValueError(\"evidence digest mismatch\")\n            ordered_parts.append((item[\"part_name\"], body))\n        embedding_ids = set(observation.get(\"embedding_ids\") or [])\n        for item in manifest[\"embeddings\"]:\n            if item[\"observation_id\"] != observation_id:\n                raise ValueError(\"embedding parent mismatch\")\n            if item[\"embedding_id\"] not in embedding_ids:\n                raise ValueError(\"embedding not listed by observation\")\n            if item[\"evidence_id\"] not in evidence_ids:\n                raise ValueError(\"embedding evidence mismatch\")\n\n        # Test assertion: every ID promised by the observation is present.\n        supplied_evidence = [item[\"metadata\"][\"evidence_id\"] for item in manifest[\"evidence\"]]\n        supplied_embeddings = [item[\"embedding_id\"] for item in manifest[\"embeddings\"]]\n        if len(supplied_evidence) != len(set(supplied_evidence)) or set(supplied_evidence) != evidence_ids:\n            raise ValueError(\"promised evidence missing or duplicated\")\n        if len(supplied_embeddings) != len(set(supplied_embeddings)) or set(supplied_embeddings) != embedding_ids:\n            raise ValueError(\"promised embedding missing or duplicated\")\n\n        digest = self.digest(manifest, ordered_parts)\n        package_id = manifest[\"package_id\"]\n        with self.lock:\n            previous = self.packages.get(package_id)\n            if previous is not None:\n                if previous[0] != digest:\n                    return 409, {\n                        \"error\": {\"code\": \"package_id_conflict\", \"message\": \"conflict\", \"retryable\": False}\n                    }\n                return 200, {\n                    \"status\": \"duplicate\", \"package_id\": package_id,\n                    \"deployment_id\": manifest[\"deployment_id\"], \"sequences\": previous[1],\n                }\n            objects = [(\"observation\", observation_id)]\n            objects.extend(\n                (\"evidence\", item[\"metadata\"][\"evidence_id\"])\n                for item in manifest[\"evidence\"]\n            )\n            objects.extend(\n                (\"embedding\", item[\"embedding_id\"])\n                for item in manifest[\"embeddings\"]\n            )\n            first = self.next_sequence\n            sequences = [\n                {\"sequence\": first + index, \"object_type\": kind, \"object_id\": identifier}\n                for index, (kind, identifier) in enumerate(objects)\n            ]\n            self.next_sequence += len(sequences)\n            self.packages[package_id] = (digest, sequences)\n            event_type = observation[\"event_type\"]\n            camera_id = observation[\"camera_id\"]\n            self.counts[event_type] = self.counts.get(event_type, 0) + 1\n            self.cameras[camera_id] = self.cameras.get(camera_id, 0) + 1\n            self.evidence_bytes += sum(len(body) for _, body in ordered_parts)\n            self.embedding_count += len(manifest[\"embeddings\"])\n            record = {\n                \"package_id\": package_id,\n                \"camera_id\": camera_id,\n                \"event_type\": event_type,\n                \"presence_id\": observation.get(\"presence_id\"),\n                \"track_id\": observation.get(\"track_id\"),\n                \"plate_text\": observation.get(\"plate_text\"),\n                \"plate_outcome\": observation.get(\"outcome\"),\n                \"hazard\": observation.get(\"hazard\"),\n                \"hazard_episode_id\": observation.get(\"hazard_episode_id\"),\n                \"evidence\": [item[\"metadata\"][\"evidence_type\"] for item in manifest[\"evidence\"]],\n                \"embeddings\": [item[\"profile_id\"] for item in manifest[\"embeddings\"]],\n                \"observed_at\": observation[\"observed_at\"],\n                \"config_revision\": observation.get(\"config_revision\"),\n                \"source_frame_id\": observation.get(\"source_frame_id\"),\n                \"stream_session_id\": observation.get(\"stream_session_id\"),\n                \"use_case_id\": observation.get(\"use_case_id\"),\n                \"sequences\": sequences,\n                \"package_digest\": digest,\n                \"accepted_at\": datetime.now(timezone.utc).isoformat(),\n                \"accepted_mono\": time.monotonic(),\n                \"kind\": observation.get(\"kind\"),\n            }\n            key = (camera_id,event_type,observation.get(\"kind\"))\n            if self.gallery_counts.get(key,0) < int(os.environ.get(\"SENTRY_TEST_SCENE_GALLERY_LIMIT\",os.environ.get(\"SENTRY_TEST_GALLERY_LIMIT\",\"2\")) if event_type==\"scene_sample\" else os.environ.get(\"SENTRY_TEST_GALLERY_LIMIT\",\"2\")):\n                self.gallery_counts[key]=self.gallery_counts.get(key,0)+1\n                directory=self.log_path.parent/\"gallery\"/package_id\n                directory.mkdir(parents=True,exist_ok=True)\n                (directory/\"manifest.json\").write_text(json.dumps(manifest))\n                for name,data in ordered_parts:\n                    (directory/(name+\".jpg\")).write_bytes(data)\n            with self.log_path.open(\"a\", encoding=\"utf-8\") as stream:\n                stream.write(json.dumps(record, separators=(\",\", \":\")) + \"\\n\")\n            temporary = self.status_path.with_suffix(\".tmp\")\n            temporary.write_text(json.dumps({\n                \"packages\": len(self.packages), \"next_sequence\": self.next_sequence,\n                \"event_types\": self.counts, \"cameras\": self.cameras,\n                \"evidence_bytes\": self.evidence_bytes,\n                \"embeddings\": self.embedding_count,\n            }, separators=(\",\", \":\")))\n            os.replace(temporary, self.status_path)\n            return 201, {\n                \"status\": \"durable\", \"package_id\": package_id,\n                \"deployment_id\": manifest[\"deployment_id\"], \"sequences\": sequences,\n            }\n\n\nclass Handler(socketserver.StreamRequestHandler):\n    store: Store\n\n    def handle(self) -> None:\n        request = self.rfile.readline().decode(\"ascii\", \"replace\").strip().split()\n        if request[:2] != [\"POST\", \"/v1/packages\"]:\n            self._send(404, {\"error\": {\"code\": \"not_found\", \"message\": \"not found\", \"retryable\": False}})\n            return\n        headers = {}\n        while True:\n            line = self.rfile.readline()\n            if line in {b\"\\r\\n\", b\"\\n\", b\"\"}:\n                break\n            key, value = line.decode(\"latin-1\").split(\":\", 1)\n            headers[key.lower()] = value.strip()\n        try:\n            length = int(headers[\"content-length\"])\n            if length > 64 * 1024 * 1024:\n                raise ValueError(\"request too large\")\n            body = self.rfile.read(length)\n            message = BytesParser(policy=email_policy).parsebytes(\n                f\"Content-Type: {headers['content-type']}\\r\\nMIME-Version: 1.0\\r\\n\\r\\n\".encode()\n                + body\n            )\n            parts = {\n                part.get_param(\"name\", header=\"content-disposition\"): part.get_payload(decode=True)\n                for part in message.iter_parts()\n            }\n            manifest = json.loads(parts.pop(\"manifest\"))\n            fault=json.loads(os.environ.get('SENTRY_TEST_AGENT_POLICY','{}'))\n            elapsed=time.monotonic()-self.store.started\n            active=fault.get('start',10)<=elapsed<fault.get('end',30)\n            mode=fault.get('mode')\n            if active and mode in ('503','429','400','401'):\n                status=int(mode); payload={'error':{'code':{'503':'durability_unavailable','429':'agent_busy','400':'invalid_package','401':'invalid_package'}[mode],'message':'qualification fault','retryable':status in (503,429)}}\n            else:\n                status, payload = self.store.accept(manifest, parts)\n                if active and mode=='slow':time.sleep(float(fault.get('delay',2)))\n                if active and mode=='drop_ack' and manifest['package_id'] not in self.store.dropped_responses:\n                    self.store.dropped_responses.add(manifest['package_id'])\n                    self.connection.close()\n                    return\n        except Exception as exc:  # noqa: BLE001\n            print(f\"invalid_package: {type(exc).__name__}: {exc}\", file=sys.stderr, flush=True)\n            status, payload = 400, {\n                \"error\": {\"code\": \"invalid_package\", \"message\": str(exc)[:200], \"retryable\": False}\n            }\n        self._send(status, payload)\n\n    def _send(self, status: int, payload: dict[str, Any]) -> None:\n        reason = {200: \"OK\", 201: \"Created\", 400: \"Bad Request\", 404: \"Not Found\", 409: \"Conflict\"}.get(status, \"Error\")\n        body = canonical(payload)\n        self.wfile.write(\n            f\"HTTP/1.1 {status} {reason}\\r\\nContent-Type: application/json\\r\\nContent-Length: {len(body)}\\r\\nConnection: close\\r\\n\\r\\n\".encode()\n            + body\n        )\n\n\ndef main() -> None:\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\"--socket\", type=Path, required=True)\n    parser.add_argument(\"--schemas\", type=Path, required=True)\n    parser.add_argument(\"--log\", type=Path, required=True)\n    parser.add_argument(\"--status\", type=Path, required=True)\n    args = parser.parse_args()\n    args.socket.parent.mkdir(parents=True, exist_ok=True)\n    args.log.parent.mkdir(parents=True, exist_ok=True)\n    args.socket.unlink(missing_ok=True)\n    Handler.store = Store(args.schemas, args.log, args.status)\n    with socketserver.ThreadingUnixStreamServer(str(args.socket), Handler) as server:\n        os.chmod(args.socket, 0o666)\n        server.serve_forever()\n\n\nif __name__ == \"__main__\":\n    main()\n"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Secret",
+      "metadata": {
+        "namespace": "sentry-validation",
+        "name": "camera-urls"
+      },
+      "type": "Opaque",
+      "data": {
+        "capacity-01.url": "dGNwOi8vMTI3LjAuMC4xOjE5MDkxCg=="
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "namespace": "sentry-validation",
+        "name": "sentry-validation"
+      },
+      "spec": {
+        "hostNetwork": true,
+        "dnsPolicy": "Default",
+        "nodeName": "sentry-validation-node",
+        "restartPolicy": "Always",
+        "securityContext": {
+          "runAsUser": 10001,
+          "runAsGroup": 10001,
+          "fsGroup": 10001,
+          "supplementalGroups": [
+            44,
+            992
+          ]
+        },
+        "volumes": [
+          {
+            "name": "inputs",
+            "configMap": {
+              "name": "inputs"
+            }
+          },
+          {
+            "name": "secrets",
+            "secret": {
+              "secretName": "camera-urls"
+            }
+          },
+          {
+            "name": "delivery",
+            "emptyDir": {}
+          },
+          {
+            "name": "state",
+            "emptyDir": {}
+          },
+          {
+            "name": "dri",
+            "hostPath": {
+              "path": "/dev/dri",
+              "type": "Directory"
+            }
+          },
+          {
+            "name": "accel",
+            "hostPath": {
+              "path": "/dev/accel",
+              "type": "Directory"
+            }
+          }
+        ],
+        "containers": [
+          {
+            "name": "agent",
+            "image": "localhost/sentry-v8-opt79-shared-gait-background:latest",
+            "imagePullPolicy": "Never",
+            "command": [
+              "python3",
+              "/inputs/agent.py",
+              "--socket",
+              "/run/sentinel-delivery/agent.sock",
+              "--schemas",
+              "/opt/traffic-pilot/contracts/sentry-v8",
+              "--log",
+              "/state/packages.jsonl",
+              "--status",
+              "/state/agent-status.json"
+            ],
+            "volumeMounts": [
+              {
+                "name": "inputs",
+                "mountPath": "/inputs",
+                "readOnly": true
+              },
+              {
+                "name": "delivery",
+                "mountPath": "/run/sentinel-delivery"
+              },
+              {
+                "name": "state",
+                "mountPath": "/state"
+              }
+            ]
+          },
+          {
+            "name": "cv",
+            "image": "localhost/sentry-v8-opt79-shared-gait-background:latest",
+            "imagePullPolicy": "Never",
+            "env": [
+              {
+                "name": "APEX_API_PORT",
+                "value": "18081"
+              }
+            ],
+            "securityContext": {
+              "privileged": true
+            },
+            "resources": {
+              "requests": {
+                "cpu": "1",
+                "memory": "3Gi"
+              },
+              "limits": {
+                "cpu": "4",
+                "memory": "8Gi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "inputs",
+                "mountPath": "/configs",
+                "readOnly": true
+              },
+              {
+                "name": "secrets",
+                "mountPath": "/run/secrets/sentinel/cameras",
+                "readOnly": true
+              },
+              {
+                "name": "delivery",
+                "mountPath": "/run/sentinel-delivery"
+              },
+              {
+                "name": "dri",
+                "mountPath": "/dev/dri"
+              },
+              {
+                "name": "accel",
+                "mountPath": "/dev/accel"
+              }
+            ],
+            "readinessProbe": {
+              "httpGet": {
+                "path": "/readyz",
+                "port": 18081
+              },
+              "initialDelaySeconds": 5,
+              "periodSeconds": 3
+            },
+            "livenessProbe": {
+              "httpGet": {
+                "path": "/healthz",
+                "port": 18081
+              },
+              "initialDelaySeconds": 10,
+              "periodSeconds": 5
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

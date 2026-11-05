@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+"""Test-driver adapter only: run the existing Podman harness with Docker."""
+import os,sys
+args=sys.argv[1:];out=[];i=0
+while i<len(args):
+ if args[i]=='--device' and i+1<len(args) and ((os.getenv('SENTRY_TEST_HIDE_GPU')=='1' and args[i+1]=='/dev/dri') or (os.getenv('SENTRY_TEST_HIDE_NPU')=='1' and args[i+1]=='/dev/accel/accel0')):
+  i+=2
+ elif args[i:i+2]==['--group-add','keep-groups']:
+  out+=['--group-add','992','--group-add','44'];i+=2
+ else:out.append(args[i]);i+=1
+if args and args[0]=='run' and os.getenv('SENTRY_TEST_MASK_PRIMARY')=='1':out[-1:-1]=['-v','/dev/null:/models/traffic/openvino/vehicle_yolo26n_fp16_static_b1.xml:ro']
+os.execvp('docker',['docker']+out)

@@ -143,14 +143,25 @@ class AdaptivePolicyResolver:
         self._changed_at = time.time()
         self._last_now = self._changed_at
 
+    def image_sample_due(self, now: float) -> bool:
+        """Return whether the unchanged one-second image-quality sample is due."""
+        return (
+            self._last_image_sample is None
+            or float(now) - self._last_image_sample >= 1.0
+        )
+
     def observe_frame(self, frame, detections, now: float,
                       tracker_policy: dict[str, Any] | None = None,
                       tracker_observation: dict[str, Any] | None = None,
-                      model_queue_wait_seconds: float | None = None) -> bool:
+                      model_queue_wait_seconds: float | None = None,
+                      frame_shape=None) -> bool:
         self._last_now = float(now)
         self._frames += 1
         self._frame_times.append(float(now))
-        height, width = frame.shape[:2]
+        shape = frame.shape if frame is not None else frame_shape
+        if shape is None or len(shape) < 2:
+            raise ValueError("adaptive policy requires source frame geometry")
+        height, width = shape[:2]
         objects = [item for item in detections if getattr(item, "model_name", None) == "vehicle"
                    and not getattr(item, "metadata", {}).get("predicted")]
         if objects:
@@ -172,7 +183,13 @@ class AdaptivePolicyResolver:
         if model_queue_wait_seconds is not None and math.isfinite(float(model_queue_wait_seconds)):
             self._model_queue_wait_seconds = max(0.0, float(model_queue_wait_seconds))
             self._resolve_pressure()
-        if self._last_image_sample is None or now - self._last_image_sample >= 1.0:
+        has_pixels = (
+            frame is not None
+            and getattr(frame, "size", 0) > 0
+            and getattr(frame, "ndim", 0) == 3
+            and frame.shape[2] >= 3
+        )
+        if self.image_sample_due(now) and has_pixels:
             self._last_image_sample = now
             sample = frame
             if width > 640:

@@ -1,6 +1,6 @@
 """Low-overhead per-camera runtime telemetry shared with the HTTP supervisor.
 
-Camera workers are separate processes, so snapshots are written atomically below
+Camera workers may share a native graph process. Per-camera snapshots are written atomically below
 ``/tmp/sentinel/state/metrics`` and read by the solution-image HTTP process. The counters are
 diagnostic only: they never participate in event production decisions.
 """
@@ -11,6 +11,7 @@ from copy import deepcopy
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
+import logging
 import math
 import os
 from pathlib import Path
@@ -72,8 +73,11 @@ class CameraTelemetry:
         self._window_started = self.started_mono
         self._last_flush = self.started_mono
         self._lock = threading.Lock()
+        self._flush_lock = threading.Lock()
+        self._stop = threading.Event()
         self._counters: dict[str, int] = defaultdict(int)
         self._window_counters: dict[str, int] = defaultdict(int)
+        self._gauges: dict[str, float] = {}
         self._event_types: dict[str, int] = defaultdict(int)
         self._window_event_types: dict[str, int] = defaultdict(int)
         self._use_cases: dict[str, int] = defaultdict(int)
@@ -92,6 +96,11 @@ class CameraTelemetry:
         self._proc.cpu_percent(interval=None)
         self.latest_snapshot: dict[str, Any] | None = None
         self.flush(force=True)
+        self._reporter = threading.Thread(
+            target=self._report_periodically, daemon=True,
+            name=f"camera-telemetry-{self.camera_id}",
+        )
+        self._reporter.start()
 
     def count(self, name: str, value: int = 1) -> None:
         if value <= 0:
@@ -99,6 +108,14 @@ class CameraTelemetry:
         with self._lock:
             self._counters[name] += int(value)
             self._window_counters[name] += int(value)
+
+    def set_gauge(self, name: str, value: float | int) -> None:
+        """Publish current diagnostic state without affecting event policy."""
+        numeric = float(value)
+        if not math.isfinite(numeric):
+            return
+        with self._lock:
+            self._gauges[str(name)] = numeric
 
     def set_resolved_policy(self, policy: dict[str, Any]) -> None:
         """Publish the effective bounded gates without putting them in desired state."""
@@ -192,6 +209,12 @@ class CameraTelemetry:
             self.flush()
 
     def flush(self, *, force: bool = False) -> dict[str, Any] | None:
+        # Serialize snapshot reset AND atomic file replacement. The periodic
+        # reporter must not race a camera-triggered flush on the same tmp file.
+        with self._flush_lock:
+            return self._flush_serialized(force=force)
+
+    def _flush_serialized(self, *, force: bool = False) -> dict[str, Any] | None:
         now_mono = time.monotonic()
         if not force and now_mono - self._last_flush < self.interval:
             return None
@@ -212,7 +235,21 @@ class CameraTelemetry:
         return payload
 
     def close(self) -> None:
+        self._stop.set()
+        self._reporter.join(timeout=max(2, self.interval * 2))
         self.flush(force=True)
+
+    def _report_periodically(self) -> None:
+        # Model waits must not freeze the last non-zero FPS indefinitely.
+        # This thread reads counters only; it never emits analytic observations.
+        while not self._stop.wait(self.interval):
+            try:
+                self.flush()
+            except Exception:
+                logging.getLogger(__name__).exception(
+                    "Camera telemetry publication failed",
+                    extra={"camera_id": self.camera_id},
+                )
 
     def _snapshot_locked(self, window_seconds: float) -> dict[str, Any]:
         try:
@@ -223,8 +260,16 @@ class CameraTelemetry:
                 except (psutil.Error, OSError, AttributeError):
                     full_memory = None
                 cpu_pct = self._proc.cpu_percent(interval=None)
+                grouped_process = os.getenv(
+                    "SENTINEL_CAMERA_GROUP_MODE", "false"
+                ).lower() in {"1", "true", "yes", "on"}
                 process = {
-                    "scope": "camera_process",
+                    "scope": (
+                        "shared_camera_group_process"
+                        if grouped_process else "camera_process"
+                    ),
+                    "pid": int(self._proc.pid),
+                    "shared_by_multiple_cameras": grouped_process,
                     "cpu_cores_used": round(cpu_pct / 100.0, 3),
                     "rss_mb": round(memory.rss / 1024 / 1024, 2),
                     "uss_mb": (
@@ -240,6 +285,7 @@ class CameraTelemetry:
         except (psutil.Error, OSError):
             process = {
                 "scope": "camera_process", "cpu_cores_used": None,
+                "pid": os.getpid(), "shared_by_multiple_cameras": False,
                 "rss_mb": None, "uss_mb": None,
                 "pss_mb": None, "threads": None,
             }
@@ -288,6 +334,10 @@ class CameraTelemetry:
                 "quiet_fps": round(self._window_counters.get("quiet_frames", 0) / window_seconds, 3),
                 "output_events_per_second": round(output_rate, 3),
                 "totals": dict(sorted(self._counters.items())),
+                "gauges": {
+                    key: int(value) if value.is_integer() else round(value, 6)
+                    for key, value in sorted(self._gauges.items())
+                },
             },
             "outputs": {
                 "by_event_type": self._rate_items(

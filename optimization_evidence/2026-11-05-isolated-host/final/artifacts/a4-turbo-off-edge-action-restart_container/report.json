@@ -1,0 +1,912 @@
+{
+  "image": "localhost/sentry-v8-opt79-shared-gait-background",
+  "camera_count": 2,
+  "fps_per_camera": 8,
+  "fps_explicit_in_desired_state": true,
+  "source_urls": [
+    "tcp://127.0.0.1:19001",
+    "tcp://127.0.0.1:19002"
+  ],
+  "source_reuse": false,
+  "source_mode": "local_independent_tcp_replays",
+  "motion_gate_enabled": true,
+  "full_usecases": true,
+  "steady_throughput": {
+    "passed": false,
+    "per_camera": {},
+    "duration_seconds": 0.0
+  },
+  "capacity_qualified": false,
+  "test_scope": "capacity",
+  "end_health": {
+    "ready": true,
+    "worker_running": true,
+    "camera_records": 2,
+    "camera_states": {
+      "healthy": 2
+    },
+    "cameras_with_recent_frames": 2,
+    "target_decode_fps": 16.0,
+    "aggregate_decode_fps": 15.739,
+    "decode_target_ratio": 0.9837,
+    "aggregate_inference_fps": 16.23,
+    "per_camera": {
+      "capacity-01": {
+        "selected_fps": 7.884,
+        "inference_fps": 7.884,
+        "totals": {
+          "decoded_frames": 731,
+          "events_handoff_admitted": 674,
+          "evidence_jpeg_encoded": 254,
+          "fire_bgr_avoided_frames": 183,
+          "fire_model_system_memory_frames": 183,
+          "gait_inference_avoided": 45,
+          "gait_inference_eligible": 5,
+          "handoff_admitted": 674,
+          "inference_frames": 730,
+          "primary_bgr_avoided_frames": 30,
+          "primary_bgr_materialized_frames": 700,
+          "scene_embedding_computed": 46
+        },
+        "pending_admissions": 1,
+        "last_frame_age_seconds": 1.082
+      },
+      "capacity-02": {
+        "selected_fps": 7.855,
+        "inference_fps": 8.346,
+        "totals": {
+          "decoded_frames": 707,
+          "events_handoff_admitted": 642,
+          "evidence_jpeg_encoded": 241,
+          "fire_bgr_avoided_frames": 177,
+          "fire_model_system_memory_frames": 177,
+          "gait_inference_avoided": 43,
+          "gait_inference_eligible": 5,
+          "handoff_admitted": 642,
+          "inference_frames": 707,
+          "primary_bgr_avoided_frames": 30,
+          "primary_bgr_materialized_frames": 677,
+          "scene_embedding_computed": 45
+        },
+        "pending_admissions": 0,
+        "last_frame_age_seconds": 0.908
+      }
+    },
+    "unique_camera_processes": 1,
+    "camera_process_rss_mb": 1782.17,
+    "camera_process_pss_mb": 1708.64,
+    "container_memory_mb": 2391.61,
+    "container_cpu_cores": 1.699,
+    "container_pids": 209,
+    "gpu_utilization_pct": 74.04,
+    "npu_utilization_pct": 30.31,
+    "handoff": {
+      "admitted": 1329,
+      "durable": 1329,
+      "duplicate": 0,
+      "backpressure": 0,
+      "coalesced": 0,
+      "exhausted": 0,
+      "protocol_errors": 0
+    }
+  },
+  "startup_seconds": 22.299,
+  "steady_seconds": 90,
+  "minimum_required_decode_ratio": 0.9,
+  "required_final_stable_samples": 3,
+  "minimum_observed_decode_ratio": 0.9782,
+  "passed": false,
+  "fatal_lines": [],
+  "final": {
+    "ready": true,
+    "worker_running": true,
+    "camera_records": 2,
+    "camera_states": {
+      "healthy": 2
+    },
+    "cameras_with_recent_frames": 2,
+    "target_decode_fps": 16.0,
+    "aggregate_decode_fps": 16.35,
+    "decode_target_ratio": 1.0219,
+    "aggregate_inference_fps": 15.859,
+    "per_camera": {
+      "capacity-01": {
+        "selected_fps": 8.351,
+        "inference_fps": 7.86,
+        "totals": {
+          "decoded_frames": 650,
+          "events_handoff_admitted": 575,
+          "evidence_jpeg_encoded": 222,
+          "fire_bgr_avoided_frames": 163,
+          "fire_model_system_memory_frames": 163,
+          "gait_inference_avoided": 41,
+          "gait_inference_eligible": 4,
+          "handoff_admitted": 575,
+          "inference_frames": 649,
+          "primary_bgr_avoided_frames": 29,
+          "primary_bgr_materialized_frames": 620,
+          "scene_embedding_computed": 41
+        },
+        "pending_admissions": 1,
+        "last_frame_age_seconds": 0.814
+      },
+      "capacity-02": {
+        "selected_fps": 7.999,
+        "inference_fps": 7.999,
+        "totals": {
+          "decoded_frames": 626,
+          "events_handoff_admitted": 558,
+          "evidence_jpeg_encoded": 219,
+          "fire_bgr_avoided_frames": 157,
+          "fire_model_system_memory_frames": 157,
+          "gait_inference_avoided": 41,
+          "gait_inference_eligible": 4,
+          "handoff_admitted": 558,
+          "inference_frames": 625,
+          "primary_bgr_avoided_frames": 26,
+          "primary_bgr_materialized_frames": 599,
+          "scene_embedding_computed": 40
+        },
+        "pending_admissions": 1,
+        "last_frame_age_seconds": 0.149
+      }
+    },
+    "unique_camera_processes": 1,
+    "camera_process_rss_mb": 1781.92,
+    "camera_process_pss_mb": 1708.39,
+    "container_memory_mb": 2390.78,
+    "container_cpu_cores": 1.329,
+    "container_pids": 209,
+    "gpu_utilization_pct": 72.35,
+    "npu_utilization_pct": 14.86,
+    "handoff": {
+      "admitted": 1145,
+      "durable": 1145,
+      "duplicate": 0,
+      "backpressure": 0,
+      "coalesced": 0,
+      "exhausted": 0,
+      "protocol_errors": 0
+    },
+    "sample_phase": "steady",
+    "sample_monotonic_seconds": 29755.833690875
+  },
+  "samples": [
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 26.728,
+      "decode_target_ratio": 1.6705,
+      "aggregate_inference_fps": 26.728,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 18.423,
+          "inference_fps": 18.423,
+          "totals": {
+            "decoded_frames": 58,
+            "events_handoff_admitted": 29,
+            "evidence_jpeg_encoded": 21,
+            "fire_bgr_avoided_frames": 15,
+            "fire_model_system_memory_frames": 15,
+            "handoff_admitted": 29,
+            "inference_frames": 56,
+            "primary_bgr_avoided_frames": 4,
+            "primary_bgr_materialized_frames": 52,
+            "scene_embedding_computed": 4
+          },
+          "pending_admissions": 2,
+          "last_frame_age_seconds": 0.956
+        },
+        "capacity-02": {
+          "selected_fps": 8.305,
+          "inference_fps": 8.305,
+          "totals": {
+            "decoded_frames": 33,
+            "events_handoff_admitted": 23,
+            "evidence_jpeg_encoded": 17,
+            "fire_bgr_avoided_frames": 8,
+            "fire_model_system_memory_frames": 8,
+            "handoff_admitted": 23,
+            "inference_frames": 32,
+            "primary_bgr_materialized_frames": 32,
+            "scene_embedding_computed": 2
+          },
+          "pending_admissions": 1,
+          "last_frame_age_seconds": 0.737
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 2391.8,
+      "camera_process_pss_mb": 2334.4,
+      "container_memory_mb": 2985.93,
+      "container_cpu_cores": 2.35,
+      "container_pids": 210,
+      "gpu_utilization_pct": 74.27,
+      "npu_utilization_pct": 31.77,
+      "handoff": {
+        "admitted": 56,
+        "durable": 56,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      }
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "degraded": 2
+      },
+      "cameras_with_recent_frames": 0,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 0.0,
+      "decode_target_ratio": 0.0,
+      "aggregate_inference_fps": 0.0,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 0.0,
+          "inference_fps": 0.0,
+          "totals": {},
+          "pending_admissions": 0,
+          "last_frame_age_seconds": null
+        },
+        "capacity-02": {
+          "selected_fps": 0.0,
+          "inference_fps": 0.0,
+          "totals": {},
+          "pending_admissions": 0,
+          "last_frame_age_seconds": null
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 910.63,
+      "camera_process_pss_mb": 837.15,
+      "container_memory_mb": 1343.48,
+      "container_cpu_cores": 2.985,
+      "container_pids": 161,
+      "gpu_utilization_pct": 3.62,
+      "npu_utilization_pct": 0.0,
+      "handoff": {
+        "admitted": 0,
+        "durable": 0,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 29675.77049627
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 15.795,
+      "decode_target_ratio": 0.9872,
+      "aggregate_inference_fps": 15.296,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 7.81,
+          "inference_fps": 7.81,
+          "totals": {
+            "decoded_frames": 96,
+            "events_handoff_admitted": 51,
+            "evidence_jpeg_encoded": 36,
+            "fire_bgr_avoided_frames": 24,
+            "fire_model_system_memory_frames": 24,
+            "handoff_admitted": 51,
+            "inference_frames": 96,
+            "primary_bgr_avoided_frames": 6,
+            "primary_bgr_materialized_frames": 90,
+            "scene_embedding_computed": 6
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.272
+        },
+        "capacity-02": {
+          "selected_fps": 7.985,
+          "inference_fps": 7.486,
+          "totals": {
+            "decoded_frames": 73,
+            "events_handoff_admitted": 32,
+            "evidence_jpeg_encoded": 23,
+            "fire_bgr_avoided_frames": 18,
+            "fire_model_system_memory_frames": 18,
+            "handoff_admitted": 32,
+            "inference_frames": 72,
+            "primary_bgr_avoided_frames": 6,
+            "primary_bgr_materialized_frames": 66,
+            "scene_embedding_computed": 5
+          },
+          "pending_admissions": 1,
+          "last_frame_age_seconds": 0.967
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 1690.66,
+      "camera_process_pss_mb": 1617.13,
+      "container_memory_mb": 2289.89,
+      "container_cpu_cores": 1.589,
+      "container_pids": 210,
+      "gpu_utilization_pct": 73.81,
+      "npu_utilization_pct": 24.14,
+      "handoff": {
+        "admitted": 85,
+        "durable": 85,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 29685.777159651
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 15.738,
+      "decode_target_ratio": 0.9836,
+      "aggregate_inference_fps": 16.231,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 7.857,
+          "inference_fps": 7.857,
+          "totals": {
+            "decoded_frames": 161,
+            "events_handoff_admitted": 104,
+            "evidence_jpeg_encoded": 73,
+            "fire_bgr_avoided_frames": 41,
+            "fire_model_system_memory_frames": 41,
+            "gait_inference_avoided": 7,
+            "gait_inference_eligible": 1,
+            "handoff_admitted": 104,
+            "inference_frames": 161,
+            "primary_bgr_avoided_frames": 6,
+            "primary_bgr_materialized_frames": 155,
+            "scene_embedding_computed": 11
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.301
+        },
+        "capacity-02": {
+          "selected_fps": 7.881,
+          "inference_fps": 8.374,
+          "totals": {
+            "decoded_frames": 138,
+            "events_handoff_admitted": 92,
+            "evidence_jpeg_encoded": 66,
+            "fire_bgr_avoided_frames": 35,
+            "fire_model_system_memory_frames": 35,
+            "handoff_admitted": 92,
+            "inference_frames": 138,
+            "primary_bgr_avoided_frames": 6,
+            "primary_bgr_materialized_frames": 132,
+            "scene_embedding_computed": 9
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.096
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 1721.73,
+      "camera_process_pss_mb": 1648.19,
+      "container_memory_mb": 2317.36,
+      "container_cpu_cores": 1.332,
+      "container_pids": 209,
+      "gpu_utilization_pct": 72.77,
+      "npu_utilization_pct": 16.28,
+      "handoff": {
+        "admitted": 207,
+        "durable": 207,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 29695.783875579
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 15.762,
+      "decode_target_ratio": 0.9851,
+      "aggregate_inference_fps": 16.255,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 7.891,
+          "inference_fps": 8.384,
+          "totals": {
+            "decoded_frames": 243,
+            "events_handoff_admitted": 178,
+            "evidence_jpeg_encoded": 102,
+            "fire_bgr_avoided_frames": 61,
+            "fire_model_system_memory_frames": 61,
+            "gait_inference_avoided": 7,
+            "gait_inference_eligible": 1,
+            "handoff_admitted": 178,
+            "inference_frames": 243,
+            "primary_bgr_avoided_frames": 11,
+            "primary_bgr_materialized_frames": 232,
+            "scene_embedding_computed": 16
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.294
+        },
+        "capacity-02": {
+          "selected_fps": 7.871,
+          "inference_fps": 7.871,
+          "totals": {
+            "decoded_frames": 219,
+            "events_handoff_admitted": 152,
+            "evidence_jpeg_encoded": 88,
+            "fire_bgr_avoided_frames": 55,
+            "fire_model_system_memory_frames": 55,
+            "gait_inference_avoided": 7,
+            "gait_inference_eligible": 1,
+            "handoff_admitted": 152,
+            "inference_frames": 219,
+            "primary_bgr_avoided_frames": 11,
+            "primary_bgr_materialized_frames": 208,
+            "scene_embedding_computed": 15
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.354
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 1721.85,
+      "camera_process_pss_mb": 1648.32,
+      "container_memory_mb": 2329.83,
+      "container_cpu_cores": 1.693,
+      "container_pids": 209,
+      "gpu_utilization_pct": 73.21,
+      "npu_utilization_pct": 30.49,
+      "handoff": {
+        "admitted": 361,
+        "durable": 361,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 29705.790606351
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 16.764,
+      "decode_target_ratio": 1.0478,
+      "aggregate_inference_fps": 15.778,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 8.345,
+          "inference_fps": 7.854,
+          "totals": {
+            "decoded_frames": 325,
+            "events_handoff_admitted": 244,
+            "evidence_jpeg_encoded": 123,
+            "fire_bgr_avoided_frames": 81,
+            "fire_model_system_memory_frames": 81,
+            "gait_inference_avoided": 14,
+            "gait_inference_eligible": 2,
+            "handoff_admitted": 244,
+            "inference_frames": 324,
+            "primary_bgr_avoided_frames": 16,
+            "primary_bgr_materialized_frames": 308,
+            "scene_embedding_computed": 21
+          },
+          "pending_admissions": 1,
+          "last_frame_age_seconds": 0.561
+        },
+        "capacity-02": {
+          "selected_fps": 8.419,
+          "inference_fps": 7.924,
+          "totals": {
+            "decoded_frames": 301,
+            "events_handoff_admitted": 215,
+            "evidence_jpeg_encoded": 117,
+            "fire_bgr_avoided_frames": 75,
+            "fire_model_system_memory_frames": 75,
+            "gait_inference_avoided": 14,
+            "gait_inference_eligible": 2,
+            "handoff_admitted": 215,
+            "inference_frames": 300,
+            "primary_bgr_avoided_frames": 16,
+            "primary_bgr_materialized_frames": 284,
+            "scene_embedding_computed": 20
+          },
+          "pending_admissions": 1,
+          "last_frame_age_seconds": 0.615
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 1739.89,
+      "camera_process_pss_mb": 1666.35,
+      "container_memory_mb": 2360.4,
+      "container_cpu_cores": 1.657,
+      "container_pids": 209,
+      "gpu_utilization_pct": 74.71,
+      "npu_utilization_pct": 27.86,
+      "handoff": {
+        "admitted": 487,
+        "durable": 487,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 29715.797749332
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 15.785,
+      "decode_target_ratio": 0.9866,
+      "aggregate_inference_fps": 15.785,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 7.913,
+          "inference_fps": 7.913,
+          "totals": {
+            "decoded_frames": 406,
+            "events_handoff_admitted": 326,
+            "evidence_jpeg_encoded": 154,
+            "fire_bgr_avoided_frames": 102,
+            "fire_model_system_memory_frames": 102,
+            "gait_inference_avoided": 33,
+            "gait_inference_eligible": 4,
+            "handoff_admitted": 326,
+            "inference_frames": 405,
+            "primary_bgr_avoided_frames": 16,
+            "primary_bgr_materialized_frames": 389,
+            "scene_embedding_computed": 26
+          },
+          "pending_admissions": 1,
+          "last_frame_age_seconds": 0.053
+        },
+        "capacity-02": {
+          "selected_fps": 7.872,
+          "inference_fps": 7.872,
+          "totals": {
+            "decoded_frames": 382,
+            "events_handoff_admitted": 309,
+            "evidence_jpeg_encoded": 147,
+            "fire_bgr_avoided_frames": 96,
+            "fire_model_system_memory_frames": 96,
+            "gait_inference_avoided": 22,
+            "gait_inference_eligible": 3,
+            "handoff_admitted": 309,
+            "inference_frames": 382,
+            "primary_bgr_avoided_frames": 16,
+            "primary_bgr_materialized_frames": 366,
+            "scene_embedding_computed": 25
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.479
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 1769.63,
+      "camera_process_pss_mb": 1696.1,
+      "container_memory_mb": 2378.28,
+      "container_cpu_cores": 1.43,
+      "container_pids": 209,
+      "gpu_utilization_pct": 73.04,
+      "npu_utilization_pct": 16.78,
+      "handoff": {
+        "admitted": 649,
+        "durable": 649,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 29725.804568974
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 15.651,
+      "decode_target_ratio": 0.9782,
+      "aggregate_inference_fps": 16.14,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 7.831,
+          "inference_fps": 8.32,
+          "totals": {
+            "decoded_frames": 487,
+            "events_handoff_admitted": 418,
+            "evidence_jpeg_encoded": 180,
+            "fire_bgr_avoided_frames": 122,
+            "fire_model_system_memory_frames": 122,
+            "gait_inference_avoided": 33,
+            "gait_inference_eligible": 4,
+            "handoff_admitted": 418,
+            "inference_frames": 487,
+            "primary_bgr_avoided_frames": 21,
+            "primary_bgr_materialized_frames": 466,
+            "scene_embedding_computed": 31
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.185
+        },
+        "capacity-02": {
+          "selected_fps": 7.82,
+          "inference_fps": 7.82,
+          "totals": {
+            "decoded_frames": 463,
+            "events_handoff_admitted": 395,
+            "evidence_jpeg_encoded": 172,
+            "fire_bgr_avoided_frames": 116,
+            "fire_model_system_memory_frames": 116,
+            "gait_inference_avoided": 33,
+            "gait_inference_eligible": 4,
+            "handoff_admitted": 395,
+            "inference_frames": 463,
+            "primary_bgr_avoided_frames": 20,
+            "primary_bgr_materialized_frames": 443,
+            "scene_embedding_computed": 30
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.378
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 1781.79,
+      "camera_process_pss_mb": 1708.25,
+      "container_memory_mb": 2390.84,
+      "container_cpu_cores": 1.666,
+      "container_pids": 209,
+      "gpu_utilization_pct": 74.93,
+      "npu_utilization_pct": 31.5,
+      "handoff": {
+        "admitted": 834,
+        "durable": 834,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 29735.813244089
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 16.277,
+      "decode_target_ratio": 1.0173,
+      "aggregate_inference_fps": 16.277,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 7.925,
+          "inference_fps": 7.925,
+          "totals": {
+            "decoded_frames": 568,
+            "events_handoff_admitted": 496,
+            "evidence_jpeg_encoded": 198,
+            "fire_bgr_avoided_frames": 142,
+            "fire_model_system_memory_frames": 142,
+            "gait_inference_avoided": 37,
+            "gait_inference_eligible": 4,
+            "handoff_admitted": 496,
+            "inference_frames": 568,
+            "primary_bgr_avoided_frames": 26,
+            "primary_bgr_materialized_frames": 542,
+            "scene_embedding_computed": 36
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.455
+        },
+        "capacity-02": {
+          "selected_fps": 8.352,
+          "inference_fps": 8.352,
+          "totals": {
+            "decoded_frames": 545,
+            "events_handoff_admitted": 462,
+            "evidence_jpeg_encoded": 190,
+            "fire_bgr_avoided_frames": 137,
+            "fire_model_system_memory_frames": 137,
+            "gait_inference_avoided": 37,
+            "gait_inference_eligible": 4,
+            "handoff_admitted": 462,
+            "inference_frames": 545,
+            "primary_bgr_avoided_frames": 26,
+            "primary_bgr_materialized_frames": 519,
+            "scene_embedding_computed": 35
+          },
+          "pending_admissions": 0,
+          "last_frame_age_seconds": 0.783
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 1781.88,
+      "camera_process_pss_mb": 1708.34,
+      "container_memory_mb": 2390.69,
+      "container_cpu_cores": 1.779,
+      "container_pids": 209,
+      "gpu_utilization_pct": 73.54,
+      "npu_utilization_pct": 29.61,
+      "handoff": {
+        "admitted": 983,
+        "durable": 983,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 29745.822602851
+    },
+    {
+      "ready": true,
+      "worker_running": true,
+      "camera_records": 2,
+      "camera_states": {
+        "healthy": 2
+      },
+      "cameras_with_recent_frames": 2,
+      "target_decode_fps": 16.0,
+      "aggregate_decode_fps": 16.35,
+      "decode_target_ratio": 1.0219,
+      "aggregate_inference_fps": 15.859,
+      "per_camera": {
+        "capacity-01": {
+          "selected_fps": 8.351,
+          "inference_fps": 7.86,
+          "totals": {
+            "decoded_frames": 650,
+            "events_handoff_admitted": 575,
+            "evidence_jpeg_encoded": 222,
+            "fire_bgr_avoided_frames": 163,
+            "fire_model_system_memory_frames": 163,
+            "gait_inference_avoided": 41,
+            "gait_inference_eligible": 4,
+            "handoff_admitted": 575,
+            "inference_frames": 649,
+            "primary_bgr_avoided_frames": 29,
+            "primary_bgr_materialized_frames": 620,
+            "scene_embedding_computed": 41
+          },
+          "pending_admissions": 1,
+          "last_frame_age_seconds": 0.814
+        },
+        "capacity-02": {
+          "selected_fps": 7.999,
+          "inference_fps": 7.999,
+          "totals": {
+            "decoded_frames": 626,
+            "events_handoff_admitted": 558,
+            "evidence_jpeg_encoded": 219,
+            "fire_bgr_avoided_frames": 157,
+            "fire_model_system_memory_frames": 157,
+            "gait_inference_avoided": 41,
+            "gait_inference_eligible": 4,
+            "handoff_admitted": 558,
+            "inference_frames": 625,
+            "primary_bgr_avoided_frames": 26,
+            "primary_bgr_materialized_frames": 599,
+            "scene_embedding_computed": 40
+          },
+          "pending_admissions": 1,
+          "last_frame_age_seconds": 0.149
+        }
+      },
+      "unique_camera_processes": 1,
+      "camera_process_rss_mb": 1781.92,
+      "camera_process_pss_mb": 1708.39,
+      "container_memory_mb": 2390.78,
+      "container_cpu_cores": 1.329,
+      "container_pids": 209,
+      "gpu_utilization_pct": 72.35,
+      "npu_utilization_pct": 14.86,
+      "handoff": {
+        "admitted": 1145,
+        "durable": 1145,
+        "duplicate": 0,
+        "backpressure": 0,
+        "coalesced": 0,
+        "exhausted": 0,
+        "protocol_errors": 0
+      },
+      "sample_phase": "steady",
+      "sample_monotonic_seconds": 29755.833690875
+    }
+  ],
+  "isolation": {
+    "requested": false,
+    "camera_number": null,
+    "target_interrupted": null,
+    "peers_healthy": null,
+    "target_recovered": null,
+    "passed": true,
+    "samples": []
+  },
+  "package_summary": {
+    "package_count": 1514,
+    "event_types": {
+      "camera_health": 9,
+      "scene_sample": 111,
+      "object_present": 252,
+      "zone_count": 94,
+      "person_feature_sample": 258,
+      "track_lost": 400,
+      "plate_read": 8,
+      "plate_outcome": 24,
+      "presence_recovered": 282,
+      "presence_ended_unknown": 74,
+      "zone_entry": 2
+    },
+    "evidence_objects": 627,
+    "embedding_objects": 369,
+    "embedding_profiles": {
+      "siglip2-base-v1": 111,
+      "transreid-ssl-v18.1": 214,
+      "adaface-ir101-v18.1": 33,
+      "gaitbase-v18.1": 11
+    }
+  },
+  "full_usecases_minimum_outputs_passed": true,
+  "artifact_directory": "/tmp/sentry-v8-capacity-2.clzgtqis"
+}
