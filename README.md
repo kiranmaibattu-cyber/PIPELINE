@@ -1,5 +1,26 @@
 # sentry_cv
 
+## Current multi-box branch: V8 QAFT INT8 candidate
+
+On `sentry_cv_multi`, the latest published candidate is:
+
+```text
+ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.11.05-v8-qaft-int8-candidate
+registry digest: sha256:53105b8a0c0654b9b50be6c6b7380223ac4f65588076c0c9ea9e32d6ecc1bd28
+```
+
+This is a tested development candidate with unresolved numerical fidelity,
+absolute timestamp, thermal and memory findings. Read the
+[validation report](model_updates/2026-11-05-qaft-int8/VALIDATION_REPORT.md) and
+[release/source/model instructions](model_updates/2026-11-05-qaft-int8/RELEASE.md).
+The latter identifies the exact source extracted from the immutable image,
+the separate development experiments, and complete downloadable model and
+validation archives. The V8 desired-state/local agent contract uses its
+documented V7 remote wire format. The V6 image and delivery descriptions below
+are historical single-box documentation, not this branch's current image.
+
+## Historical V6 snapshot
+
 Sentinel CV V6 edge runtime snapshot for the Intel Core Ultra 9 285H
 deployment profile.
 
