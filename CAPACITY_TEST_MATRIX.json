@@ -1,0 +1,442 @@
+{
+  "metadata": {
+    "title": "Capacity/use-case balance protocol with scene on every camera",
+    "date": "2026-11-05",
+    "status": "PLAN_ONLY_NOT_RUN",
+    "baseline_image": "ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.11.05-v8-qaft-int8-tlsfix2",
+    "baseline_registry_digest": "sha256:b5a5dc68db4cba9e2b18ec28c61175686189161b25f605b298c1241dbc4957fc",
+    "fps_per_camera": [
+      5,
+      8,
+      10
+    ],
+    "scene_required_every_camera": true,
+    "active_scene_interval_seconds": 2,
+    "quiet_scene_sweep_seconds": 5,
+    "configuration_camera_maximum": 50,
+    "configuration_maximum_is_not_capacity": true,
+    "aggregate_camera_target": "sum(desired camera FPS); N*FPS for equal rates",
+    "aggregate_active_scene_target": "N/2 samples, JPEGs and vectors per second before extra scopes/triggers",
+    "candidate_count_search": [
+      1,
+      2,
+      4,
+      8,
+      12,
+      16,
+      20,
+      24,
+      32,
+      40,
+      50
+    ],
+    "stop_and_refine_on_first_failure": true,
+    "repeat_informative_passing_boundary": true,
+    "native_resolutions_for_relevant_profiles": [
+      "1280x720",
+      "1920x1080",
+      "2560x1440",
+      "mixed supported native resolutions"
+    ],
+    "activity_profiles": [
+      "quiet (reported separately)",
+      "sparse-active",
+      "dense-people",
+      "dense-vehicles",
+      "mixed-active",
+      "short subject turnover",
+      "long stays"
+    ],
+    "input_transport_profiles": [
+      "RTSP",
+      "RTSPS legacy-compatible",
+      "RTSPS strict with valid trust",
+      "TCP MPEG-TS H264"
+    ],
+    "principal_control": {
+      "resolution": "1920x1080 native",
+      "activity": "busy and actually exercising declared analytics",
+      "scene_views_per_camera": 1
+    },
+    "execution_durations": {
+      "short_search_steady_seconds": [
+        120,
+        180
+      ],
+      "warmup": "measured and excluded; do not reuse one universal fixed compile time",
+      "selected_pre_soak_seconds": 600,
+      "selected_sustained_qualification_seconds": 3600,
+      "note": "Do not run every profile/count for an hour; longer qualification follows cheaper passing gates and the requested execution scope."
+    },
+    "rate_acceptance_proposed": [
+      {
+        "requested_fps": 5,
+        "minimum_cumulative_inference_fps": 4.75,
+        "minimum_10second_inference_fps": 4.5
+      },
+      {
+        "requested_fps": 8,
+        "minimum_cumulative_inference_fps": 7.6,
+        "minimum_10second_inference_fps": 7.2
+      },
+      {
+        "requested_fps": 10,
+        "minimum_cumulative_inference_fps": 9.5,
+        "minimum_10second_inference_fps": 9.0
+      }
+    ],
+    "scene_freshness_proposed": {
+      "p95_ms": 2000,
+      "p99_ms": 5000,
+      "boundary": "independently marked source/PES to complete agent acceptance; source capture/encoding and downstream Management excluded",
+      "sample_counts_required": true
+    },
+    "must_also_pass": [
+      "upper selection/unique-frame behavior",
+      "every-camera scene cadence and JPEG/vector completeness",
+      "independent source progress/no growing backlog",
+      "actual configured use-case execution",
+      "correct semantic events and associations",
+      "common-cutoff agent package accounting",
+      "bounded queues/retired state/memory",
+      "no unexplained native errors or CPU model/decode fallback",
+      "declared resource/thermal envelope and operational headroom"
+    ],
+    "metrics": [
+      "source bytes/PTS/incoming FPS",
+      "raw decode/selected/admitted/completed/quiet FPS per camera",
+      "actual detections/tracks/eligible ROIs and subject lifetimes",
+      "per-model calls and queue wait/depth/oldest age",
+      "preprocess/model-call/postprocess timing distributions",
+      "policy confirmation/candidate selection time",
+      "source conversion/crop/JPEG time and sizes",
+      "event/evidence/vector/package/ACK rates and bytes",
+      "CV scheduler admission/refusal/coalescing/retry/exhaustion",
+      "independent source-to-agent latency and signed UTC error",
+      "CPU cores/cgroup capacity/throttle counters",
+      "cgroup RAM and unique-process RSS/PSS/live state/surfaces/FDs/threads",
+      "GPU engine busy and scope/frequency/allocations where measurable",
+      "NPU supported busy/frequency/allocations and actual model placement",
+      "temperature/power/frequency/throttling",
+      "network and disk I/O/free-space pressure"
+    ],
+    "required_result_dimensions": [
+      "camera-count frontier at each5/8/10FPS/profile/resolution/activity",
+      "fixed-camera-count additional-use-case frontier",
+      "mixed-role/partial-fleet identity and ANPR frontier",
+      "per-camera worst FPS and scene freshness",
+      "actual workload/model call coverage",
+      "stage/resource/thermal bottleneck evidence",
+      "short test versus sustained-qualified/recommended counts",
+      "passing/failing/untested counts and stop reasons"
+    ],
+    "delivery_scope": "CV package to compatible agent API, not downstream Management storage/search",
+    "no_tests_started": true
+  },
+  "uniform_profiles": [
+    {
+      "profile_id": "S",
+      "title": "Scene floor",
+      "required_apps": [
+        "scene_search"
+      ],
+      "additional_apps_count": 0,
+      "identity_embedding_profile_ids": [],
+      "scene_embedding_profile_id": "siglip2-base-v1",
+      "scene_enabled_every_camera": true,
+      "active_scene_interval_seconds": 2,
+      "quiet_scene_sweep_seconds": 5,
+      "scene_views_per_camera_control": 1,
+      "note": "Profile descriptor only; generate and validate full desired-state bindings/geometry before a run. Actual fixed native-stage work and eligible ROI demand must be measured."
+    },
+    {
+      "profile_id": "SP",
+      "title": "Scene plus person/vehicle presence and supported dwell episodes",
+      "required_apps": [
+        "scene_search",
+        "person_presence",
+        "vehicle_presence"
+      ],
+      "additional_apps_count": 2,
+      "identity_embedding_profile_ids": [],
+      "scene_embedding_profile_id": "siglip2-base-v1",
+      "scene_enabled_every_camera": true,
+      "active_scene_interval_seconds": 2,
+      "quiet_scene_sweep_seconds": 5,
+      "scene_views_per_camera_control": 1,
+      "note": "Profile descriptor only; generate and validate full desired-state bindings/geometry before a run. Actual fixed native-stage work and eligible ROI demand must be measured."
+    },
+    {
+      "profile_id": "SC",
+      "title": "Scene plus person/vehicle visible counts",
+      "required_apps": [
+        "scene_search",
+        "people_counting",
+        "vehicle_counting"
+      ],
+      "additional_apps_count": 2,
+      "identity_embedding_profile_ids": [],
+      "scene_embedding_profile_id": "siglip2-base-v1",
+      "scene_enabled_every_camera": true,
+      "active_scene_interval_seconds": 2,
+      "quiet_scene_sweep_seconds": 5,
+      "scene_views_per_camera_control": 1,
+      "note": "Profile descriptor only; generate and validate full desired-state bindings/geometry before a run. Actual fixed native-stage work and eligible ROI demand must be measured."
+    },
+    {
+      "profile_id": "SX",
+      "title": "Scene plus presence/count/entry-exit",
+      "required_apps": [
+        "scene_search",
+        "person_presence",
+        "vehicle_presence",
+        "people_counting",
+        "vehicle_counting",
+        "people_entry_exit_counts",
+        "vehicle_entry_exit_counts"
+      ],
+      "additional_apps_count": 6,
+      "identity_embedding_profile_ids": [],
+      "scene_embedding_profile_id": "siglip2-base-v1",
+      "scene_enabled_every_camera": true,
+      "active_scene_interval_seconds": 2,
+      "quiet_scene_sweep_seconds": 5,
+      "scene_views_per_camera_control": 1,
+      "note": "Profile descriptor only; generate and validate full desired-state bindings/geometry before a run. Actual fixed native-stage work and eligible ROI demand must be measured."
+    },
+    {
+      "profile_id": "SIF",
+      "title": "Scene plus face identity",
+      "required_apps": [
+        "scene_search",
+        "person_identity"
+      ],
+      "additional_apps_count": 1,
+      "identity_embedding_profile_ids": [
+        "adaface-ir101-v18.1"
+      ],
+      "scene_embedding_profile_id": "siglip2-base-v1",
+      "scene_enabled_every_camera": true,
+      "active_scene_interval_seconds": 2,
+      "quiet_scene_sweep_seconds": 5,
+      "scene_views_per_camera_control": 1,
+      "note": "Profile descriptor only; generate and validate full desired-state bindings/geometry before a run. Actual fixed native-stage work and eligible ROI demand must be measured."
+    },
+    {
+      "profile_id": "SIB",
+      "title": "Scene plus body identity",
+      "required_apps": [
+        "scene_search",
+        "person_identity"
+      ],
+      "additional_apps_count": 1,
+      "identity_embedding_profile_ids": [
+        "transreid-ssl-v18.1"
+      ],
+      "scene_embedding_profile_id": "siglip2-base-v1",
+      "scene_enabled_every_camera": true,
+      "active_scene_interval_seconds": 2,
+      "quiet_scene_sweep_seconds": 5,
+      "scene_views_per_camera_control": 1,
+      "note": "Profile descriptor only; generate and validate full desired-state bindings/geometry before a run. Actual fixed native-stage work and eligible ROI demand must be measured."
+    },
+    {
+      "profile_id": "SIFB",
+      "title": "Scene plus face/body identity",
+      "required_apps": [
+        "scene_search",
+        "person_identity"
+      ],
+      "additional_apps_count": 1,
+      "identity_embedding_profile_ids": [
+        "adaface-ir101-v18.1",
+        "transreid-ssl-v18.1"
+      ],
+      "scene_embedding_profile_id": "siglip2-base-v1",
+      "scene_enabled_every_camera": true,
+      "active_scene_interval_seconds": 2,
+      "quiet_scene_sweep_seconds": 5,
+      "scene_views_per_camera_control": 1,
+      "note": "Profile descriptor only; generate and validate full desired-state bindings/geometry before a run. Actual fixed native-stage work and eligible ROI demand must be measured."
+    },
+    {
+      "profile_id": "SIFBG",
+      "title": "Scene plus face/body/gait identity",
+      "required_apps": [
+        "scene_search",
+        "person_identity"
+      ],
+      "additional_apps_count": 1,
+      "identity_embedding_profile_ids": [
+        "adaface-ir101-v18.1",
+        "transreid-ssl-v18.1",
+        "gaitbase-v18.1"
+      ],
+      "scene_embedding_profile_id": "siglip2-base-v1",
+      "scene_enabled_every_camera": true,
+      "active_scene_interval_seconds": 2,
+      "quiet_scene_sweep_seconds": 5,
+      "scene_views_per_camera_control": 1,
+      "note": "Profile descriptor only; generate and validate full desired-state bindings/geometry before a run. Actual fixed native-stage work and eligible ROI demand must be measured."
+    },
+    {
+      "profile_id": "SV",
+      "title": "Scene plus vehicle presence/ANPR",
+      "required_apps": [
+        "scene_search",
+        "vehicle_presence",
+        "anpr"
+      ],
+      "additional_apps_count": 2,
+      "identity_embedding_profile_ids": [],
+      "scene_embedding_profile_id": "siglip2-base-v1",
+      "scene_enabled_every_camera": true,
+      "active_scene_interval_seconds": 2,
+      "quiet_scene_sweep_seconds": 5,
+      "scene_views_per_camera_control": 1,
+      "note": "Profile descriptor only; generate and validate full desired-state bindings/geometry before a run. Actual fixed native-stage work and eligible ROI demand must be measured."
+    },
+    {
+      "profile_id": "SVX",
+      "title": "Scene plus complete vehicle role",
+      "required_apps": [
+        "scene_search",
+        "vehicle_presence",
+        "vehicle_counting",
+        "vehicle_entry_exit_counts",
+        "anpr"
+      ],
+      "additional_apps_count": 4,
+      "identity_embedding_profile_ids": [],
+      "scene_embedding_profile_id": "siglip2-base-v1",
+      "scene_enabled_every_camera": true,
+      "active_scene_interval_seconds": 2,
+      "quiet_scene_sweep_seconds": 5,
+      "scene_views_per_camera_control": 1,
+      "note": "Profile descriptor only; generate and validate full desired-state bindings/geometry before a run. Actual fixed native-stage work and eligible ROI demand must be measured."
+    },
+    {
+      "profile_id": "SH",
+      "title": "Scene plus fire/smoke",
+      "required_apps": [
+        "scene_search",
+        "fire_smoke"
+      ],
+      "additional_apps_count": 1,
+      "identity_embedding_profile_ids": [],
+      "scene_embedding_profile_id": "siglip2-base-v1",
+      "scene_enabled_every_camera": true,
+      "active_scene_interval_seconds": 2,
+      "quiet_scene_sweep_seconds": 5,
+      "scene_views_per_camera_control": 1,
+      "note": "Profile descriptor only; generate and validate full desired-state bindings/geometry before a run. Actual fixed native-stage work and eligible ROI demand must be measured."
+    },
+    {
+      "profile_id": "SA",
+      "title": "Scene plus all declared applications",
+      "required_apps": [
+        "scene_search",
+        "vehicle_counting",
+        "vehicle_entry_exit_counts",
+        "vehicle_presence",
+        "anpr",
+        "people_counting",
+        "people_entry_exit_counts",
+        "person_presence",
+        "line_crossing",
+        "person_identity",
+        "fire_smoke"
+      ],
+      "additional_apps_count": 10,
+      "identity_embedding_profile_ids": [
+        "adaface-ir101-v18.1",
+        "transreid-ssl-v18.1",
+        "gaitbase-v18.1"
+      ],
+      "scene_embedding_profile_id": "siglip2-base-v1",
+      "scene_enabled_every_camera": true,
+      "active_scene_interval_seconds": 2,
+      "quiet_scene_sweep_seconds": 5,
+      "scene_views_per_camera_control": 1,
+      "note": "Profile descriptor only; generate and validate full desired-state bindings/geometry before a run. Actual fixed native-stage work and eligible ROI demand must be measured."
+    }
+  ],
+  "mixed_profiles": [
+    {
+      "profile_id": "M-identity-25",
+      "mandatory_base": "S",
+      "expensive_profile": "SIFBG",
+      "nominal_expensive_share_percent": 25,
+      "assignment_rule": "Declare the exact per-camera integer role map before execution and report actual fraction after rounding; all cameras keep scene.",
+      "execution_status": "NOT_RUN"
+    },
+    {
+      "profile_id": "M-identity-50",
+      "mandatory_base": "S",
+      "expensive_profile": "SIFBG",
+      "nominal_expensive_share_percent": 50,
+      "assignment_rule": "Declare the exact per-camera integer role map before execution and report actual fraction after rounding; all cameras keep scene.",
+      "execution_status": "NOT_RUN"
+    },
+    {
+      "profile_id": "M-identity-75",
+      "mandatory_base": "S",
+      "expensive_profile": "SIFBG",
+      "nominal_expensive_share_percent": 75,
+      "assignment_rule": "Declare the exact per-camera integer role map before execution and report actual fraction after rounding; all cameras keep scene.",
+      "execution_status": "NOT_RUN"
+    },
+    {
+      "profile_id": "M-identity-100",
+      "mandatory_base": "S",
+      "expensive_profile": "SIFBG",
+      "nominal_expensive_share_percent": 100,
+      "assignment_rule": "Declare the exact per-camera integer role map before execution and report actual fraction after rounding; all cameras keep scene.",
+      "execution_status": "NOT_RUN"
+    },
+    {
+      "profile_id": "M-vehicle-25",
+      "mandatory_base": "S",
+      "expensive_profile": "SVX",
+      "nominal_expensive_share_percent": 25,
+      "assignment_rule": "Declare the exact per-camera integer role map before execution and report actual fraction after rounding; all cameras keep scene.",
+      "execution_status": "NOT_RUN"
+    },
+    {
+      "profile_id": "M-vehicle-50",
+      "mandatory_base": "S",
+      "expensive_profile": "SVX",
+      "nominal_expensive_share_percent": 50,
+      "assignment_rule": "Declare the exact per-camera integer role map before execution and report actual fraction after rounding; all cameras keep scene.",
+      "execution_status": "NOT_RUN"
+    },
+    {
+      "profile_id": "M-vehicle-75",
+      "mandatory_base": "S",
+      "expensive_profile": "SVX",
+      "nominal_expensive_share_percent": 75,
+      "assignment_rule": "Declare the exact per-camera integer role map before execution and report actual fraction after rounding; all cameras keep scene.",
+      "execution_status": "NOT_RUN"
+    },
+    {
+      "profile_id": "M-vehicle-100",
+      "mandatory_base": "S",
+      "expensive_profile": "SVX",
+      "nominal_expensive_share_percent": 100,
+      "assignment_rule": "Declare the exact per-camera integer role map before execution and report actual fraction after rounding; all cameras keep scene.",
+      "execution_status": "NOT_RUN"
+    },
+    {
+      "profile_id": "M-balanced",
+      "mandatory_base": "S",
+      "role_profiles": [
+        "SIFBG",
+        "SVX",
+        "SX",
+        "SH"
+      ],
+      "assignment_rule": "Declare counts and camera IDs for each role before execution; report actual proportions, rates and resolutions.",
+      "execution_status": "NOT_RUN"
+    }
+  ]
+}

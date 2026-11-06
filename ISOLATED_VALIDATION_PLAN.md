@@ -1,5 +1,7 @@
 # Opt79 isolated-host validation plan
 
+Forward regression work uses [PIPELINE_TEST_PLAN.md](PIPELINE_TEST_PLAN.md), its 282-case matrix and execution ledger. This file remains the completed historical Opt79 campaign plan; it is not the checklist or a passing verdict for the latest image.
+
 Prepared 2026-11-05 (Asia/Kolkata). Campaign completed; see [final report](ISOLATED_VALIDATION_REPORT.md) for actual results and exclusions. Target host: `192.168.1.64`, user `admin1`, working directory under `/home/admin1/Documents`. Credentials must not be written into this plan, handoff, commands saved as artifacts, or logs.
 
 This is a finite, reproducible validation campaign. It covers the scenarios below; unrun, unavailable and blocked cases must be explicit. It cannot certify every possible camera or indefinite operation. The plan was prepared before execution. Current execution state and exceptions are recorded in `OPTIMIZATION_HANDOFF.md` and the remote ledger; this document is not a live completion claim.
