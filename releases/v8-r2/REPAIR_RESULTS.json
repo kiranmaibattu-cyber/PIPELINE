@@ -1,0 +1,72 @@
+{
+  "recorded_at": "2026-11-06T07:47:52.257796+00:00",
+  "image": "ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.11.06-v8-qaft-int8-reconnect2",
+  "image_id": "e5ce6194581be39b0732ec4b8a486cfbea22bb32e76b82338bc1df92bc473bf7",
+  "local_manifest_digest": "sha256:f82000d80084517537a5b014e8228f48815e47962f0ff9fd31002acb448e4718",
+  "registry_published": false,
+  "production_deployed": false,
+  "source_recovery": {
+    "passed": true,
+    "interruptions": 2,
+    "outage_seconds_each": 18,
+    "peer_healthy_and_same_worker": true,
+    "verified_recoveries": 2,
+    "package_sessions_match": {
+      "capacity-01": true,
+      "capacity-02": true
+    },
+    "accepted_packages": 1321,
+    "evidence_bytes": 102293195,
+    "embedding_count": 55
+  },
+  "native_stall": {
+    "passed": true,
+    "initial_worker_pid": 47,
+    "replacement_worker_pid": 429,
+    "package_sessions_match": {
+      "capacity-01": true,
+      "capacity-02": true
+    },
+    "accepted_packages": 500,
+    "evidence_bytes": 41155067,
+    "embedding_count": 36
+  },
+  "tcp_regression": {
+    "passed": true,
+    "source": "controlled H264 MP4 replay over TCP MPEG-TS",
+    "fps_target": 4,
+    "steady_seconds": 30,
+    "selected_fps_measured": 4.237042227748328,
+    "package_summary": {
+      "package_count": 17,
+      "event_types": {
+        "camera_health": 2,
+        "zone_count": 6,
+        "scene_sample": 9
+      },
+      "evidence_objects": 9,
+      "embedding_objects": 9,
+      "embedding_profiles": {
+        "siglip2-base-v1": 9
+      }
+    }
+  },
+  "baked_unit_tests": {
+    "passed": 167,
+    "deselected": 1,
+    "uncollected_repository_only_opt80_module": true
+  },
+  "baked_policy_scenarios_passed": 30,
+  "artifact_parity": {
+    "image_refs": {
+      "base": "ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.11.05-v8-qaft-int8-tlsfix2",
+      "repair": "ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.11.06-v8-qaft-int8-reconnect2"
+    },
+    "artifact_count": 73,
+    "model_artifacts": 32,
+    "contract_schema_policy_artifacts": 41,
+    "different_artifacts": [],
+    "models_and_embedded_contract_policy_identical": true
+  },
+  "scope": "Recovery, diagnostics and API package validity; not maximum capacity, identity/ANPR/hazard accuracy, real-agent fsync or remote Management delivery. Original BLR first interruption trigger remains unconfirmed."
+}

@@ -947,6 +947,7 @@ def _camera_group_proc(
     redis_port: int,
     stream_key: str,
     delivery_channels: dict[str, Any],
+    watchdog_channel=None,
 ) -> None:
     """Run one bounded native graph with process-local shared GVA models.
 
@@ -956,6 +957,34 @@ def _camera_group_proc(
     camera boundary.
     """
     _configure_camera_child_process()
+    # A native state transition may block a camera thread (or the GIL). The
+    # fleet parent checks this channel independently of the graph process.
+    coordinator_box = [None]
+
+    def native_watchdog() -> None:
+        while True:
+            if watchdog_channel is not None:
+                watchdog_channel["heartbeat"].value = time.monotonic()
+            coordinator = coordinator_box[0]
+            if coordinator is not None:
+                snapshot = coordinator.watchdog_snapshot(
+                    recovery_timeout=float(os.getenv("SENTINEL_NATIVE_RECOVERY_TIMEOUT_SECONDS", "45")),
+                    processing_timeout=float(os.getenv("SENTINEL_NATIVE_PROCESSING_TIMEOUT_SECONDS", "120")),
+                )
+                if watchdog_channel is not None:
+                    watchdog_channel["recovering"].value = int(snapshot["recovering"])
+                if snapshot["rebuild_request"] is not None:
+                    request = snapshot["rebuild_request"]
+                    log_event(log, logging.ERROR, "native_graph_watchdog_fenced",
+                              "native graph fenced; fleet parent will replace the worker",
+                              dlstreamer_group=group_index, **request)
+                    if watchdog_channel is not None:
+                        watchdog_channel["restart_requested"].value = 1
+                        return
+                    os._exit(70)
+            time.sleep(1.0)
+
+    threading.Thread(target=native_watchdog, name="native-graph-watchdog", daemon=True).start()
     os.environ["SENTINEL_CAMERA_GROUP_MODE"] = "true"
     os.environ["SENTINEL_DLSTREAMER_MODEL_SHARE_SCOPE"] = f"group-{group_index}"
     # One worker is already bounded to the validated process-local capacity, so
@@ -996,6 +1025,7 @@ def _camera_group_proc(
             "SENTINEL_MULTI_CAMERA_GST_STARTUP_TIMEOUT_SECONDS", "90"
         )),
     )
+    coordinator_box[0] = gst_coordinator
 
     failures: queue.Queue[tuple[str, BaseException | None]] = queue.Queue()
     threads: list[threading.Thread] = []
@@ -1120,7 +1150,8 @@ def _camera_group_proc(
             sys.stdout.flush()
             sys.stderr.flush()
         finally:
-            gst_coordinator.close()
+            # Running native teardown here can itself block indefinitely. The
+            # separate fleet parent owns replacement and agent handoff drain.
             os._exit(70)
 
 
@@ -1264,7 +1295,10 @@ def main() -> int:
     )
 
     def start_unit(unit_index: int, cameras: list[dict]):
+        watchdog_channel = None
         if grouped_dlstreamer:
+            from pipeline.native_watchdog import create_watchdog_channel
+            watchdog_channel = create_watchdog_channel(ctx)
             configs = {
                 camera["name"]: build_camera_config(camera)
                 for camera in cameras
@@ -1279,6 +1313,7 @@ def main() -> int:
                 daemon=False,
                 args=(
                     unit_index, cameras, configs, rhost, rport, skey, channels,
+                    watchdog_channel,
                 ),
             )
         else:
@@ -1301,6 +1336,7 @@ def main() -> int:
                 ),
             )
         process.start()
+        process.native_watchdog_channel = watchdog_channel
         for camera in cameras:
             increment_supervisor_status(
                 camera["name"], "process_starts", state="starting",
@@ -1384,7 +1420,23 @@ def main() -> int:
             for unit in units:
                 process = unit["process"]
                 if process.is_alive():
-                    if now - unit["started"] >= 30:
+                    from pipeline.native_watchdog import watchdog_failure
+                    channel = getattr(process, "native_watchdog_channel", None)
+                    failure = watchdog_failure(channel, now, timeout_seconds=float(os.getenv(
+                        "SENTINEL_NATIVE_WORKER_HEARTBEAT_TIMEOUT_SECONDS", "60"
+                    )))
+                    if failure:
+                        log_event(log, logging.ERROR, "native_worker_watchdog_restart",
+                                  "replacing unresponsive native graph process",
+                                  camera_process_pid=process.pid,
+                                  affected_camera_ids=[c["name"] for c in unit["cameras"]],
+                                  retry_reason=failure, dlstreamer_group=unit["index"])
+                        process.kill()
+                        process.join(timeout=1.0)
+                        # Reuse the normal restart/backoff path after reaping.
+                        continue
+                    if (now - unit["started"] >= 30
+                            and (not channel or not channel["recovering"].value)):
                         unit["restart_delay"] = 5.0
                     continue
                 if not unit["restart_scheduled"]:

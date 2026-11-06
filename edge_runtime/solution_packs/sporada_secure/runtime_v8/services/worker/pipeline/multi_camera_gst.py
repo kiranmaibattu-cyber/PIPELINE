@@ -5,9 +5,10 @@ production fleet therefore places the complete per-camera source graphs in one
 parent :class:`Gst.Pipeline` while retaining a separate ``Gst.Bin`` (and hence
 separate decoder, motion state, tracker and sinks) for every camera.
 
-The wrapper intentionally exposes only the small ``Gst.Pipeline`` surface used
-by ``surface_stream.run_surface_camera``.  A camera reconnect removes and
-recreates only its bin; peers and the parent pipeline remain PLAYING.
+The wrapper exposes the small ``Gst.Pipeline`` surface used by the camera
+worker. RTSP reconnects replace the network session only: VA decoders and
+shared inference stay PLAYING. A failed native graph is fenced and rebuilt
+by the separate process supervisor rather than recycled through READY.
 """
 
 from __future__ import annotations
@@ -17,6 +18,8 @@ import queue
 import threading
 import time
 from dataclasses import dataclass
+
+from pipeline.structured_logging import log_event, sanitize_text
 
 
 logger = logging.getLogger(__name__)
@@ -101,6 +104,9 @@ class MultiCameraGstPipeline:
         self._starting = False
         self._startup_owner: str | None = None
         self._closed = False
+        self._recoveries: dict[str, dict] = {}
+        self._traces: dict[str, object] = {}
+        self._rebuild_request: dict | None = None
         self._created_at = time.monotonic()
         self._bus_thread = threading.Thread(
             target=self._dispatch_bus,
@@ -267,42 +273,122 @@ class MultiCameraGstPipeline:
             self._condition.notify_all()
 
     def restart_branch(self, branch: CameraBranch) -> bool:
-        """Reconnect one source without destroying shared GVA elements.
+        """Request a fresh RTSP session without stopping native media elements.
 
-        Repeatedly removing a bin that owns a shared ``model-instance-id``
-        from a PLAYING Intel DL Streamer graph can destroy the process-wide
-        inference instance while peers still use it.  A camera outage instead
-        cycles the existing branch through READY and back to its parent state.
+        Return means only that the source transition was accepted. The camera
+        consumer must call recovery_completed after receiving a fresh frame.
+        Native calls can block; an independent parent watchdog bounds this phase.
         """
         Gst = self.Gst
         with self._condition:
-            while self._starting and not self._closed:
-                self._condition.wait(timeout=0.25)
             if self._closed or self._branches.get(branch.camera_id) is not branch:
                 return False
-            self._starting = True
-
-        succeeded = False
+            previous = self._recoveries.get(branch.camera_id) or {}
+            attempt = int(previous.get("attempt", 0)) + 1
+            now = time.monotonic()
+            self._recoveries[branch.camera_id] = {
+                "attempt": attempt,
+                "started": (previous["started"] if previous and not previous.get("verified") else now),
+                "call_started": now,
+                "phase": "source_stopping", "verified": False,
+            }
+        source = branch.get_by_name("camerasource")
+        if source is None:
+            self.request_rebuild(branch.camera_id, "native_branch_has_no_restartable_source")
+            return False
+        log_event(logger, logging.WARNING, "camera_source_restart_begin",
+                  "restarting RTSP session while retaining native media graph",
+                  camera_id=branch.camera_id, attempt=attempt,
+                  recovery_phase="source_stopping")
         try:
-            branch.synced_with_parent = False
-            branch.bin.set_state(Gst.State.READY)
-            branch.bin.get_state(int(3 * Gst.SECOND))
+            result = source.set_state(Gst.State.NULL)
+            if result == Gst.StateChangeReturn.FAILURE:
+                self.request_rebuild(branch.camera_id, "rtsp_source_stop_rejected")
+                return False
+            # Clear stop/PAUSE errors only after logging them on the bus. They
+            # must not masquerade as failures of the newly opened session.
             self._clear_messages(branch.camera_id)
-            succeeded = bool(branch.bin.sync_state_with_parent())
-            if succeeded:
-                # Do not wait for source preroll: a disconnected live source
-                # may remain ASYNC until data returns.  The camera loop owns
-                # timeout/backoff and peers continue on the parent graph.
-                branch.synced_with_parent = True
-            return succeeded
-        finally:
             with self._condition:
-                self._starting = False
-                self._condition.notify_all()
-            logger.info(
-                "restarted camera branch %s in place success=%s",
-                branch.camera_id, succeeded,
-            )
+                self._recoveries[branch.camera_id]["phase"] = "source_starting"
+            accepted = bool(source.sync_state_with_parent())
+            with self._condition:
+                self._recoveries[branch.camera_id]["phase"] = (
+                    "awaiting_fresh_frame" if accepted else "source_transition_rejected"
+                )
+            log_event(logger, logging.INFO if accepted else logging.WARNING,
+                      "camera_source_restart_requested",
+                      "RTSP source state transition requested; fresh frame not yet verified",
+                      camera_id=branch.camera_id, attempt=attempt,
+                      transition_accepted=accepted, recovery_verified=False)
+            return accepted
+        except BaseException:
+            # Do not use the fleet-wide _starting latch for network recovery.
+            # One slow/disconnected source must not serialize peer restarts.
+            with self._condition:
+                self._recoveries[branch.camera_id]["phase"] = "source_restart_exception"
+            raise
+
+    def attach_trace(self, camera_id, trace) -> None:
+        with self._condition:
+            self._traces[camera_id] = trace
+
+    def recovery_completed(self, camera_id, pts, received_at) -> None:
+        with self._condition:
+            state = self._recoveries.get(camera_id)
+            if not state or state.get("verified"):
+                return
+            state.update(phase="recovered", verified=True)
+            attempt = state["attempt"]
+            elapsed = time.monotonic() - state["started"]
+        log_event(logger, logging.INFO, "camera_recovery_verified",
+                  "fresh admitted frame received after RTSP recovery",
+                  camera_id=camera_id, attempt=attempt, recovery_verified=True,
+                  recovery_seconds=round(elapsed, 3), frame_pts_ns=int(pts),
+                  frame_received_at=received_at)
+
+    def request_rebuild(self, camera_id, reason, **evidence) -> None:
+        with self._condition:
+            if self._rebuild_request is None:
+                self._rebuild_request = {"camera_id": camera_id, "reason": reason,
+                                         "stream_session_id": getattr(self._traces.get(camera_id), "session_id", None),
+                                         **evidence}
+        log_event(logger, logging.ERROR, "native_graph_rebuild_requested",
+                  "native graph requires supervised process replacement",
+                  camera_id=camera_id, retry_reason=reason, **evidence)
+
+    def watchdog_snapshot(self, recovery_timeout=45.0, processing_timeout=120.0):
+        # Only Python state is queried. Never call a native get_state here:
+        # even its nominal timeout cannot bound a blocked native state mutex.
+        now = time.monotonic()
+        with self._condition:
+            request = self._rebuild_request
+            pending = {key: dict(value) for key, value in self._recoveries.items()
+                       if not value.get("verified")}
+            traces = dict(self._traces)
+        for camera_id, recovery in pending.items():
+            if (recovery["phase"] in {"source_stopping", "source_starting"}
+                    and now - recovery.get("call_started", recovery["started"]) > recovery_timeout):
+                request = {"camera_id": camera_id, "reason": "native_source_restart_deadline",
+                           "recovery_phase": recovery["phase"],
+                           "attempt": recovery["attempt"]}
+            if (recovery["phase"] == "awaiting_fresh_frame"
+                    and now - recovery["started"] > recovery_timeout):
+                trace = traces.get(camera_id)
+                progress = trace.snapshot() if trace is not None else {}
+                stages = progress.get("stages", {})
+                input_age = stages.get("source.video", {}).get("age_seconds")
+                live_input = input_age is not None and input_age < 10
+                if live_input:
+                    request = {"camera_id": camera_id,
+                               "reason": "live_input_without_recovered_native_output",
+                               "native_progress": progress, "attempt": recovery["attempt"]}
+        for camera_id, trace in traces.items():
+            snap = trace.snapshot()
+            if (snap["camera_phase"] in {"frame_processing", "plate_detection", "event_policy"}
+                    and snap["phase_age_seconds"] > processing_timeout):
+                request = {"camera_id": camera_id, "reason": "camera_processing_deadline",
+                           "native_progress": snap}
+        return {"recovering": bool(pending), "rebuild_request": request}
 
     def _clear_messages(self, camera_id: str) -> None:
         messages = self._messages.get(str(camera_id))
@@ -345,7 +431,7 @@ class MultiCameraGstPipeline:
     def _dispatch_bus(self) -> None:
         Gst = self.Gst
         bus = self.pipeline.get_bus()
-        mask = Gst.MessageType.ERROR | Gst.MessageType.EOS
+        mask = Gst.MessageType.ERROR | Gst.MessageType.WARNING | Gst.MessageType.EOS
         while True:
             with self._condition:
                 if self._closed:
@@ -354,6 +440,21 @@ class MultiCameraGstPipeline:
             if message is None:
                 continue
             camera_id = self._camera_for_source(message.src)
+            if message.type in (Gst.MessageType.ERROR, Gst.MessageType.WARNING):
+                error, debug = (message.parse_error() if message.type == Gst.MessageType.ERROR
+                                else message.parse_warning())
+                trace = self._traces.get(camera_id)
+                log_event(logger, logging.ERROR if message.type == Gst.MessageType.ERROR else logging.WARNING,
+                          "native_pipeline_error" if message.type == Gst.MessageType.ERROR else "native_pipeline_warning",
+                          "GStreamer native diagnostic", camera_id=camera_id,
+                          stream_session_id=getattr(trace, "session_id", None),
+                          native_element=message.src.get_name() if message.src else None,
+                          native_error=sanitize_text(error, limit=2048),
+                          native_debug=sanitize_text(debug or "", limit=4096),
+                          recovery_phase=(self._recoveries.get(camera_id) or {}).get("phase"),
+                          native_progress=trace.snapshot() if trace is not None else None)
+                if message.type == Gst.MessageType.WARNING:
+                    continue
             if camera_id is not None:
                 self._messages.setdefault(camera_id, queue.Queue()).put(message)
             elif message.type == Gst.MessageType.ERROR:

@@ -1,13 +1,15 @@
 # sentry_cv
 
-## Current multi-box branch: V8 QAFT INT8 candidate
+## Current multi-box branch: V8 recovery repair
 
 On `sentry_cv_multi`, the latest published candidate is:
 
 ```text
-ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.11.05-v8-qaft-int8-tlsfix2
-registry digest: sha256:b5a5dc68db4cba9e2b18ec28c61175686189161b25f605b298c1241dbc4957fc
+ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:v8-r2
+registry digest: sha256:e8baec1ad054312f0081deb4bf6d34c7c8cc3bfb38516a3582d3d2fed32b4629
 ```
+
+This release repairs native source reconnection and adds verified recovery, external worker supervision and stage diagnostics. See the [V8 r2 release record](releases/v8-r2/RELEASE.md) and [diagnosis/log guide](MANAGEMENT_BLR_DECODER_STALL.md). Models and production gates are unchanged.
 
 RTSPS defaults to the user-selected legacy-compatible behavior, matching dev3: encrypted connections without server-certificate verification. Strict mode remains available. See the [RTSPS repair and deployment instructions](model_updates/2026-11-05-rtsps-compatibility-fix/DEPLOYMENT.md) and [repair tests](model_updates/2026-11-05-rtsps-compatibility-fix/REPAIR_REPORT.md).
 
@@ -20,6 +22,8 @@ the separate development experiments, and complete downloadable model and
 validation archives. The V8 desired-state/local agent contract uses its
 documented V7 remote wire format. The V6 image and delivery descriptions below
 are historical single-box documentation, not this branch's current image.
+
+Forward regression and edge-case coverage: [test plan and 282-case catalog](PIPELINE_TEST_PLAN.md), [machine-readable matrix](PIPELINE_TEST_MATRIX.json), and [execution ledger](PIPELINE_TEST_LEDGER.csv). The catalog is not a claim that every case passed. Executed coverage and incomplete/failed cases are recorded in [the execution coverage](REMOTE64_TEST_COVERAGE.md) and [the provisional isolated-host report](REMOTE64_TLSFIX2_VALIDATION_REPORT.md); that campaign remains deferred after the host freeze. Dedicated [5/8/10 FPS capacity and use-case protocol](CAPACITY_TEST_PROTOCOL.md), [profile matrix](CAPACITY_TEST_MATRIX.json) and [empty result table](CAPACITY_RESULTS_TEMPLATE.csv) keep scene enabled on every camera.
 
 ## Historical V6 snapshot
 
@@ -186,3 +190,6 @@ podman push ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.10.3
 - `SESSION_CONTINUITY_RECORD.md`: detailed chronology, current implementation
   truth, test evidence, repository rules, and unresolved work from the ongoing
   design and validation sessions.
+
+
+Native reconnect repair: the published short tag is `v8-r2`, pointing to the tested `intel-285h-2026.11.06-v8-qaft-int8-reconnect2` image. The frozen-base build is [scripts/build_sentinel_v8_reconnect_image.sh](scripts/build_sentinel_v8_reconnect_image.sh); choose a new unused `SENTINEL_IMAGE_VERSION` when rebuilding. Recovery behavior, diagnostic event names, exact test scope and current publication status are recorded in [MANAGEMENT_BLR_DECODER_STALL.md](MANAGEMENT_BLR_DECODER_STALL.md).

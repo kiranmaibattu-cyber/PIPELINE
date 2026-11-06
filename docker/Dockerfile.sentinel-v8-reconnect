@@ -1,0 +1,15 @@
+# Repair the qualified QAFT/TLS image without changing its dependencies/models.
+ARG SENTINEL_REPAIR_BASE=ghcr.io/kiranmaibattu-cyber/sentinel-cv-runtime:intel-285h-2026.11.05-v8-qaft-int8-tlsfix2
+FROM ${SENTINEL_REPAIR_BASE}
+USER 0
+COPY --chown=10001:10001 edge_runtime/solution_packs/sporada_secure/runtime_v8/services/worker/pipeline/multi_camera_gst.py edge_runtime/solution_packs/sporada_secure/runtime_v8/services/worker/pipeline/dlstreamer_bridge.py edge_runtime/solution_packs/sporada_secure/runtime_v8/services/worker/pipeline/surface_stream.py edge_runtime/solution_packs/sporada_secure/runtime_v8/services/worker/pipeline/rtsp_source.py edge_runtime/solution_packs/sporada_secure/runtime_v8/services/worker/pipeline/native_watchdog.py edge_runtime/solution_packs/sporada_secure/runtime_v8/services/worker/pipeline/native_progress.py edge_runtime/solution_packs/sporada_secure/runtime_v8/services/worker/pipeline/structured_logging.py /opt/traffic-pilot/services/worker/pipeline/
+COPY --chown=10001:10001 edge_runtime/solution_packs/sporada_secure/runtime_v8/services/worker/stream_fleet_openvino.py /opt/traffic-pilot/services/worker/stream_fleet_openvino.py
+COPY --chown=10001:10001 edge_runtime/solution_packs/sporada_secure/runtime_v8/traffic_pilot_runtime/solution_image_entrypoint.py /opt/traffic-pilot/traffic_pilot_runtime/solution_image_entrypoint.py
+RUN python3 -m py_compile /opt/traffic-pilot/services/worker/pipeline/multi_camera_gst.py /opt/traffic-pilot/services/worker/pipeline/dlstreamer_bridge.py /opt/traffic-pilot/services/worker/pipeline/surface_stream.py /opt/traffic-pilot/services/worker/pipeline/rtsp_source.py /opt/traffic-pilot/services/worker/pipeline/native_watchdog.py /opt/traffic-pilot/services/worker/pipeline/native_progress.py /opt/traffic-pilot/services/worker/pipeline/structured_logging.py /opt/traffic-pilot/services/worker/stream_fleet_openvino.py /opt/traffic-pilot/traffic_pilot_runtime/solution_image_entrypoint.py
+ARG IMAGE_VERSION
+ARG REPAIR_BASE_ID
+LABEL org.opencontainers.image.version="${IMAGE_VERSION}" \
+      io.apexfabric.repair.base-id="${REPAIR_BASE_ID}" \
+      io.apexfabric.recovery.mode="source-session-reconnect-with-native-worker-watchdog" \
+      io.apexfabric.logs.native-progress="bounded-default-30s-and-on-failure"
+USER 10001:10001

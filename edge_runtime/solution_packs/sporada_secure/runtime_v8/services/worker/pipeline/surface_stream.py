@@ -1015,6 +1015,7 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
     tcp_feeder = None
 
     native_trace = None
+    rtsp_video_link = None
 
     def build_pipeline():
         nonlocal native_trace
@@ -1049,7 +1050,7 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
         elif is_rtsp:
             decoder = f'va{codec}dec' if dls_authoritative else f'vaapi{codec}dec'
             src = (f'rtspsrc name=camerasource location={location} protocols=tcp latency=100 ! '
-                   f'rtp{codec}depay ! {codec}parse ! {decoder} name=decoder')
+                   f'rtp{codec}depay name=videodepay ! {codec}parse name=videoparser ! {decoder} name=decoder')
         elif Path(uri).suffix.lower() in ('.mp4', '.mov', '.m4v'):
             decoder = f'va{codec}dec' if dls_authoritative else f'vaapi{codec}dec'
             src = f'filesrc location={location} ! qtdemux ! {codec}parse ! {decoder} name=decoder'
@@ -1124,7 +1125,7 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                     # Put every decoder surface through VA post-processing so
                     # all camera branches negotiate the process-wide VA
                     # display context required by a shared GVA model instance.
-                    src + ' ! vapostproc ! '
+                    src + ' ! vapostproc name=postproc ! '
                     'video/x-raw(memory:VAMemory),format=NV12 ! '
                     'tee name=source '
                 )
@@ -1152,7 +1153,7 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                 )
             else:
                 source_head = (
-                    src + ' ! vapostproc ! '
+                    src + ' ! vapostproc name=postproc ! '
                     'video/x-raw(memory:VAMemory),format=NV12 ! '
                 )
                 primary_head = ''
@@ -1173,7 +1174,7 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                 f'threshold={vehicle_confidence} nireq={nireq} '
                 'batch-size=1 '
                 f'model-instance-id={json.dumps(dlstreamer_model_instance_id("vehicle", name))} ! '
-                f'gvatrack tracking-type={tracker_type} ! '
+                f'gvatrack name=objecttracker tracking-type={tracker_type} ! '
                 + face_chain +
                 f'appsink name=vasink sync=false async=false '
                 # Capacity is reserved upstream before inference, not inside
@@ -1188,37 +1189,49 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                     f'appsink name=vasink sync=false max-buffers=1 drop={sink_drop} '
                     'wait-on-eos=false enable-last-sample=false')
         def configure_source(branch):
+            nonlocal native_trace, rtsp_video_link
             if uri.startswith('rtsps://'):
                 source_tls.configure(branch.get_by_name('camerasource'))
+            if is_rtsp:
+                from pipeline.rtsp_source import RtspVideoLink
+                rtsp_video_link = RtspVideoLink(
+                    branch.get_by_name('camerasource'),
+                    branch.get_by_name('videodepay'), name, stream_session_id,
+                    codec, trace=lambda: native_trace,
+                )
 
+            if dls_authoritative:
+                from pipeline.native_progress import NativeProgressTrace
+                if native_trace is not None:
+                    native_trace.close()
+                interval = float(os.getenv("SENTINEL_DLS_PROGRESS_INTERVAL_SECONDS",
+                                         "2" if os.getenv("SENTINEL_DLS_TRACE_PROGRESS", "0") == "1" else "30"))
+                native_trace = NativeProgressTrace(name, stream_session_id, interval_seconds=interval)
+                native_trace.attach(branch, Gst)
+                if gst_coordinator is not None:
+                    gst_coordinator.attach_trace(name, native_trace)
+            if dls_authoritative:
+                fps_gate_pad = branch.get_by_name('fpsgate').get_static_pad('sink')
+                fps_gate_pad.add_probe(Gst.PadProbeType.BUFFER, dls_fps_gate.probe)
+                gate_pad = branch.get_by_name('policygate').get_static_pad('sink')
+                gate_pad.add_probe(Gst.PadProbeType.BUFFER, dls_gate.probe)
+                if dls_fire_fps_gate is not None:
+                    fire_fps_pad = branch.get_by_name(
+                        'firefpsgate'
+                    ).get_static_pad('sink')
+                    fire_fps_pad.add_probe(
+                        Gst.PadProbeType.BUFFER, dls_fire_fps_gate.probe
+                    )
+                if dls_face_metadata is not None:
+                    face_pad = branch.get_by_name('faceclass').get_static_pad('src')
+                    face_pad.add_probe(
+                        Gst.PadProbeType.BUFFER, dls_face_metadata.probe
+                    )
         if gst_coordinator is not None:
             pipeline = gst_coordinator.create_branch(name, desc, configure=configure_source)
         else:
             pipeline = Gst.parse_launch(desc)
             configure_source(pipeline)
-        if dls_authoritative and os.getenv("SENTINEL_DLS_TRACE_PROGRESS", "0") == "1":
-            from pipeline.native_progress import NativeProgressTrace
-            if native_trace is not None:
-                native_trace.close()
-            native_trace = NativeProgressTrace(name, stream_session_id)
-            native_trace.attach(pipeline, Gst)
-        if dls_authoritative:
-            fps_gate_pad = pipeline.get_by_name('fpsgate').get_static_pad('sink')
-            fps_gate_pad.add_probe(Gst.PadProbeType.BUFFER, dls_fps_gate.probe)
-            gate_pad = pipeline.get_by_name('policygate').get_static_pad('sink')
-            gate_pad.add_probe(Gst.PadProbeType.BUFFER, dls_gate.probe)
-            if dls_fire_fps_gate is not None:
-                fire_fps_pad = pipeline.get_by_name(
-                    'firefpsgate'
-                ).get_static_pad('sink')
-                fire_fps_pad.add_probe(
-                    Gst.PadProbeType.BUFFER, dls_fire_fps_gate.probe
-                )
-            if dls_face_metadata is not None:
-                face_pad = pipeline.get_by_name('faceclass').get_static_pad('src')
-                face_pad.add_probe(
-                    Gst.PadProbeType.BUFFER, dls_face_metadata.probe
-                )
         if pipeline.set_state(Gst.State.PLAYING) == Gst.StateChangeReturn.FAILURE:
             pipeline.set_state(Gst.State.NULL)
             raise RuntimeError('surface pipeline failed')
@@ -1266,8 +1279,6 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                 or v8_pipeline.hazard_pixels_required(detections, observed_at)
             )
             if fire_pixels_required:
-                if dls_fire_converter is None:
-                    dls_fire_converter = True
                 with telemetry.measure(
                     "frame_access.fire_evidence_bgr",
                     device="CPU/map",
@@ -1442,6 +1453,28 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
         return len(records)
     next_surface = None
     next_bgr_pending = False
+    recovering_since = None
+    recovery_attempt = 0
+    next_pull_timeout = 10.0
+
+    def mark_camera_healthy():
+        nonlocal stream_session_id
+        if v8_pipeline is None:
+            return
+        session = v8_pipeline.camera_status('healthy', 'none')
+        if session != stream_session_id:
+            # The existing production policy rotates its logical stream
+            # session after an outage. Keep operational logs/health aligned
+            # with the same session used by observations and embeddings.
+            stream_session_id = session
+            decoder_status.set_session(session)
+            source_tls.stream_session_id = session
+            if native_trace is not None:
+                native_trace.session_id = session
+            if rtsp_video_link is not None:
+                rtsp_video_link.session_id = session
+            if tcp_feeder is not None:
+                tcp_feeder.stream_session_id = session
     try:
         while True:
             try:
@@ -1579,8 +1612,7 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                         async_ocr.submit(np.zeros((64, 128, 3), dtype=np.uint8), (name, -1, 0, 128))
                         async_ocr.wait()
                         async_ocr.submitted = async_ocr.dropped = 0
-                    if v8_pipeline is not None:
-                        v8_pipeline.camera_status('healthy', 'none')
+                    mark_camera_healthy()
                     if measured_started is None:
                         if on_ready is not None:
                             on_ready()
@@ -1589,7 +1621,7 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                     if next_surface is not None:
                         sv, next_surface = next_surface, None
                     else:
-                        sv = pull_selected_surface(pipeline)
+                        sv = pull_selected_surface(pipeline, timeout_seconds=next_pull_timeout)
                 if sv is None:
                     if benchmark:
                         break
@@ -1605,6 +1637,21 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                     frame_observed_at = source_clock.observe(
                         pts, frame_received_at, clock_hz=float(Gst.SECOND)
                     )
+                if recovering_since is not None:
+                    # Only a newly reserved epoch can reach this point after
+                    # source-only recovery. State transition acceptance alone
+                    # never changes the camera back to healthy.
+                    mark_camera_healthy()
+                    if gst_coordinator is not None:
+                        gst_coordinator.recovery_completed(name, pts, frame_received_at)
+                    from pipeline.structured_logging import log_event
+                    log_event(log, logging.INFO, "camera_stream_recovered",
+                              "fresh frame received and admission validated",
+                              camera_id=name, stream_session_id=stream_session_id,
+                              attempt=recovery_attempt, frame_pts_ns=pts,
+                              recovery_seconds=round(time.monotonic()-recovering_since, 3))
+                    recovering_since = None
+                    next_pull_timeout = 10.0
                 frame_processing_started = time.perf_counter()
                 if frame_received_at - last_config_check >= sf.CAMERA_CONFIG_RELOAD_INTERVAL_S:
                     last_config_check = frame_received_at
@@ -1655,6 +1702,18 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                 from pipeline.structured_logging import sanitize_text
                 safe_error = sanitize_text(source_tls.describe(str(exc)), limit=1024)
                 source_reason = source_tls.reason(str(exc))
+                from pipeline.structured_logging import log_event
+                recovery_attempt += 1
+                if recovering_since is None:
+                    recovering_since = time.monotonic()
+                progress = native_trace.snapshot() if native_trace is not None else {}
+                pending = dls_gate.pending_admissions if dls_gate is not None else 0
+                log_event(log, logging.WARNING, "camera_pipeline_stalled",
+                          "camera processing interrupted; captured stage progress before recovery",
+                          camera_id=name, stream_session_id=stream_session_id,
+                          attempt=recovery_attempt, retry_reason=source_reason,
+                          native_error=safe_error, pending_admissions=pending,
+                          native_progress=progress)
                 if v8_pipeline is not None:
                     v8_pipeline.camera_status('unavailable', 'stream_disconnected')
                 decoder_status.increment(
@@ -1677,15 +1736,34 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                 permanent_tcp_branch = bool(
                     dls_authoritative and is_tcp and tcp_feeder is not None
                 )
+                warm_rtsp_branch = bool(
+                    dls_authoritative and is_rtsp and gst_coordinator is not None
+                    and pipeline is not None
+                )
+                if dls_authoritative and dls_gate is not None:
+                    dls_gate.suspend()
+                    if pending and gst_coordinator is not None:
+                        # A reservation has failed to produce a consumable
+                        # output for the entire native timeout. Reopening the
+                        # gate would mix epochs, and stopping VA/model elements
+                        # here may deadlock. Let the separate parent replace
+                        # this process while durable delivery stays outside it.
+                        gst_coordinator.request_rebuild(
+                            name, "stalled_native_admissions", pending_admissions=pending,
+                            native_progress=progress,
+                        )
+                        while True:
+                            time.sleep(1)
+                keep_native_resources = permanent_tcp_branch or warm_rtsp_branch
                 # BGR model contexts are independent of the decoder and stay warm.
                 sv = sb = next_surface = None
                 next_bgr_pending = False
                 motion = None
-                if converter is not None and not permanent_tcp_branch:
+                if converter is not None and not keep_native_resources:
                     converter.close()
                     converter = None
                 if (dls_fire_converter is not None
-                        and not permanent_tcp_branch):
+                        and not keep_native_resources):
                     dls_fire_converter.close()
                     dls_fire_converter = None
                 # Native consumers retain resources created from the decoder's
@@ -1705,14 +1783,13 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                     bridge.close()
                     bridge = None
                 log.info('cam[%s] closing surface decoder', name)
-                restart_in_place = bool(
-                    not permanent_tcp_branch
-                    and dls_authoritative
-                    and gst_coordinator is not None
-                    and pipeline is not None
-                )
+                restart_in_place = warm_rtsp_branch
                 if restart_in_place:
-                    pipeline.restart()
+                    accepted = pipeline.restart()
+                    if not accepted:
+                        log_event(log, logging.WARNING, "camera_source_restart_rejected",
+                                  "source restart request was rejected; camera remains unavailable",
+                                  camera_id=name, attempt=recovery_attempt)
                 if (pipeline is not None and not restart_in_place
                         and not permanent_tcp_branch):
                     pipeline.set_state(Gst.State.NULL)
@@ -1731,7 +1808,7 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                     if dls_face_metadata is not None:
                         dls_face_metadata.clear()
                     if restart_in_place or permanent_tcp_branch:
-                        dls_gate.reset_session(source_clock)
+                        dls_gate.resume(source_clock)
                     else:
                         from pipeline.dlstreamer_bridge import DlsMotionPolicyGate
                         dls_gate = DlsMotionPolicyGate(
@@ -1742,6 +1819,12 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                 if pts_sampler is not None:
                     pts_sampler.next_pts = None
                     pts_sampler.last_pts = None
+                if keep_native_resources:
+                    # Reacquiring a live long-GOP stream needs the same first
+                    # keyframe allowance as its initial connection.
+                    next_pull_timeout = min(60.0, max(10.0, float(os.getenv(
+                        'SENTINEL_SURFACE_FIRST_FRAME_TIMEOUT_SECONDS', '35'
+                    ))))
                 if not ready:
                     startup_failures += 1
                     if startup_failures >= max_startup_failures:
@@ -1791,6 +1874,15 @@ def run_surface_camera(cam: dict, camera_config: dict, redis_host: str,
                         )
                     )
                     if pixels_required:
+                        sample_info = sv.get_caps().get_structure(0)
+                        if (converter is None
+                                or converter.width != int(sample_info.get_value('width'))
+                                or converter.height != int(sample_info.get_value('height'))):
+                            if converter is not None:
+                                converter.close()
+                            converter = VAMemorySelectiveBgrConverter(
+                                sv.get_caps(), stats, label="primary"
+                            )
                         with telemetry.measure(
                             "frame_conversion.primary_selective_bgr",
                             device="GPU/VAAPI",

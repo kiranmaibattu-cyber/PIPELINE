@@ -262,6 +262,7 @@ class DlsMotionPolicyGate:
         self._capacity = threading.Condition(self._lock)
         self.maximum_pending = max(1, int(maximum_pending))
         self._closed = False
+        self._suspended = False
         self._generation = 0
         self._records: dict[int, deque[AdmittedFrame]] = {}
         self._quiet: deque[AdmittedFrame] = deque()
@@ -286,6 +287,27 @@ class DlsMotionPolicyGate:
             self.telemetry.set_gauge("dls_pending_admissions", 0)
             self._capacity.notify_all()
 
+    def suspend(self) -> None:
+        """Fence blocked/new producers before source recovery, without closing.
+
+        Already-admitted work remains accounted for. A caller must not reopen
+        the gate over unfinished work from the old epoch.
+        """
+        with self._capacity:
+            self._suspended = True
+            self._generation += 1
+            self._capacity.notify_all()
+
+    def resume(self, source_clock) -> None:
+        with self._capacity:
+            if self._closed:
+                raise RuntimeError("cannot resume a closed admission gate")
+            if self.pending_admissions:
+                raise RuntimeError("cannot resume over unfinished native admissions")
+            self.reset_session(source_clock)
+            self._suspended = False
+            self._capacity.notify_all()
+
     def close(self) -> None:
         with self._capacity:
             self._closed = True
@@ -300,10 +322,10 @@ class DlsMotionPolicyGate:
         """
         with self._capacity:
             generation = self._generation
-            while (not self._closed and generation == self._generation
+            while (not self._closed and not self._suspended and generation == self._generation
                    and self.pending_admissions >= self.maximum_pending):
                 self._capacity.wait()
-            if self._closed or generation != self._generation:
+            if self._closed or self._suspended or generation != self._generation:
                 return False
             self._records.setdefault(record.pts, deque()).append(record)
             return True
@@ -326,6 +348,8 @@ class DlsMotionPolicyGate:
             candidate = any(roi.label() == "motion" for roi in frame.regions())
 
         with self._lock:
+            if self._closed or self._suspended:
+                return Gst.PadProbeReturn.DROP
             self._index += 1
             self.decoded += 1
             observed_at = self.source_clock.observe(

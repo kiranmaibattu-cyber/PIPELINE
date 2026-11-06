@@ -100,18 +100,23 @@ class RuntimeState:
 
     def metrics(self, stop_requested: bool = False) -> dict[str, Any]:
         with self.lock:
+            snap = {
+                "ready": self.ready,
+                "worker_running": self.worker_running,
+                "plan": self.plan,
+            }
             plan = self.plan or {}
             configured_cameras = plan.get("cameras") or []
             camera_count = len(configured_cameras)
             configured_aggregate_fps = sum(
                 float(camera.get("fps") or 0.0) for camera in configured_cameras
             )
-            return {
+            metrics = {
                 "solution_pack": SOLUTION_PACK,
                 "edge_id": plan.get("edge_id"),
                 "revision": self.active_revision or None,
                 "plan_loaded": self.plan is not None,
-                "models_ready": self.ready,
+                "models_ready": False,
                 "camera_count": camera_count,
                 "configured_cameras": camera_count,
                 "configured_aggregate_fps": configured_aggregate_fps,
@@ -133,6 +138,8 @@ class RuntimeState:
                     "last_reload_error": self.latest_error or None,
                 },
             }
+        metrics["models_ready"] = _effective_readiness(snap, _per_camera_state(snap))
+        return metrics
 
     def record_event(self, event_type: str, payload: dict[str, Any]) -> None:
         event = {"observed_at": time.time(), "type": event_type, "payload": payload}
@@ -154,11 +161,12 @@ class WorkerSupervisor:
     def _camera_initialization_ready(
         ready_dir: Path, expected_camera_ids: tuple[str, ...]
     ) -> bool:
-        """Shared readiness needs one initialized camera, not one decoded frame.
+        """Startup admission needs one initialized camera.
 
         Camera stream outages remain camera-local health failures.  Requiring every
         camera would let one bad stream block healthy peers, while accepting only a
         live fleet parent would hide camera-pipeline initialization deadlocks.
+        API readiness additionally requires current camera progress.
         """
         return any((ready_dir / f"{camera_id}.ready").is_file()
                    for camera_id in expected_camera_ids)
@@ -360,8 +368,6 @@ class DesiredStateReloader(threading.Thread):
 
     def _apply_hot_reload(self, desired: DesiredState, plan: RuntimePlan) -> None:
         with self.state.lock:
-            self.state.worker_running = True
-            self.state.ready = True
             self.state.active_revision = desired.revision
             self.state.active_hash = desired.content_hash
             self.state.plan = plan.to_dict()
@@ -397,12 +403,14 @@ class RuntimeHandler(BaseHTTPRequestHandler):
             self._json(_health_payload(self.runtime_state))
         elif parsed_path == "/readyz":
             snap = self.runtime_state.snapshot()
+            camera_states = _per_camera_state(snap)
+            ready = _effective_readiness(snap, camera_states)
             payload = {
-                "ready": bool(snap["ready"]),
+                "ready": ready,
                 "worker_running": bool(snap["worker_running"]),
-                "per_camera_state": _per_camera_state(snap),
+                "per_camera_state": camera_states,
             }
-            self._json(payload, 200 if snap["ready"] else 503)
+            self._json(payload, 200 if ready else 503)
         elif parsed_path == "/metrics":
             self._text(_metrics(self.runtime_state), "text/plain; version=0.0.4; charset=utf-8")
         elif parsed_path == "/events":
@@ -417,21 +425,27 @@ class RuntimeHandler(BaseHTTPRequestHandler):
 
     def _json(self, payload: dict[str, Any], status: int = 200) -> None:
         body = json.dumps(payload, indent=2).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        self._response(body, "application/json", status)
 
     def _text(self, payload: str, content_type: str, status: int = 200) -> None:
         body = payload.encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        self._response(body, content_type, status)
+
+    def _response(self, body: bytes, content_type: str, status: int = 200) -> None:
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError) as exc:
+            self.close_connection = True
+            logger.debug(
+                "HTTP client disconnected",
+                extra={"event": "http_client_disconnected", "reason": type(exc).__name__},
+            )
 
     def _events(self) -> None:
         if not self._acquire_sse_slot():
@@ -477,12 +491,7 @@ class RuntimeHandler(BaseHTTPRequestHandler):
         except OSError as exc:
             self._json({"error": "snapshot_read_failed", "detail": str(exc)}, 500)
             return
-        self.send_response(200)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        self._response(body, content_type)
 
 
 def _tail_jsonl(path: Path, limit: int) -> list[dict[str, Any]]:
@@ -537,14 +546,21 @@ def _camera_operational_status(
     supervisor_sample_age = _timestamp_age(supervisor.get("observed_at"), now)
     decoder_state = str(decoder.get("state") or "starting")
     supervisor_state = str(supervisor.get("state") or "starting")
-    if supervisor_state == "process_exited" and (
-        supervisor_sample_age is not None
-        and (decoder_sample_age is None or supervisor_sample_age <= decoder_sample_age)
-    ):
+    wrong_process = bool(
+        supervisor.get("camera_process_pid") is not None
+        and decoder.get("pid") is not None
+        and str(supervisor["camera_process_pid"]) != str(decoder["pid"])
+    )
+    # A status publish can outlive its last frame. Require progress from the
+    # current process after its start, even if an old decoder republishes later.
+    if supervisor_state == "process_exited":
         state, reason, retrying = "unavailable", "camera_process_exited", True
-    elif supervisor_state == "starting" and (
-        supervisor_sample_age is not None
-        and (decoder_sample_age is None or supervisor_sample_age <= decoder_sample_age)
+    elif wrong_process or (
+        supervisor and supervisor_state == "starting"
+        and supervisor_sample_age is not None and (
+            decoder_sample_age is None or supervisor_sample_age <= decoder_sample_age
+            or last_frame_age is None or supervisor_sample_age <= last_frame_age
+        )
     ):
         state, reason, retrying = "degraded", "worker_starting", True
     elif decoder_state == "healthy" and last_frame_age is not None and last_frame_age <= 10.0:
@@ -618,9 +634,12 @@ def _health_payload(state: RuntimeState) -> dict[str, Any]:
             "status": "telemetry_pending",
         }
 
-    health_by_camera = {
-        str(item["camera_id"]): item for item in _per_camera_state(snap)
+    operational_by_camera = {
+        camera_id: _camera_operational_status(metrics_root, camera_id, now)
+        for camera_id in by_camera
     }
+    camera_states = _per_camera_state(snap, operational_by_camera)
+    health_by_camera = {str(item["camera_id"]): item for item in camera_states}
     for camera_id, camera in by_camera.items():
         health = health_by_camera.get(camera_id) or {
             "camera_id": camera_id,
@@ -637,7 +656,7 @@ def _health_payload(state: RuntimeState) -> dict[str, Any]:
             "as_of": health.get("as_of"),
             "retrying": bool(health.get("retrying")),
         }
-        operational = _camera_operational_status(metrics_root, camera_id, now)
+        operational = operational_by_camera[camera_id]
         if operational is not None:
             camera["decoder"] = operational
     system = _read_json(metrics_root / "system-health.json") or {
@@ -709,7 +728,7 @@ def _health_payload(state: RuntimeState) -> dict[str, Any]:
         "ok": True,
         "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "liveness": "alive",
-        "ready": bool(snap.get("ready")),
+        "ready": _effective_readiness(snap, camera_states, now),
         "worker_running": bool(snap.get("worker_running")),
         "revision": snap.get("active_revision") or None,
         "telemetry": {
@@ -749,7 +768,29 @@ def _health_payload(state: RuntimeState) -> dict[str, Any]:
     }
 
 
-def _per_camera_state(snap: dict[str, Any]) -> list[dict[str, Any]]:
+def _effective_readiness(
+    snap: dict[str, Any], camera_states: list[dict[str, Any]], now: float | None = None
+) -> bool:
+    """Initialization is necessary; one current healthy camera is sufficient."""
+    if not snap.get("ready") or not snap.get("worker_running"):
+        return False
+    now = time.time() if now is None else now
+    for camera in camera_states:
+        if camera.get("state") != "healthy":
+            continue
+        age = (
+            camera["last_frame_age_seconds"] if "last_frame_age_seconds" in camera
+            else _timestamp_age(camera.get("last_reliable_at"), now)
+        )
+        if age is not None and age <= 10.0:
+            return True
+    return False
+
+
+def _per_camera_state(
+    snap: dict[str, Any],
+    operational_by_camera: dict[str, dict[str, Any] | None] | None = None,
+) -> list[dict[str, Any]]:
     plan = snap.get("plan") or {}
     camera_ids = [
         str(camera.get("camera_id"))
@@ -781,8 +822,21 @@ def _per_camera_state(snap: dict[str, Any]) -> list[dict[str, Any]]:
             latest_health[camera_id] = durable_health
     states = []
     now = time.time()
+    if operational_by_camera is None:
+        operational_by_camera = {}
     for camera_id in camera_ids:
         health = latest_health.get(camera_id) or {}
+        if camera_id not in operational_by_camera:
+            operational_by_camera[camera_id] = _camera_operational_status(
+                metrics_root, camera_id, now
+            )
+        operational = operational_by_camera[camera_id]
+        if (
+            operational and operational.get("stream_session_id")
+            and health.get("stream_session_id")
+            and operational["stream_session_id"] != health["stream_session_id"]
+        ):
+            health = {}
         state = str(health.get("state") or "degraded")
         reason = str(health.get("reason") or "worker_starting")
         item = {
@@ -793,7 +847,6 @@ def _per_camera_state(snap: dict[str, Any]) -> list[dict[str, Any]]:
             "as_of": health.get("as_of") or health.get("observed_at"),
             "retrying": state != "healthy",
         }
-        operational = _camera_operational_status(metrics_root, camera_id, now)
         if operational is not None:
             # Decoder/process failures are authoritative. A healthy decoder is
             # used when no fresher analytic health state reports degradation.

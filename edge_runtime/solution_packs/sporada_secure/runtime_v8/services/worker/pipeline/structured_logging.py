@@ -12,20 +12,82 @@ from typing import Any
 
 _context = threading.local()
 
-_URL = re.compile(r"(?i)\b(?:rtsp|rtsps|rtmp|rtmps|http|https|tcp)://[^\s\"']+")
-_BEARER = re.compile(r"(?i)(authorization\s*[:=]\s*bearer\s+)[^\s,;]+")
-_SECRET = re.compile(
-    r"(?i)(token|password|passwd|credential|secret|api[_-]?key)(\s*[:=]\s*)[^\s,;&]+"
+_URL = re.compile(r"(?i)\b[a-z][a-z0-9+.-]*:(?:\\*/){2}[^\s\"'<>]+")
+_BEARER = re.compile(r"(?i)\bbearer\s+[^\s,;\"'\\}\]]+")
+_SECRET_NAME = (
+    r"(?:[\w.-]*(?:token|password|passwd|credentials?|secret|api[_-]?key"
+    r"|private[_-]?key|secret[_-]?key)"
+    r"|authorization|proxy[_-]?authorization|cookie|set-cookie)"
 )
+_SECRET_KEY = re.compile(rf"(?i){_SECRET_NAME}\Z")
+# Match whole quoted values, including spaces/commas and escaped quotes. The
+# delimiter can itself be escaped when JSON is embedded in another string.
+_SECRET = re.compile(
+    rf"(?i)(\b{_SECRET_NAME}(?:\\*[\"'])?\s*[:=]\s*)"
+    r"(?:(?P<quote>\\*[\"'])(?:(?!(?<!\\)(?P=quote)).)*"
+    r"(?:(?<!\\)(?P=quote)|\Z)"
+    r"|[^\s,;&}\]]+)",
+    re.DOTALL,
+)
+_MAX_DEPTH = 8
+_MAX_ITEMS = 64
+_MAX_NODES = 512
 
 
 def sanitize_text(value: Any, *, limit: int = 4096) -> str:
     """Redact complete URLs and common credential forms from diagnostics."""
-    text = str(value).replace("\r", " ").replace("\x00", "")
+    # Bound regex work as well as output. Unterminated quoted assignments are
+    # redacted through end-of-input, including values cut off at this limit.
+    text = str(value)[:max(0, limit)].replace("\r", " ").replace("\x00", "")
     text = _URL.sub("<redacted-url>", text)
-    text = _BEARER.sub(r"\1<redacted>", text)
-    text = _SECRET.sub(r"\1\2<redacted>", text)
+    text = _SECRET.sub(r"\1<redacted>", text)
+    text = _BEARER.sub("Bearer <redacted>", text)
     return text[:limit]
+
+
+def sanitize_value(value: Any) -> Any:
+    """Copy diagnostic fields with bounded depth/size and no secret values.
+
+    Keep telemetry scalar types intact. A shared node budget also bounds wide
+    trees; cycles reach the depth limit without invoking JSON's fallback repr.
+    """
+    remaining = _MAX_NODES
+
+    def visit(item: Any, depth: int) -> Any:
+        nonlocal remaining
+        remaining -= 1
+        if remaining < 0:
+            return "<truncated>"
+        if item is None or isinstance(item, (bool, int, float)):
+            return item
+        if isinstance(item, dict):
+            if depth >= _MAX_DEPTH:
+                return "<truncated>"
+            result = {}
+            for index, (key, child) in enumerate(item.items()):
+                if index >= _MAX_ITEMS or remaining <= 0:
+                    result["<truncated>"] = True
+                    break
+                key_text = str(key)
+                safe_key = sanitize_text(key_text, limit=256)
+                result[safe_key] = (
+                    visit("<redacted>", depth + 1) if _SECRET_KEY.fullmatch(key_text)
+                    else visit(child, depth + 1)
+                )
+            return result
+        if isinstance(item, (list, tuple)):
+            if depth >= _MAX_DEPTH:
+                return "<truncated>"
+            result = []
+            for index, child in enumerate(item):
+                if index >= _MAX_ITEMS or remaining <= 0:
+                    result.append("<truncated>")
+                    break
+                result.append(visit(child, depth + 1))
+            return result
+        return sanitize_text(item)
+
+    return visit(value, 0)
 
 
 def set_log_context(
@@ -72,17 +134,13 @@ class JsonLogFormatter(logging.Formatter):
         for key, value in record.__dict__.items():
             if key in self._reserved or key in payload or key.startswith("_"):
                 continue
-            if isinstance(value, str):
-                payload[key] = sanitize_text(value)
-            elif value is None or isinstance(value, (bool, int, float, list, dict)):
-                payload[key] = value
-            else:
-                payload[key] = sanitize_text(value)
+            payload[key] = value
+        safe_payload = sanitize_value(payload)
         if record.exc_info:
-            payload["exception"] = sanitize_text(
+            safe_payload["exception"] = sanitize_text(
                 self.formatException(record.exc_info), limit=8192
             )
-        return json.dumps(payload, separators=(",", ":"), default=str)
+        return json.dumps(safe_payload, separators=(",", ":"))
 
 
 def configure_structured_logging(level: int = logging.INFO) -> None:
